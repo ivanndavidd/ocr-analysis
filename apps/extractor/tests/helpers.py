@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import zlib
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
@@ -22,16 +23,52 @@ def _escape(text: str) -> str:
     return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
-def make_pdf(path: Path, pages: list[tuple[str, object]]) -> Path:
+@dataclass
+class PageExtras:
+    """Things drawn on top of a page body. Boxes are (x, y_top, width, height) in points, y from the top."""
+
+    ops: str = ""  # raw content-stream operators in PDF coordinates (y from the bottom)
+    annots: list[tuple[str, str]] = field(default_factory=list)  # (annotation dict entries, appearance ops)
+    images: list[tuple[np.ndarray, tuple[float, float, float, float]]] = field(default_factory=list)
+    signed_field: tuple[float, float, float, float] | None = None  # a /FT /Sig widget with a signature value
+
+
+def pdf_rect(box: tuple[float, float, float, float]) -> str:
+    x, y_top, w, h = box
+    return f"{x} {PAGE_H - y_top - h} {x + w} {PAGE_H - y_top}"
+
+
+def _image_object(body: np.ndarray | None) -> bytes:
+    if isinstance(body, np.ndarray):
+        h, w = body.shape
+        data = zlib.compress(body.astype(np.uint8).tobytes())
+        header = f"/Width {w} /Height {h} /Filter /FlateDecode /Length {len(data)}"
+    else:
+        data, header = b"\xff", "/Width 1 /Height 1 /Length 1"
+    return (
+        f"<< /Type /XObject /Subtype /Image /ColorSpace /DeviceGray /BitsPerComponent 8 {header} >>".encode()
+        + b"\nstream\n"
+        + data
+        + b"\nendstream"
+    )
+
+
+def _stream(data: bytes, entries: str = "") -> bytes:
+    return f"<< {entries} /Length {len(data)} >>\nstream\n".encode() + data + b"\nendstream"
+
+
+def make_pdf(path: Path, pages: list[tuple[str, object]], extras: dict[int, PageExtras] | None = None) -> Path:
     """Write a minimal valid PDF.
 
     Page kinds: ("text", "line\\nline") flowing from the top-left, ("layout", [(x, y_top, text), ...]),
     ("image", "") for a blank full-page image, ("image", ndarray) for a full-page grayscale scan, ("blank", "").
+    `extras` maps a 0-based page index to drawings, annotations, small images, or a signed signature field.
     """
     objects: list[bytes] = [b"", b"", b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
     kids: list[int] = []
-    for kind, body in pages:
-        resources = "/Font << /F1 3 0 R >>"
+    sig_fields: list[int] = []
+    for index, (kind, body) in enumerate(pages):
+        xobjects: list[str] = []
         if kind == "text":
             ops = ["BT /F1 11 Tf 14 TL 50 750 Td"]
             ops += [f"({_escape(line)}) Tj T*" for line in str(body).split("\n")]
@@ -41,32 +78,48 @@ def make_pdf(path: Path, pages: list[tuple[str, object]]) -> Path:
             ops = [f"BT /F1 11 Tf {x} {PAGE_H - y - 9} Td ({_escape(t)}) Tj ET" for x, y, t in body]  # type: ignore[union-attr]
             stream = "\n".join(ops).encode("latin-1")
         elif kind == "image":
-            if isinstance(body, np.ndarray):
-                h, w = body.shape
-                data = zlib.compress(body.astype(np.uint8).tobytes())
-                header = f"/Width {w} /Height {h} /Filter /FlateDecode /Length {len(data)}"
-            else:
-                data, header = b"\xff", "/Width 1 /Height 1 /Length 1"
-            objects.append(
-                f"<< /Type /XObject /Subtype /Image /ColorSpace /DeviceGray /BitsPerComponent 8 {header} >>"
-                .encode()
-                + b"\nstream\n"
-                + data
-                + b"\nendstream"
-            )
-            resources += f" /XObject << /Im1 {len(objects)} 0 R >>"
+            objects.append(_image_object(body if isinstance(body, np.ndarray) else None))
+            xobjects.append(f"/Im1 {len(objects)} 0 R")
             stream = b"q 612 0 0 792 0 0 cm /Im1 Do Q"
         else:
             stream = b""
-        objects.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
+
+        extra = (extras or {}).get(index, PageExtras())
+        annot_refs: list[int] = []
+        if extra.ops:
+            stream += b"\n" + extra.ops.encode("latin-1")
+        for n, (image, (x, y_top, w, h)) in enumerate(extra.images, start=2):
+            objects.append(_image_object(image))
+            xobjects.append(f"/Im{n} {len(objects)} 0 R")
+            stream += f"\nq {w} 0 0 {h} {x} {PAGE_H - y_top - h} cm /Im{n} Do Q".encode()
+        for entries, appearance in extra.annots:
+            ap = ""
+            if appearance:
+                rect = entries.split("/Rect [", 1)[1].split("]", 1)[0]
+                objects.append(_stream(appearance.encode("latin-1"), f"/Type /XObject /Subtype /Form /BBox [{rect}]"))
+                ap = f" /AP << /N {len(objects)} 0 R >>"
+            objects.append(f"<< /Type /Annot {entries}{ap} /F 4 >>".encode())
+            annot_refs.append(len(objects))
+        if extra.signed_field:
+            objects.append(
+                f"<< /Type /Annot /Subtype /Widget /FT /Sig /T (sig{index}) /Rect [{pdf_rect(extra.signed_field)}]"
+                " /V << /Type /Sig /Filter /Adobe.PPKLite >> /F 4 >>".encode()
+            )
+            annot_refs.append(len(objects))
+            sig_fields.append(len(objects))
+
+        resources = "/Font << /F1 3 0 R >>" + (f" /XObject << {' '.join(xobjects)} >>" if xobjects else "")
+        annots = f" /Annots [{' '.join(f'{r} 0 R' for r in annot_refs)}]" if annot_refs else ""
+        objects.append(_stream(stream))
         content_id = len(objects)
         objects.append(
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {resources} >>"
-            f" /Contents {content_id} 0 R >>".encode()
+            f" /Contents {content_id} 0 R{annots} >>".encode()
         )
         kids.append(len(objects))
 
-    objects[0] = b"<< /Type /Catalog /Pages 2 0 R >>"
+    acroform = f" /AcroForm << /Fields [{' '.join(f'{r} 0 R' for r in sig_fields)}] /SigFlags 3 >>" if sig_fields else ""
+    objects[0] = f"<< /Type /Catalog /Pages 2 0 R{acroform} >>".encode()
     objects[1] = f"<< /Type /Pages /Kids [{' '.join(f'{k} 0 R' for k in kids)}] /Count {len(kids)} >>".encode()
 
     out = bytearray(b"%PDF-1.4\n")
@@ -148,9 +201,63 @@ def body_page(number: int, extra: list[str] | None = None, until_y: float = 720.
     return page_text(number, flow(lines))
 
 
-def signed_contract_pdf(path: Path) -> Path:
-    """Five-page native contract: identity on page 1, salary on page 2, mid-page signature block on page 5."""
-    closing_page = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0)
+# Signature spots above the printed names of signature_rows(350): employee on the right, company on the left.
+EMPLOYEE_SIGNATURE_BOX = (385.0, 408.0, 70.0, 38.0)
+COMPANY_SIGNATURE_BOX = (85.0, 408.0, 70.0, 38.0)
+CORNER_PARAF_BOX = (40.0, 740.0, 30.0, 20.0)
+
+
+def scribble_ops(box: tuple[float, float, float, float], line_width: float = 1.5) -> str:
+    """A pen-like zigzag of Bezier curves filling the box, in PDF coordinates."""
+    x, y_top, w, h = box
+    base = PAGE_H - y_top - h
+    ops = [f"{line_width} w 1 J 1 j", f"{x:.1f} {base + 0.4 * h:.1f} m"]
+    n = 8
+    for i in range(n):
+        x0, x1 = x + w * i / n, x + w * (i + 1) / n
+        high, low = (base + h, base) if i % 2 == 0 else (base, base + h)
+        end_y = base + h * (0.3 + 0.4 * ((i * 37) % 10) / 10)
+        ops.append(f"{x0 + 0.3 * (x1 - x0):.1f} {high:.1f} {x0 + 0.7 * (x1 - x0):.1f} {low:.1f} {x1:.1f} {end_y:.1f} c")
+    ops.append("S")
+    return "\n".join(ops)
+
+
+def scribble_image(width: int = 420, height: int = 200) -> np.ndarray:
+    """A grayscale image of a handwritten-looking signature on white, for image-type e-signatures."""
+    image = np.full((height, width), 255, np.uint8)
+    xs = np.linspace(10, width - 10, 200)
+    ys = height / 2 + (height / 3) * np.sin(xs / 18) * np.cos(xs / 47)
+    cv2.polylines(image, [np.stack([xs, ys], axis=1).astype(np.int32)], False, 0, thickness=7, lineType=cv2.LINE_AA)
+    return image
+
+
+def signature_extras(*marks: str) -> PageExtras:
+    """Signing marks for the closing page: vector, annotation, image, digital, company_vector, corner_paraf."""
+    extras = PageExtras()
+    for mark in marks:
+        if mark == "vector":
+            extras.ops += "\n" + scribble_ops(EMPLOYEE_SIGNATURE_BOX)
+        elif mark == "company_vector":
+            extras.ops += "\n" + scribble_ops(COMPANY_SIGNATURE_BOX)
+        elif mark == "annotation":
+            extras.annots.append((f"/Subtype /Ink /Rect [{pdf_rect(EMPLOYEE_SIGNATURE_BOX)}]", scribble_ops(EMPLOYEE_SIGNATURE_BOX)))
+        elif mark == "corner_paraf":
+            extras.annots.append((f"/Subtype /Ink /Rect [{pdf_rect(CORNER_PARAF_BOX)}]", scribble_ops(CORNER_PARAF_BOX, 1.0)))
+        elif mark == "image":
+            extras.images.append((scribble_image(), EMPLOYEE_SIGNATURE_BOX))
+        elif mark == "digital":
+            extras.signed_field = EMPLOYEE_SIGNATURE_BOX
+        else:
+            raise ValueError(mark)
+    return extras
+
+
+def signed_contract_pdf(path: Path, *marks: str, employee: str = "Budi Santoso") -> Path:
+    """Five-page native contract: identity on page 1, salary on page 2, mid-page signature block on page 5.
+
+    Without marks nobody has signed; `marks` (see signature_extras) adds signatures to the closing page.
+    """
+    closing_page = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0, employee)
     return make_pdf(
         path,
         [
@@ -160,6 +267,7 @@ def signed_contract_pdf(path: Path) -> Path:
             ("text", "\n".join([BODY_FILLER] * 45)),
             ("layout", [(x, y, text) for y, x, text in closing_page]),
         ],
+        {4: signature_extras(*marks)},
     )
 
 

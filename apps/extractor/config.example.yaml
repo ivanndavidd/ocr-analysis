@@ -34,6 +34,11 @@ extractor:
   vertex_project: null   # gemini-vertex; bisa juga lewat env GOOGLE_CLOUD_PROJECT
   vertex_location: null  # gemini-vertex; bisa juga lewat env GOOGLE_CLOUD_LOCATION
 
+decision:
+  # false: file yang semua komponennya hijau tetap masuk review (flag auto_disabled).
+  # Ubah ke true hanya setelah ambang dikalibrasi di test set Fase 0.
+  allow_auto: false
+
 output:
   dir: output
   formats: [json, csv, xlsx]

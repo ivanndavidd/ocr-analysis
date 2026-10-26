@@ -67,6 +67,12 @@ class ExtractorSettings(_Strict):
     vertex_location: str | None = Field(None, pattern=r"^[a-z0-9\-]{2,40}$")  # else GOOGLE_CLOUD_LOCATION
 
 
+class DecisionSettings(_Strict):
+    # Auto-pass stays off until the thresholds are calibrated on the Fase 0 test set; until then an
+    # all-green file is downgraded to review and flagged `auto_disabled`.
+    allow_auto: bool = False
+
+
 class OutputSettings(_Strict):
     dir: Path = Path("output")
     formats: list[OutputFormat] = Field(default_factory=lambda: list(OutputFormat))
@@ -77,6 +83,7 @@ class Settings(_Strict):
     page_selection: PageSelectionSettings = Field(default_factory=PageSelectionSettings)
     ocr: OcrSettings = Field(default_factory=OcrSettings)
     extractor: ExtractorSettings = Field(default_factory=ExtractorSettings)
+    decision: DecisionSettings = Field(default_factory=DecisionSettings)
     output: OutputSettings = Field(default_factory=OutputSettings)
 
 

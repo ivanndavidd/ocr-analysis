@@ -122,7 +122,7 @@ Asumsi kerja:
 | Tanda tangan native berupa anotasi atau vektor (Fill & Sign) | False unsigned lolos auto-pass | Cek anotasi, gambar, vektor, dan rasterisasi ROI; unsigned native memakai confidence normal, bukan tinggi |
 | Gaji ada di halaman identitas | Data sensitif ikut ke LLM | Masking rupiah dan deret angka dengan pemisah diabaikan, pemeriksaan ulang fail closed, diuji dengan korpus kebocoran |
 | Gemini free tier dipakai pada data asli | Melanggar NFR privasi (no-training) | Gemini hanya lewat Vertex AI; free tier dibatasi ke data sintetis saat development |
-| Dependency berlisensi terlarang (AGPL, GPL, LGPL) | Melanggar kebijakan lisensi perusahaan, rilis tertahan | PyMuPDF (AGPL-3.0) diganti pypdfium2, pdfplumber, dan pypdf; versi di-pin dan lisensi dipindai setiap perubahan dependency |
+| Dependency berlisensi terlarang (AGPL, GPL, LGPL) | Melanggar kebijakan lisensi perusahaan, rilis tertahan | PyMuPDF (AGPL-3.0) diganti pypdfium2 dan pdfplumber; versi di-pin dan lisensi dipindai setiap perubahan dependency |
 | Nama file tidak mengikuti pola `Nama Karyawan - Masa Kontrak` | Sinyal pembanding hilang; bila banyak, auto-pass rate turun | Ditandai `filename_nonstandard` dan dinilai kuning; HR memeriksa kepatuhan pola lewat quick win di Bagian 14 sebelum batch dijalankan |
 | Paraf dan coretan Ink di halaman isi | Anotasi salah dibaca sebagai tanda tangan karyawan | Anotasi hanya dihitung bila berpotongan dengan ROI karyawan |
 | Nama file dan isi tidak cocok karena file salah simpan | Dianggap error ekstraksi | Mismatch dilaporkan sebagai temuan tersendiri (FR-10) |
@@ -298,38 +298,48 @@ Deteksi berjalan sepenuhnya lokal di `P_ttd`, berjangkar pada posisi nama karyaw
 
 Jalur PDF native (tanpa scan):
 
-1. Cek field tanda tangan digital lewat pypdf: `/SigFlags` pada `/AcroForm` dan widget dengan `/FT /Sig` pada halaman. Ada → `signed` dengan sumber `digital`.
-2. Cek `/Annots` halaman lewat pypdf: tipe Ink, Stamp, FreeText, atau FileAttachment yang bounding box-nya berpotongan dengan ROI (langkah 3 jalur scan). Ini menangkap tanda tangan dari Acrobat Fill & Sign, iOS Markup (pada sampel berupa Stamp), dan aplikasi sejenis. Anotasi di luar ROI diabaikan dan hanya dicatat di log, karena sampel memuat paraf Ink di pojok setiap halaman dan coretan Ink di halaman isi. Ada di ROI → `signed` dengan sumber `annotation`.
+1. Cek field tanda tangan digital lewat pdfplumber `page.annots`: widget dengan `/FT /Sig` (boleh diwarisi dari field induk) yang sudah berisi nilai `/V` dan berpotongan dengan ROI. `/SigFlags` pada `/AcroForm` tidak dipakai, karena berlaku untuk seluruh dokumen dan ikut menyala bila hanya perusahaan yang menandatangani secara digital. Ada → `signed` dengan sumber `digital`.
+2. Cek `/Annots` halaman lewat pdfplumber: tipe Ink, Stamp, FreeText, atau FileAttachment yang bounding box-nya berpotongan dengan ROI (langkah 3 jalur scan). Ini menangkap tanda tangan dari Acrobat Fill & Sign, iOS Markup (pada sampel berupa Stamp), dan aplikasi sejenis. Anotasi di luar ROI diabaikan dan hanya dicatat di log, karena sampel memuat paraf Ink di pojok setiap halaman dan coretan Ink di halaman isi. Ada di ROI → `signed` dengan sumber `annotation`.
 3. Cek gambar lewat pdfplumber `page.images` yang berpotongan dengan ROI dan bukan gambar latar satu halaman penuh. Ada → `signed` dengan sumber `image`.
-4. Cek vektor lewat pdfplumber `page.curves`: kumpulan path di dalam ROI dengan total panjang goresan besar dan banyak segmen melengkung, ciri tanda tangan yang sudah di-flatten menjadi konten halaman. Ada → `signed` dengan sumber `vector`. Pada sampel, tanda tangan perusahaan berupa vektor di kolom kiri, sehingga pembatasan ke ROI karyawan wajib.
-5. Apa pun hasil langkah 1 sampai 4, render ROI ke piksel 300 dpi dan jalankan analisis tinta yang sama dengan jalur scan. `unsigned` hanya bila keempat pemeriksaan objek kosong dan rasio tinta di bawah ambang, itu pun dengan confidence normal, bukan tinggi, karena cara menandatangani PDF native terus bertambah. Objek ditemukan tetapi analisis piksel kosong, atau sebaliknya → `uncertain`.
+4. Cek vektor lewat pdfplumber `page.curves`: path yang berpotongan dengan ROI dengan total minimal 8 segmen dan total panjang goresan minimal satu kali lebar ROI, ciri tanda tangan yang sudah di-flatten menjadi konten halaman; centang atau garis bawah pendek tidak mencapainya. Ada → `signed` dengan sumber `vector`. Pada sampel, tanda tangan perusahaan berupa vektor di kolom kiri, sehingga pembatasan ke ROI karyawan wajib.
+5. Apa pun hasil langkah 1 sampai 4, render halaman 300 dpi dan jalankan analisis tinta yang sama dengan jalur scan pada ROI. Objek dan tinta harus sepakat:
+
+| Objek di ROI | Tinta signed | Tinta di zona tengah | Tinta kosong |
+| --- | --- | --- | --- |
+| Field digital | `signed`, margin jelas | `signed` | `signed` (field digital boleh tak kasat mata) |
+| Anotasi, gambar, atau vektor | `signed`, margin jelas | `signed` | `uncertain` |
+| Tidak ada | `uncertain` (tinta tanpa objek yang menjelaskannya) | `uncertain` | `unsigned` |
+
+`unsigned` pada PDF native mendapat confidence normal, bukan tinggi, karena cara menandatangani PDF native terus bertambah.
 
 Jalur scan dan hybrid:
 
-1. Render `P_ttd` 300 dpi dengan anotasi ikut di-render (file scan di sampel juga memuat anotasi Ink), ambil daftar `Word` berkoordinat dari Tahap 2. Anotasi yang berpotongan dengan ROI dicek seperti langkah 2 jalur native.
-2. Temukan jangkar utama: kata-kata yang cocok fuzzy dengan nama karyawan (minimal dua token cocok ≥ 85, atau satu token ≥ 90 bila nama hanya satu kata seperti `Abd.karim`) dan berada di zona penutup (Bagian 8). Jangkar sekunder: sebutan karyawan yang dipakai vendor di `P_id` (`PIHAK KEDUA`, `Tenaga Kerja`, `Karyawan`, `Pekerja`) di zona penutup. Bila sebutan itu muncul dua kali berdekatan secara vertikal (label di atas, peran di bawah nama, seperti pada vendor 1), ROI adalah area di antara keduanya. Label pihak perusahaan (`PIHAK PERTAMA`, `untuk dan atas nama PT`) menjadi zona larangan, bukan jangkar.
-3. Tentukan ROI relatif terhadap bounding box nama: lebar 2,5× lebar nama dipusatkan pada nama, dibatasi maksimal setengah lebar halaman dan tidak melewati kolom pihak perusahaan; tinggi 5× tinggi baris nama, membentang ke atas dari batas bawah nama sehingga bbox nama ikut masuk, karena tanda tangan bisa menimpa nama tercetak; berhenti lebih awal bila bertemu label sebutan di atasnya. ROI kedua ke bawah dari nama dibuat hanya bila ROI pertama kosong.
-4. Hapus garis horizontal dalam ROI, termasuk garis bawah nama, dengan morphological opening memakai kernel 1×40 piksel, lalu kurangi hasilnya dari citra; garis tempat tanda tangan tidak boleh dihitung sebagai tinta.
-5. Hapus teks cetak sisa: connected components yang berdiri sendiri dengan tinggi antara 0,6× dan 1,4× tinggi huruf rata-rata halaman dan lebar sempit dibuang. Huruf yang menyatu dengan goresan besar tidak dibuang, karena itu tanda bahwa tanda tangan menimpa nama.
-6. Hitung fitur pada sisa piksel gelap: rasio tinta (piksel gelap / area ROI), ukuran komponen terbesar relatif ROI, jumlah komponen besar, rasio panjang kontur terhadap luas (tanda tangan punya goresan panjang dan tidak beraturan).
-7. Putuskan dengan ambang yang dikalibrasi di test set; nilai awal di tabel berikut.
+1. Render `P_ttd` dengan anotasi ikut di-render (file scan di sampel juga memuat anotasi Ink), pada resolusi baca OCR (`ocr.read_dpi`, 300 dpi) dan dengan koreksi kemiringan yang sama dengan OCR, sehingga piksel sejajar dengan daftar `Word` berkoordinat dari Tahap 2. Field digital dan anotasi yang berpotongan dengan ROI dicek seperti langkah 1 dan 2 jalur native; gambar tidak dicek, karena halaman scan itu sendiri gambar. Tanpa objek, status diambil dari analisis tinta, dengan sumber `pixels` bila signed.
+2. Temukan jangkar utama: deretan kata bersebelahan di satu baris zona penutup (Bagian 8) yang cocok fuzzy dengan nama karyawan, skor terbaik dari perbandingan tanpa spasi dan `token_sort_ratio`, minimal 85, atau 90 bila nama hanya satu kata seperti `Abd.karim`. Nama depan saja tidak mencapai ambang. Jarak antar kata lebih dari 2× tinggi kata memutus deretan, sehingga nama perwakilan perusahaan dan nama karyawan pada baris yang sama tidak pernah menyatu. Jangkar sekunder: sebutan karyawan yang ditemukan di teks `P_id` (`PIHAK KEDUA`, `Tenaga Kerja`, `Karyawan`, `Pekerja`; semuanya bila tidak satu pun ditemukan) di zona penutup. Bila sebutan itu muncul dua kali bertumpuk secara vertikal (label di atas, peran di bawah nama, seperti pada vendor 1), ROI adalah area di antara keduanya; bila hanya satu, ROI di bawahnya. Label pihak perusahaan (`PIHAK PERTAMA`, `Pengusaha`, `Perusahaan`, `Direktur`, `PT`) tidak pernah menjadi jangkar; label di kolom lain membatasi ROI di titik tengah antara label itu dan jangkar.
+3. Tentukan ROI relatif terhadap bounding box nama: lebar 2,5× lebar nama dipusatkan pada nama, dibatasi maksimal setengah lebar halaman dan tidak melewati batas kolom pihak perusahaan; tinggi 5× tinggi baris nama, membentang ke atas dari batas bawah nama sehingga bbox nama ikut masuk, karena tanda tangan bisa menimpa nama tercetak; berhenti lebih awal bila bertemu label sebutan karyawan di atasnya. ROI kedua ke bawah dari nama dibuat hanya bila ROI pertama `unsigned` tanpa objek.
+4. Binerisasi dengan ambang Otsu satu halaman, dibatasi ke rentang 80 sampai 180 agar halaman hampir kosong tidak menghasilkan ambang ekstrem. Hapus garis lurus panjang dalam ROI, horizontal (garis tempat tanda tangan, garis bawah nama) maupun vertikal (garis tabel), dengan morphological opening memakai kernel sepanjang max(40 piksel, sepertiga dimensi ROI), lalu kurangi hasilnya dari citra.
+5. Hapus teks cetak sisa. Connected component yang seluruhnya berada di dalam kotak kata tercetak dibuang; kotak kata hanya dipakai bila confidence OCR-nya ≥ 0,70 dan tingginya ≤ 1,6× median tinggi kata, karena OCR bisa membaca tanda tangan sebagai kata sampah yang tinggi, dan kotak itu tidak boleh menyembunyikan tintanya. Komponen yang memotong tepi kotak kata tidak dibuang, karena itu tanda bahwa tanda tangan menimpa nama. Komponen yang tinggi dan lebarnya tidak melebihi satu tinggi kata (huruf atau tanda baca lepas), bintik kecil, dan stempel bulat (lingkaran kontur luar > 0,75 dan tinggi > 2× tinggi kata) juga dibuang.
+6. Hitung fitur pada sisa piksel gelap: rasio tinta (piksel gelap / area ROI), tinggi komponen tertinggi dalam satuan tinggi kata, jumlah komponen yang lebih tinggi dari satu kata, rasio panjang kontur terhadap jumlah piksel gelap (goresan pena tipis tinggi, blok terisi rendah), dan `mirip_teks`: minimal empat komponen dengan tinggi seragam (0,6× sampai 1,6× median), tersusun dalam satu baris, dan tidak ada yang lebih tinggi dari 1,5× tinggi kata.
+7. Putuskan dengan ambang yang dikalibrasi di test set; nilai awal di tabel berikut. Tinggi diukur terhadap kotak kata, yang sudah mencakup ascender dan descender, sehingga 1,5× tinggi kata kurang lebih sama dengan 2× tinggi huruf.
 
-| Status | Kondisi awal | Aksi |
-| --- | --- | --- |
-| signed | Rasio tinta > 1,5%, komponen terbesar tinggi > 2× tinggi huruf, rasio kontur/luas tinggi | Auto bila field lain hijau |
-| unsigned | Rasio tinta < 0,3% setelah garis dan teks cetak dihapus | Auto bila field lain hijau |
-| uncertain | Di antara keduanya, atau jangkar tidak ditemukan, atau ada dua kandidat ROI yang bertentangan | Review manusia |
+| Status | Kondisi awal | Margin jelas | Aksi |
+| --- | --- | --- | --- |
+| signed | Rasio tinta > 1,5%, komponen tertinggi ≥ 1,5× tinggi kata, rasio kontur ≥ 0,15, tidak `mirip_teks` | Rasio tinta ≥ 3% | Auto bila field lain hijau dan auto diizinkan (Bagian 12) |
+| unsigned | Rasio tinta < 0,3% setelah garis dan teks cetak dihapus | Rasio tinta < 0,15% | Auto bila field lain hijau dan auto diizinkan (Bagian 12) |
+| uncertain | Di antara keduanya, atau jangkar tidak ditemukan, atau ada dua kandidat ROI yang bertentangan | Tidak pernah | Review manusia |
 
 Jebakan yang diketahui dan cara menanganinya:
 
 - Dua tanda tangan pada baris yang sama, perwakilan perusahaan di kiri dan karyawan di kanan (terlihat di kedua vendor): sistem tidak pernah memilih tinta terbesar di halaman; kolom karyawan ditentukan oleh jangkar. Jangkar tidak ditemukan → `uncertain`, bukan menebak kolom kanan, meskipun di kedua sampel karyawan selalu di kanan.
-- Stempel perusahaan (terlihat merah di vendor 2, di kolom perusahaan): pada scan berwarna, komponen dominan merah, ungu, atau biru berbentuk lingkaran atau persegi disaring lewat segmentasi warna HSV; pada hitam-putih, komponen yang kontur luarnya hampir lingkaran dibuang. Pembatasan ROI ke kolom karyawan mencegah stempel kolom sebelah ikut terhitung.
+- Stempel perusahaan (terlihat merah di vendor 2, di kolom perusahaan): komponen yang kontur luarnya hampir lingkaran dibuang, dan pembatasan ROI ke kolom karyawan mencegah stempel kolom sebelah ikut terhitung. Segmentasi warna HSV untuk stempel merah, ungu, atau biru belum dibangun, karena analisis berjalan pada render grayscale; ditambahkan bila test set Fase 0 menunjukkan stempel berwarna masuk ROI karyawan.
 - Tanda tangan menimpa nama tercetak (terlihat di vendor 1, Sampel A). File itu native dan tanda tangannya anotasi Stamp, sehingga nama tetap terbaca dari text layer dan jalur native yang berlaku. Pada scan dengan kondisi serupa, OCR nama bisa gagal, jadi jangkar sekunder dipakai; langkah 5 hanya membuang komponen berukuran huruf yang berdiri sendiri, goresan yang menyatu dengan huruf tetap terhitung.
 - Nama ditulis tangan di atas garis tanpa tanda tangan: komponen dengan tinggi seragam dan tersusun horizontal rapi diperlakukan sebagai teks, bukan tanda tangan → `uncertain`.
 - Foto buram sehingga nama tidak terbaca OCR: jangkar sekunder dipakai; bila keduanya gagal → `uncertain`, bukan `unsigned`.
 - Dua karyawan atau saksi dalam satu halaman: ROI diikat ke nama karyawan hasil Tahap 3, bukan ke blok tanda tangan terdekat.
 
 Tidak ada fallback vision model pada fase pertama: `uncertain` langsung masuk review manusia, sehingga halaman tanda tangan dan crop-nya tidak pernah meninggalkan mesin lokal. Alternatif yang dipertimbangkan untuk fase kedua bila pendekatan OpenCV tidak mencapai target: model deteksi tanda tangan terlatih (YOLO) yang berjalan lokal, membutuhkan ratusan sampel berlabel yang belum ada.
+
+Detail implementasi: nama jangkar diambil dari nama hasil Tahap 3 yang sudah terverifikasi; bila extractor mati atau field nama null, nama dari nama file standar dipakai, dan nama file nonstandar tidak pernah dipakai karena bagian namanya bisa memuat teks periode. Jangkar sebutan lebih lemah dari nama tercetak, sehingga tidak pernah memberi margin jelas. Bila ada lebih dari satu baris yang cocok dengan nama, setiap ROI dinilai, dan status yang berbeda antar ROI menghasilkan `uncertain`. Confidence `ttd`: signed 0,95 dengan margin jelas dan 0,8 tanpa; unsigned 0,9 (scan) atau 0,8 (native) dengan margin jelas dan 0,7 tanpa; uncertain 0,5; jangkar tidak ditemukan 0. Log per file mencatat `tanda_tangan` (sumber, jangkar, ROI sebagai pecahan halaman, rasio tinta, komponen tertinggi, jumlah anotasi di luar ROI, jumlah kandidat ROI) tanpa citra atau teks halaman, dan komponen `signature@<dpi>dpi` di `komponen_halaman`. Alasan review: `signature_page_unreadable` (tidak ada `P_ttd`, kecuali page selection sudah ambigu), `signature_anchor_not_found`, `signature_uncertain`.
 
 ## 12. Tahap 5: Validasi nama file dan confidence scoring
 
@@ -364,6 +374,8 @@ Confidence per field digabung menjadi keputusan per file dengan aturan sederhana
 
 Keputusan: semua hijau → `auto`; ada kuning tanpa merah → `review`; ada merah → `review_priority`. Mismatch nama file dengan field lain hijau diberi label tambahan `filename_mismatch` agar HR memeriksa apakah file salah nama, bukan ekstraksinya yang salah.
 
+Sampai ambang dikalibrasi di test set Fase 0, `auto` tidak dikeluarkan: `decision.allow_auto: false` (default) mengubah `auto` menjadi `review` dengan flag `auto_disabled`, sehingga HR tetap melihat bahwa semua komponen file itu hijau. Konfigurasi baru diubah ke true setelah gate Fase 3 dan Fase 4 terpenuhi.
+
 Keluaran per file ditulis sebagai satu baris CSV/Excel dan satu objek JSON:
 
 ```json
@@ -394,7 +406,7 @@ Seluruh pipeline ditulis dalam Python 3.11 dan berjalan sebagai satu container D
 
 | Komponen | Pilihan | Alternatif dipertimbangkan | Alasan memilih |
 | --- | --- | --- | --- |
-| Baca PDF, render, koordinat teks | pypdfium2 (render per halaman, text layer), pdfplumber (kata berkoordinat, gambar, kurva), pypdf (anotasi, field tanda tangan, `/SigFlags`) | PyMuPDF, pdf2image | PyMuPDF berlisensi AGPL-3.0 yang dilarang kebijakan lisensi perusahaan; ketiga pengganti berlisensi permisif (Apache-2.0/BSD-3, MIT, BSD-3), dan pdfplumber sudah memakai pypdfium2 untuk render. pdf2image butuh Poppler (GPL) |
+| Baca PDF, render, koordinat teks | pypdfium2 (render per halaman, text layer), pdfplumber (kata berkoordinat, gambar, kurva, anotasi, field tanda tangan) | PyMuPDF, pdf2image, pypdf | PyMuPDF berlisensi AGPL-3.0 yang dilarang kebijakan lisensi perusahaan; kedua pengganti berlisensi permisif (Apache-2.0/BSD-3, MIT), dan pdfplumber sudah memakai pypdfium2 untuk render. pdf2image butuh Poppler (GPL). pypdf tidak dibutuhkan karena pdfplumber sudah membaca anotasi dan widget field tanda tangan |
 | OCR lokal utama | Tesseract 5, `ind+eng`, via pytesseract | EasyOCR | Deploy ringan tanpa GPU, keluaran per kata dengan bbox dan confidence, kualitas baik pada scan bersih |
 | OCR lokal fallback | PaddleOCR (PP-OCRv4), ditunda | docTR | Lebih tahan terhadap foto miring dan kontras rendah; jalan di CPU meski lebih lambat. Ditambahkan setelah kualitas Tesseract diukur, karena paddlepaddle dan paddlex membawa dependency tree besar yang harus diaudit lisensi dan OSV-nya |
 | OCR cloud (opsional) | Azure Document Intelligence atau Google Document AI | AWS Textract | Keduanya mengembalikan bbox per kata dan punya region Asia Tenggara; pilihan akhir mengikuti cloud yang sudah dipakai client |

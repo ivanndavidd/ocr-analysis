@@ -52,6 +52,18 @@ class RegexPeriod(BaseModel):
     ambigu: bool = False  # conflicting candidates were found; the conflicting fields stay null
 
 
+class SignatureLog(BaseModel):
+    """Hasil Tahap 4 untuk audit: dari mana keputusan datang, tanpa citra atau teks halaman."""
+
+    sumber: str | None = None  # digital | annotation | image | vector | pixels
+    jangkar: str | None = None  # nama | sebutan; null = jangkar tidak ditemukan
+    roi: tuple[float, float, float, float] | None = None  # page fractions x0, top, x1, bottom
+    rasio_tinta: float | None = None
+    komponen_tertinggi: float | None = None  # in printed-word heights
+    anotasi_di_luar_roi: int = 0
+    kandidat_roi: int = 0
+
+
 class FileLog(BaseModel):
     """Bukti data minimization per file. Tidak boleh memuat isi teks atau PII."""
 
@@ -69,6 +81,7 @@ class FileLog(BaseModel):
     ocr_cloud_dipakai: bool = False
     periode_regex: RegexPeriod | None = None
     validasi_nama_file: dict[str, str] = Field(default_factory=dict)  # "nama"/"periode" -> cocok|mirip|tidak_cocok
+    tanda_tangan: SignatureLog | None = None
     extractor: str | None = None
     # Counted only when an extractor actually sends text; preparing the masked payload alone sends nothing.
     teks_keluar_karakter: int = 0

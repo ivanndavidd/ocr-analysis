@@ -8,7 +8,7 @@ from helpers import scan_pdf_from, signed_contract_pdf
 
 from contract_extractor.config import Settings
 from contract_extractor.extractors.base import Evidence, ExtractionResult
-from contract_extractor.models import PageKind, RegexPeriod
+from contract_extractor.models import PageKind, RegexPeriod, SignatureStatus
 from contract_extractor.pdf.render import PageRenderer
 from contract_extractor.pipeline import REASON_OCR_LOW_CONFIDENCE, REASON_PAGE_SELECTION_AMBIGUOUS, process_file
 
@@ -46,7 +46,11 @@ def test_scanned_contract_end_to_end(ocr_runner, scanned_contract):
     # Data-minimization proof: every page was read locally, and only P_id/P_ttd were read at full resolution.
     assert result.log.komponen_halaman[1] == ["tesseract@150dpi", "tesseract@300dpi"]
     assert result.log.komponen_halaman[3] == ["tesseract@150dpi"]
-    assert result.log.komponen_halaman[5] == ["tesseract@150dpi", "tesseract@300dpi"]
+    assert result.log.komponen_halaman[5] == ["tesseract@150dpi", "tesseract@300dpi", "signature@300dpi"]
+
+    # Tahap 4 on the scan: nobody signed this synthetic contract.
+    assert result.status_ttd is SignatureStatus.UNSIGNED
+    assert result.log.tanda_tangan.jangkar == "nama"
 
     # Tahap 3, local part, on OCR text: period found by regex, NIK and birth line masked.
     assert result.log.periode_regex == RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 12, 31))
@@ -76,3 +80,14 @@ def test_scanned_contract_payload_is_masked_and_answer_verifies(ocr_runner, scan
     assert "Lahir" not in payload and "1990" not in payload
     assert (result.nama_karyawan, result.tanggal_selesai) == ("Budi Santoso", date(2026, 12, 31))
     assert result.log.validasi_nama_file == {"nama": "cocok", "periode": "cocok"}
+
+
+def test_signed_scan_is_detected_from_pixels(tmp_path, ocr_runner):
+    native = signed_contract_pdf(tmp_path / "native.pdf", "company_vector", "vector")
+    scan = scan_pdf_from(native, tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", skew_deg=1.5)
+    result = process_file(scan, Settings(), ocr_runner)
+
+    assert result.status_ttd is SignatureStatus.SIGNED
+    assert result.log.tanda_tangan.sumber == "pixels"
+    assert result.log.tanda_tangan.jangkar == "nama"
+    assert result.confidence["ttd"] >= 0.8

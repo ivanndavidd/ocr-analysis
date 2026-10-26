@@ -10,13 +10,19 @@ from typer.testing import CliRunner
 
 from contract_extractor import pipeline
 from contract_extractor.cli import app
-from contract_extractor.config import ExtractorSettings, InputSettings, PageSelectionSettings, Settings
+from contract_extractor.config import (
+    DecisionSettings,
+    ExtractorSettings,
+    InputSettings,
+    PageSelectionSettings,
+    Settings,
+)
 from contract_extractor.export import write_csv, write_xlsx
 from contract_extractor.extractors.base import Evidence, ExtractionResult, ExtractorError
-from contract_extractor.models import Decision, FileResult, Level, PageKind, RegexPeriod
+from contract_extractor.models import Decision, FileResult, Level, PageKind, RegexPeriod, SignatureStatus
 from contract_extractor.pipeline import (
+    FLAG_AUTO_DISABLED,
     FLAG_INPUT_REJECTED,
-    FLAG_PIPELINE_INCOMPLETE,
     FLAG_PROCESSING_ERROR,
     REASON_EXTRACTOR_DISABLED,
     REASON_MASK_LEAK,
@@ -52,12 +58,22 @@ def test_batch_continues_past_a_broken_file_and_ignores_non_pdf(contracts_dir):
     assert FLAG_PROCESSING_ERROR in broken.flags
 
 
-def test_incomplete_pipeline_never_auto_passes(contracts_dir):
-    for result in process_path(contracts_dir, Settings()):
+def test_files_without_a_readable_signature_page_never_auto_pass(contracts_dir):
+    for result in process_path(contracts_dir, Settings(decision=DecisionSettings(allow_auto=True))):
         assert result.keputusan is Decision.REVIEW_PRIORITY
         if FLAG_PROCESSING_ERROR not in result.flags:
-            assert FLAG_PIPELINE_INCOMPLETE in result.flags
-            assert "signature_not_implemented" in result.log.alasan
+            assert result.status_ttd is SignatureStatus.UNCERTAIN
+
+
+def test_all_green_file_stays_in_review_until_auto_is_allowed(tmp_path):
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", "annotation")
+
+    gated = process_file(pdf, Settings(), extractor=FakeExtractor())
+    assert gated.status_ttd is SignatureStatus.SIGNED
+    assert (gated.keputusan, gated.flags) == (Decision.REVIEW, [FLAG_AUTO_DISABLED])
+
+    allowed = process_file(pdf, Settings(decision=DecisionSettings(allow_auto=True)), extractor=FakeExtractor())
+    assert (allowed.keputusan, allowed.flags) == (Decision.AUTO, [])
 
 
 def test_native_pdf_selects_identity_and_signature_pages(tmp_path):
@@ -69,7 +85,7 @@ def test_native_pdf_selects_identity_and_signature_pages(tmp_path):
     assert REASON_PAGE_SELECTION_AMBIGUOUS not in result.log.alasan
     assert 2 in result.log.halaman_sensitif
     assert sorted(result.log.skor_halaman) == [1, 2, 3, 4, 5]
-    assert result.keputusan is Decision.REVIEW_PRIORITY  # later stages still pending
+    assert result.keputusan is Decision.REVIEW_PRIORITY  # extractor disabled, so extraction is red
 
 
 def test_economy_mode_never_opens_middle_pages(tmp_path):
@@ -238,7 +254,8 @@ def test_extractor_answer_is_verified_and_fills_the_result(tmp_path):
         date(2026, 12, 31),
         12,
     )
-    assert result.confidence == {"nama": 0.95, "periode": 0.95}
+    assert result.confidence == {"nama": 0.95, "periode": 0.95, "ttd": 0.8}
+    assert result.status_ttd is SignatureStatus.UNSIGNED  # no signature drawn on this contract
     assert result.log.validasi_nama_file == {"nama": "cocok", "periode": "cocok"}
 
     # Data-minimization proof: one masked P_id payload left the machine, and the log says so.
@@ -250,7 +267,8 @@ def test_extractor_answer_is_verified_and_fills_the_result(tmp_path):
     assert all("fake-llm:masked" not in result.log.komponen_halaman[n] for n in (2, 3, 4, 5))
 
     assert REASON_EXTRACTOR_DISABLED not in result.log.alasan
-    assert result.keputusan is Decision.REVIEW_PRIORITY  # signature detection is still pending
+    # Every component is green (a clearly unsigned contract), so only the calibration gate keeps it from auto.
+    assert (result.keputusan, result.flags) == (Decision.REVIEW, [FLAG_AUTO_DISABLED])
 
 
 def test_extracted_name_that_differs_from_the_filename_is_reported(tmp_path):

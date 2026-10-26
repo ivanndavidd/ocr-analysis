@@ -56,10 +56,16 @@ def binarize(gray: np.ndarray) -> np.ndarray:
     return cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block, 15)
 
 
-def preprocess(gray: np.ndarray) -> tuple[np.ndarray, float]:
-    """Shadow removal, deskew, adaptive threshold. Returns the image for OCR and the applied angle."""
+def straighten(gray: np.ndarray) -> tuple[np.ndarray, float]:
+    """Shadow removal and deskew. Deterministic, so signature analysis can rebuild the exact image OCR saw
+    and reuse its word coordinates. Returns the grayscale image and the applied angle."""
     flat = remove_shadows(gray)
     angle = estimate_skew(flat)
     straight = deskew(flat, angle)
-    applied = angle if straight is not flat else 0.0
+    return straight, (angle if straight is not flat else 0.0)
+
+
+def preprocess(gray: np.ndarray) -> tuple[np.ndarray, float]:
+    """Shadow removal, deskew, adaptive threshold. Returns the image for OCR and the applied angle."""
+    straight, applied = straighten(gray)
     return binarize(straight), applied

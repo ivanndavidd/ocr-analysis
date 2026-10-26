@@ -10,8 +10,10 @@ from pathlib import Path
 from contract_extractor.config import Settings
 from contract_extractor.extractors.base import Extractor, ExtractorError
 from contract_extractor.layout import PageText
-from contract_extractor.models import FileResult, Level, PageKind
+from contract_extractor.models import Decision, FileResult, Level, PageKind, SignatureLog, SignatureStatus
 from contract_extractor.ocr.engine import OcrRunner
+from contract_extractor.ocr.preprocess import straighten
+from contract_extractor.pdf.objects import read_page_objects
 from contract_extractor.pdf.reader import DocumentRead, InputRejected, read_document, validate_pdf_file
 from contract_extractor.pdf.render import PageRenderer
 from contract_extractor.stages.extraction import verify_extraction
@@ -26,7 +28,8 @@ from contract_extractor.stages.filename import (
 from contract_extractor.stages.masking import PAGE_SEPARATOR, MaskLeakError, mask_pages
 from contract_extractor.stages.page_selection import candidate_pages, select_pages
 from contract_extractor.stages.period_regex import find_period
-from contract_extractor.stages.scoring import COMPONENT_FILENAME, decide, filename_level, ocr_level
+from contract_extractor.stages.scoring import COMPONENT_FILENAME, decide, filename_level, ocr_level, signature_level
+from contract_extractor.stages.signature import detect_signature, employee_labels
 
 log = logging.getLogger(__name__)
 
@@ -36,16 +39,18 @@ for _pdf_logger in ("pdfminer", "pdfplumber"):
 
 FLAG_INPUT_REJECTED = "input_rejected"
 FLAG_PROCESSING_ERROR = "processing_error"
-FLAG_PIPELINE_INCOMPLETE = "pipeline_incomplete"
+FLAG_AUTO_DISABLED = "auto_disabled"
 REASON_PAGE_SELECTION_AMBIGUOUS = "page_selection_ambiguous"
 REASON_OCR_UNAVAILABLE = "ocr_unavailable"
 REASON_OCR_LOW_CONFIDENCE = "ocr_low_confidence"
 REASON_MASK_LEAK = "mask_leak"
 REASON_EXTRACTOR_DISABLED = "extractor_disabled"
 REASON_EXTRACTOR_ERROR = "extractor_error"
+REASON_SIGNATURE_PAGE_UNREADABLE = "signature_page_unreadable"
+REASON_SIGNATURE_ANCHOR_NOT_FOUND = "signature_anchor_not_found"
+REASON_SIGNATURE_UNCERTAIN = "signature_uncertain"
 
-# Stages still to be built (Fase 3). Each counts as red until it lands, so nothing auto-passes.
-PENDING_STAGES = ("signature",)
+SIGNATURE_DPI = 300  # native pages; scans reuse the OCR read resolution so word coordinates line up
 
 _NEEDS_OCR = (PageKind.SCAN, PageKind.HYBRID)
 
@@ -55,6 +60,7 @@ class _PagesRead:
     levels: dict[str, Level]
     p_id_pages: list[PageText] = field(default_factory=list)  # full-resolution text, in page order
     p_id_trusted: bool = False  # every P_id page came from a text layer or from OCR that passed quality
+    p_ttd_page: PageText | None = None  # full-resolution text of the signature page
 
 
 def file_id(path: Path) -> str:
@@ -130,6 +136,7 @@ def _select_and_read(
             {"page_selection": selection.level, "ocr_p_id": ocr_level(p_id_conf)},
             [read_pages[n] for n in selection.p_id if n in read_pages],
             all(n in passed for n in selection.p_id),
+            read_pages.get(selection.p_ttd),  # type: ignore[arg-type]
         )
     finally:
         if renderer is not None:
@@ -202,6 +209,49 @@ def _extract(
     return levels
 
 
+def _signature(
+    path: Path, doc: DocumentRead, result: FileResult, pages: _PagesRead, parsed: ParsedFilename, ocr: OcrRunner | None
+) -> Level:
+    """Tahap 4, fully local: the signature page and its crops never leave this machine."""
+    page = pages.p_ttd_page
+    number = result.log.p_ttd
+    if page is None or number is None:
+        result.status_ttd = SignatureStatus.UNCERTAIN
+        if REASON_PAGE_SELECTION_AMBIGUOUS not in result.log.alasan:  # that reason already explains it
+            _add_reason(result, REASON_SIGNATURE_PAGE_UNREADABLE)
+        return Level.RED
+
+    native = doc.kinds[number] is PageKind.NATIVE
+    dpi = SIGNATURE_DPI if native or ocr is None else ocr.read_dpi
+    with PageRenderer(path) as renderer:
+        image = renderer.render_gray(number, dpi)
+    if not native:
+        image, _ = straighten(image)  # the same transform OCR saw, so its word boxes line up with these pixels
+    result.log.komponen_halaman.setdefault(number, []).append(f"signature@{dpi}dpi")
+
+    # The verified extracted name anchors the ROI; a standard filename's name is the fallback.
+    name = result.nama_karyawan or (None if FLAG_NONSTANDARD in parsed.flags else parsed.name) or None
+    labels = employee_labels(PAGE_SEPARATOR.join(p.text for p in pages.p_id_pages))
+    found = detect_signature(page, native, image, read_page_objects(path, number), name, labels)
+
+    result.status_ttd = found.status
+    result.confidence["ttd"] = found.confidence
+    result.log.tanda_tangan = SignatureLog(
+        sumber=found.source,
+        jangkar=found.anchor,
+        roi=tuple(round(v, 4) for v in found.roi) if found.roi else None,  # type: ignore[arg-type]
+        rasio_tinta=round(found.features.ink_ratio, 4) if found.features else None,
+        komponen_tertinggi=round(found.features.tallest, 2) if found.features else None,
+        anotasi_di_luar_roi=found.annotations_outside_roi,
+        kandidat_roi=found.candidates,
+    )
+    if not found.anchor_found:
+        _add_reason(result, REASON_SIGNATURE_ANCHOR_NOT_FOUND)
+    elif found.status is SignatureStatus.UNCERTAIN:
+        _add_reason(result, REASON_SIGNATURE_UNCERTAIN)
+    return signature_level(found.status, found.anchor_found, found.clear_margin)
+
+
 def process_file(
     path: Path, settings: Settings, ocr: OcrRunner | None = None, extractor: Extractor | None = None
 ) -> FileResult:
@@ -224,12 +274,13 @@ def process_file(
         levels = dict(pages.levels)
         payload = _prepare_extraction(result, pages.p_id_pages, settings.extractor.max_chars_per_page)
         levels.update(_extract(result, payload, pages.p_id_trusted, parsed, extractor))
+        levels["signature"] = _signature(path, doc, result, pages, parsed, ocr)
 
-        levels.update({stage: Level.RED for stage in PENDING_STAGES})
-        result.log.alasan.extend(f"{stage}_not_implemented" for stage in PENDING_STAGES)
-        result.flags.append(FLAG_PIPELINE_INCOMPLETE)
         result.keputusan, extra_flags = decide(levels)
         result.flags.extend(extra_flags)
+        if result.keputusan is Decision.AUTO and not settings.decision.allow_auto:
+            result.keputusan = Decision.REVIEW
+            result.flags.append(FLAG_AUTO_DISABLED)
     except InputRejected as exc:
         result.flags.append(FLAG_INPUT_REJECTED)
         result.log.alasan.append(exc.reason)
