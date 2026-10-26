@@ -50,7 +50,7 @@ def _row(result: FileResult) -> dict[str, object]:
     }
 
 
-def _neutralize(value: object) -> object:
+def neutralize_formula(value: object) -> object:
     if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):
         return "'" + value
     return value
@@ -67,7 +67,7 @@ def write_csv(results: list[FileResult], path: Path) -> None:
         writer = csv.DictWriter(fh, fieldnames=COLUMNS)
         writer.writeheader()
         for r in results:
-            writer.writerow({k: _neutralize(v) for k, v in _row(r).items()})
+            writer.writerow({k: neutralize_formula(v) for k, v in _row(r).items()})
 
 
 def write_xlsx(results: list[FileResult], path: Path) -> None:

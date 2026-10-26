@@ -466,6 +466,30 @@ Komposisi test set minimum:
 
 File untuk UAT disisihkan sejak awal dan tidak dipakai untuk kalibrasi ambang, agar angka akhir tidak terlalu optimistis.
 
+Format label dan evaluasi gate. Label ditulis di CSV dengan kolom `apps/extractor/label-template.csv`, satu baris per file:
+
+| Kolom | Isi |
+| --- | --- |
+| `file` | Path relatif terhadap folder input, sama dengan kolom `file` di hasil `run` |
+| `kelompok` | `kalibrasi` atau `uat` |
+| `vendor` | Nama vendor |
+| `jenis_pdf` | `native`, `scan`, `hybrid`, atau `campuran` |
+| `nama_karyawan` | Nama karyawan seperti tertulis di kontrak |
+| `tanggal_mulai`, `tanggal_selesai` | `YYYY-MM-DD`; kontrak yang hanya menyebut durasi diberi tanggal selesai hasil hitungan |
+| `status_ttd` | `signed` atau `unsigned`, sesuai definisi signed yang disepakati dengan client; label tidak punya `uncertain` |
+| `halaman_identitas`, `halaman_periode`, `halaman_ttd` | Nomor halaman blok identitas karyawan, pasal periode, dan tanda tangan karyawan |
+| `kasus` | Nol atau lebih dari `stempel`, `tulisan_tangan`, `foto_buram`, `nama_file_salah`, `lampiran`, dipisah `;` |
+
+Karena memuat nama karyawan asli, file label hanya disimpan di folder `data/` (di-gitignore) di lingkungan yang disetujui untuk data asli. `contract-extractor evaluate <results.json> <labels.csv> [--kelompok kalibrasi|uat]` mencetak angka gate dan komposisi test set. Laporannya hanya berisi angka agregat, jenis PDF, dan nama vendor. `--json` menulis laporan yang sama sebagai JSON, dan `--detail` menulis hasil per file (memuat nama file) untuk kalibrasi. Definisi yang dipakai:
+
+- Page selection benar bila halaman identitas dan halaman periode berlabel ada di `P_id`, dan `P_ttd` sama dengan halaman tanda tangan berlabel.
+- Nama dibandingkan setelah normalisasi nama file (Bagian 12); periode benar bila tanggal mulai dan selesai keduanya sama persis.
+- Recall unsigned menghitung `unsigned` dan `uncertain` sebagai "tidak dilabeli signed".
+- Auto-pass dan kesalahan pada auto-pass dihitung dari file `auto` ditambah file `review` yang hanya ditahan `auto_disabled`, karena gate diukur sebelum `allow_auto` dinyalakan. Sebuah file dihitung salah bila nama, periode, atau status tanda tangannya salah.
+- Kebocoran halaman dihitung di semua file `results.json`: halaman yang menerima komponen selain `text_layer`, `tesseract@…`, dan `signature@…`, kecuali halaman `P_id` yang hanya keluar sebagai payload ter-mask. Nama komponen yang tidak dikenal dihitung bocor.
+- File berlabel yang tidak ada di hasil dihitung gagal di semua metrik, dan hasil tanpa label diabaikan.
+- Waktu per file belum diukur karena hasil `run` tidak mencatatnya.
+
 Kill criteria, dicek di akhir setiap fase:
 
 - Page selection recall < 90% setelah dua iterasi heuristik → pendekatan kata kunci tidak cukup; beralih ke klasifikasi halaman berbasis layout atau minta client menstandarkan halaman depan.

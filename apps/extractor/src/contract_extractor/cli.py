@@ -1,7 +1,8 @@
-"""CLI batch: `contract-extractor run <file-atau-folder>`."""
+"""CLI batch: `contract-extractor run <file-atau-folder>` dan `contract-extractor evaluate <results> <label>`."""
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import Counter
 from pathlib import Path
@@ -10,6 +11,8 @@ from typing import Annotated, Optional
 import typer
 
 from contract_extractor.config import load_settings
+from contract_extractor.evaluation import EvaluationError, KelompokFilter, format_report, report_json, write_detail
+from contract_extractor.evaluation import evaluate as evaluate_results
 from contract_extractor.export import write_outputs
 from contract_extractor.extractors.base import ExtractorUnavailable
 from contract_extractor.extractors.factory import build_extractor
@@ -60,3 +63,36 @@ def run(
     typer.echo(f"{len(results)} file diproses: " + ", ".join(f"{k}={v}" for k, v in sorted(summary.items())))
     for path in written:
         typer.echo(f"ditulis: {path}")
+
+
+@app.command()
+def evaluate(
+    results: Annotated[
+        Path, typer.Argument(exists=True, dir_okay=False, readable=True, resolve_path=True, help="results.json dari `run`")
+    ],
+    labels: Annotated[
+        Path,
+        typer.Argument(exists=True, dir_okay=False, readable=True, resolve_path=True, help="CSV label Fase 0 (format: label-template.csv)"),
+    ],
+    kelompok: Annotated[KelompokFilter, typer.Option("--kelompok", "-k", help="Kelompok label yang dievaluasi")] = KelompokFilter.SEMUA,
+    json_out: Annotated[
+        Optional[Path], typer.Option("--json", dir_okay=False, resolve_path=True, help="Tulis laporan sebagai JSON")
+    ] = None,
+    detail: Annotated[
+        Optional[Path],
+        typer.Option("--detail", dir_okay=False, resolve_path=True, help="Tulis hasil per file (memuat nama file) sebagai CSV"),
+    ] = None,
+) -> None:
+    """Hitung angka gate PRD (Bagian 5 dan 14) dari hasil `run` dan label manual."""
+    try:
+        report = evaluate_results(results, labels, kelompok)
+    except EvaluationError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(format_report(report))
+    if json_out:
+        json_out.write_text(json.dumps(report_json(report), ensure_ascii=False, indent=2), encoding="utf-8")
+        typer.echo(f"ditulis: {json_out}")
+    if detail:
+        write_detail(report, detail)
+        typer.echo(f"ditulis: {detail}")

@@ -223,6 +223,7 @@ The only app is `apps/extractor`: a Python 3.11 batch CLI (`contract-extractor`)
 | Install pinned dependencies | `uv pip install --python .venv -r requirements.lock` then `uv pip install --python .venv --no-deps -e .` |
 | Test | `.venv/Scripts/python -m pytest` (Windows) or `.venv/bin/python -m pytest`; tests marked `tesseract` skip when Tesseract with `ind+eng` is absent |
 | Run locally | `contract-extractor run <pdf-or-folder> --out output [--config config.yaml] [--recursive]` |
+| Evaluate gates | `contract-extractor evaluate <results.json> <labels.csv> [--kelompok kalibrasi] [--json <report.json>] [--detail <detail.csv>]`; labels follow `label-template.csv` and, since they name real employees, stay in the gitignored `data/` folder |
 | Build the image | `container build -t contract-extractor .` |
 | Run the image | `container run --rm --read-only --tmpfs /tmp --mount type=bind,source=<pdf-folder>,target=/data/in,readonly --volume <out-folder>:/data/out contract-extractor` |
 
