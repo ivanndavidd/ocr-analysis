@@ -156,6 +156,8 @@ Konsekuensi desain yang sudah dimasukkan ke bagian terkait:
 - Nama file sampel belum mengikuti pola produksi `Nama Karyawan - Masa Kontrak` (dua tanpa periode, dua dengan format rapat `1jan-31mar24`), sehingga parser nama file diuji dengan nama sintetis, bukan nama file sampel (Bagian 12).
 - Belum ada sampel hybrid; test set Fase 0 wajib menambahkannya.
 
+Uji lokal pipeline pada keempat sampel (26 Okt 2026, atas konfirmasi owner bahwa sampel diberikan tim untuk pengujian; extractor mati, keluaran di folder yang di-gitignore, hanya ringkasan tanpa PII yang dibaca). Pertama kali dijalankan, `P_ttd` tidak terpilih di keempat file, karena kalimat penutup vendor tidak dikenali dan footer berjalan mengosongkan zona penutup. Setelah aturan zona penutup dan blok tanda tangan di Bagian 8 dan 11 diperbaiki: `P_id` halaman 1 dan `P_ttd` halaman 5 di keempat file; tanda tangan karyawan terdeteksi signed di kolom kanan untuk semua file (A anotasi, B gambar, C tinta piksel dari scan, D anotasi), sesuai temuan struktur di atas; regex periode menemukan tanggal mulai di keempat file dan tanggal selesai di tiga (tidak di scan C); sekitar 1 detik per file native dan 15 detik untuk scan. Karena nama file sampel nonstandar dan extractor mati, jangkar yang dipakai adalah sebutan karyawan, sehingga margin tidak pernah jelas dan semua file masuk review. Ini uji asap, bukan pengukuran akurasi: sampel tidak berlabel dan tidak ada yang unsigned.
+
 ## 7. Arsitektur dan alur pipeline
 
 ```mermaid
@@ -200,7 +202,7 @@ Langkah:
 | Tanda tangan | `Pihak Pertama` dan `Pihak Kedua`, atau `IMECON`/nama perusahaan dan `Tenaga Kerja`, muncul berdekatan di zona penutup; `tanda tangan`, `menyetujui`, `materai`, `Jakarta, 1 Januari 2024` di zona penutup; nama karyawan di zona penutup; rasio teks rendah dengan area kosong besar setelah paragraf terakhir |
 | Sensitif | `gaji`, `upah`, `tunjangan`, `THR`, `bonus`, `BPJS`, `potongan`, `Rp`, `rekening`, deret angka ≥ 10 digit |
 
-Zona penutup adalah area dari kalimat penutup kontrak (`Demikian perjanjian ini`, `dibuat dan ditandatangani`, atau baris tempat-tanggal seperti `Jakarta, 1 Januari 2024`) sampai batas bawah halaman; bila kalimat penutup tidak ditemukan, zona dimulai dari ujung bawah paragraf isi terakhir. Baris isi adalah baris dengan minimal enam kata dan lebar minimal 50% rentang teks halaman; kalimat penutup hanya dihitung bila berada di dua baris isi terakhir, agar frasa `dibuat dan ditandatangani` di paragraf pembuka halaman 1 tidak membuka zona. Posisi absolut tidak dipakai karena pada sampel blok tanda tangan berada di 44–54% tinggi halaman pada satu vendor dan 65–69% pada vendor lain. Kata kunci tanda tangan hanya dihitung di zona penutup, karena `Pihak Pertama` dan `Pihak Kedua` juga muncul berulang di isi pasal.
+Zona penutup adalah area dari paragraf penutup kontrak sampai batas atas pita footer; bila paragraf penutup tidak ditemukan, zona dimulai dari ujung bawah paragraf isi terakhir. Baris isi adalah baris dengan minimal enam kata dan lebar minimal 50% rentang teks halaman. Paragraf penutup ditandai salah satu frasa `demikian`, `dibuat dan ditandatangani`, `ditandatangani`, `menandatangani`, `tanda tangan`, `keadaan sadar`, `tanpa paksaan`, atau `rangkap`, karena tiap vendor merumuskannya berbeda (dua vendor di sampel tidak memakai `Demikian perjanjian`), dan paragrafnya bisa lebih dari dua baris. Zona dibuka di baris isi pertama yang memuat frasa itu dan diikuti paling banyak enam baris isi, agar frasa `dibuat dan ditandatangani` di paragraf pembuka halaman 1 atau kata `ditandatangani` di tengah pasal tidak membuka zona. Baris yang dimulai di bawah 92% tinggi halaman adalah footer berjalan (pada sampel, alamat perusahaan di 93–94% setiap halaman) dan tidak dihitung sebagai baris isi maupun bagian zona; tanpa aturan ini footer membuat zona penutup kosong. Posisi absolut tidak dipakai karena pada sampel blok tanda tangan berada di 44–54% tinggi halaman pada satu vendor dan 61–72% pada vendor lain. Kata kunci tanda tangan hanya dihitung di zona penutup, karena `Pihak Pertama` dan `Pihak Kedua` juga muncul berulang di isi pasal.
 
 Skor sensitif tidak menggugurkan halaman identitas; ia mengaktifkan masking di Tahap 3 dan dicatat di log. Ambang skor dikalibrasi di test set, bukan ditetapkan di awal.
 
@@ -339,6 +341,8 @@ Jebakan yang diketahui dan cara menanganinya:
 
 Tidak ada fallback vision model pada fase pertama: `uncertain` langsung masuk review manusia, sehingga halaman tanda tangan dan crop-nya tidak pernah meninggalkan mesin lokal. Alternatif yang dipertimbangkan untuk fase kedua bila pendekatan OpenCV tidak mencapai target: model deteksi tanda tangan terlatih (YOLO) yang berjalan lokal, membutuhkan ratusan sampel berlabel yang belum ada.
 
+Jangkar dan label hanya dicari di blok tanda tangan, yaitu zona penutup tanpa baris paragrafnya. Baris pendek yang menempel di bawah baris paragraf, dimulai di margin kiri yang sama, dan tidak terbelah menjadi dua kolom adalah ekor kalimat, bukan label (pada sampel C dan D, baris tiga kata yang memuat `PIHAK KEDUA` di tengah paragraf penutup sempat dibaca sebagai label dan memindahkan ROI ke kolom kiri); baris label dua kolom (`PIHAK PERTAMA … PIHAK KEDUA`) yang langsung menempel di bawah paragraf penutup (sampel A dan B) tetap masuk blok. Label karyawan dicocokkan fuzzy tanpa spasi, minimal 85 untuk label dua kata dan 90 untuk label satu kata, karena OCR bisa menyatukan atau merusak label yang tertimpa goresan (pada sampel C, label kanan terbaca sebagai satu kata dengan confidence 0,11 dan kemiripan 86 terhadap `pihakkedua`), sedangkan `bekerja` tidak boleh lolos sebagai `pekerja`.
+
 Detail implementasi: nama jangkar diambil dari nama hasil Tahap 3 yang sudah terverifikasi; bila extractor mati atau field nama null, nama dari nama file standar dipakai, dan nama file nonstandar tidak pernah dipakai karena bagian namanya bisa memuat teks periode. Jangkar sebutan lebih lemah dari nama tercetak, sehingga tidak pernah memberi margin jelas. Bila ada lebih dari satu baris yang cocok dengan nama, setiap ROI dinilai, dan status yang berbeda antar ROI menghasilkan `uncertain`. Confidence `ttd`: signed 0,95 dengan margin jelas dan 0,8 tanpa; unsigned 0,9 (scan) atau 0,8 (native) dengan margin jelas dan 0,7 tanpa; uncertain 0,5; jangkar tidak ditemukan 0. Log per file mencatat `tanda_tangan` (sumber, jangkar, ROI sebagai pecahan halaman, rasio tinta, komponen tertinggi, jumlah anotasi di luar ROI, jumlah kandidat ROI) tanpa citra atau teks halaman, dan komponen `signature@<dpi>dpi` di `komponen_halaman`. Alasan review: `signature_page_unreadable` (tidak ada `P_ttd`, kecuali page selection sudah ambigu), `signature_anchor_not_found`, `signature_uncertain`.
 
 ## 12. Tahap 5: Validasi nama file dan confidence scoring
@@ -398,6 +402,8 @@ Keluaran per file ditulis sebagai satu baris CSV/Excel dan satu objek JSON:
 }
 ```
 
+Kolom `file` berisi path relatif terhadap folder input, sehingga file bernama sama di subfolder berbeda (mode `--recursive`) tetap bisa dibedakan; untuk satu folder datar isinya sama dengan nama file.
+
 Blok `log` adalah bukti data minimization yang diserahkan ke client: untuk setiap file terlihat halaman mana yang keluar, ke komponen mana, berapa karakter, dan berapa pola sensitif yang sudah diganti sebelumnya.
 
 ## 13. Tech stack dan alternatif yang dipertimbangkan
@@ -419,7 +425,7 @@ Seluruh pipeline ditulis dalam Python 3.11 dan berjalan sebagai satu container D
 | Orkestrasi | CLI batch (Typer) + SQLite untuk status per file | Prefect, Airflow | Cukup untuk volume ratusan hingga ribuan sekali jalan; Prefect ditambahkan bila berkelanjutan |
 | Review | Export Excel (openpyxl) dengan kolom keputusan dan flags | Streamlit, Label Studio | Nol biaya UI di fase pertama; HR sudah bekerja di Excel |
 | Pengujian | pytest + test set berlabel dalam CSV | — | Metrik akurasi dihitung otomatis di setiap perubahan |
-| Packaging | Docker, satu image, konfigurasi via file YAML | — | Bisa dijalankan di laptop HR, server client, atau VM tanpa perbedaan hasil |
+| Packaging | Docker, satu image (`apps/extractor/Dockerfile`): `python:3.11.15-slim-trixie`, Tesseract 5.5.0 dan data `ind`/`eng` tessdata_fast 4.1.0 dari Debian dengan versi di-pin, dependency runtime saja (tanpa pytest), user UID/GID 10001, `/data/in` dibaca dan `/data/out` ditulis, konfigurasi via file YAML | — | Bisa dijalankan di laptop HR, server client, atau VM tanpa perbedaan hasil. Versi OCR di-pin karena ambang dikalibrasi pada keluarannya; Tesseract lokal development 5.4.0, jadi kalibrasi Fase 0 dilakukan dengan image. Jalankan dengan root filesystem read-only dan `/tmp` tmpfs agar citra sementara pytesseract tidak pernah ditulis ke disk permanen |
 
 Semua dependency Python di-pin ke versi tepat dan dipindai terhadap OSV serta kebijakan lisensi perusahaan setiap kali ditambah atau diubah; lisensi copyleft (GPL, AGPL, LGPL) tidak dipakai.
 

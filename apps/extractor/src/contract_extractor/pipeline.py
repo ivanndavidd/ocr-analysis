@@ -310,4 +310,11 @@ def process_path(
 ) -> list[FileResult]:
     files = collect_inputs(input_path, recursive)
     log.info("processing %d file(s)", len(files))
-    return [process_file(p, settings, ocr, extractor) for p in files]
+    root = input_path if input_path.is_dir() else input_path.parent
+    results = []
+    for path in files:
+        result = process_file(path, settings, ocr, extractor)
+        # Subfolders can hold files with the same name; the relative path keeps every output row traceable.
+        result.file = path.relative_to(root).as_posix()
+        results.append(result)
+    return results

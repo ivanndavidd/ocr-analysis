@@ -1,6 +1,7 @@
 """Tahap 4: deteksi tanda tangan karyawan, sepenuhnya lokal (Bagian 11 PRD).
 
-ROI selalu diikat ke nama karyawan tercetak (atau sebutan karyawan bila nama tidak terbaca) di zona penutup.
+ROI selalu diikat ke nama karyawan tercetak (atau sebutan karyawan bila nama tidak terbaca) di blok tanda tangan,
+yaitu zona penutup tanpa baris paragrafnya.
 Sistem tidak pernah memilih tinta terbesar di halaman: jangkar tidak ditemukan berarti `uncertain`.
 """
 
@@ -19,12 +20,13 @@ from contract_extractor.models import SignatureStatus, Word
 from contract_extractor.pdf.objects import Box, PageObjects
 from contract_extractor.stages.filename import normalize_name
 from contract_extractor.stages.ink import TEXT_BOX_MIN_CONF, InkFeatures, ink_verdict, measure_ink
-from contract_extractor.stages.page_selection import closing_zone
+from contract_extractor.stages.page_selection import signature_block
 
 EMPLOYEE_LABELS = ("pihak kedua", "tenaga kerja", "karyawan", "pekerja")
 _COMPANY_LABEL = re.compile(r"^(?:pihak pertama|pengusaha|perusahaan|direktur|pt)$")
 
 NAME_MATCH_MIN = 85
+LABEL_MATCH_MIN = 85  # OCR can merge or garble a label under a signature stroke (`PIHAKKEDUA`)
 SINGLE_TOKEN_MATCH_MIN = 90  # a one-word name (`Abdkarim`) needs a closer match
 MAX_WORD_GAP = 2.0  # words further apart than this many word heights belong to different columns
 ROI_WIDTH = 2.5  # times the name width, centred on the name
@@ -109,14 +111,35 @@ def name_anchors(zone: list[Line], name: str) -> list[Box]:
     return found
 
 
+def _label_score(text: str, accept: re.Pattern[str] | tuple[str, ...]) -> float:
+    if isinstance(accept, re.Pattern):
+        return 100.0 if accept.match(text) else 0.0
+    compact = text.replace(" ", "")
+    best = 0.0
+    for label in accept:
+        # A one-word label needs a closer match, or `bekerja` would pass for `pekerja`.
+        threshold = LABEL_MATCH_MIN if " " in label else SINGLE_TOKEN_MATCH_MIN
+        score = fuzz.ratio(compact, label.replace(" ", ""))
+        if score >= threshold:
+            best = max(best, score)
+    return best
+
+
 def _phrase_boxes(zone: list[Line], accept: re.Pattern[str] | tuple[str, ...]) -> list[Box]:
+    """Label boxes, one per label occurrence: overlapping windows on a line keep only the best match."""
     boxes: list[Box] = []
     for line in zone:
+        found: list[tuple[float, Box]] = []
         for group in _windows(line, 3):
             text = normalize_name(" ".join(w.text for w in group))
-            matched = accept.match(text) if isinstance(accept, re.Pattern) else text in accept
-            if matched:
-                boxes.append(_box(group))
+            score = _label_score(text, accept) if text else 0.0
+            if score:
+                found.append((score, _box(group)))
+        kept: list[Box] = []
+        for _, box in sorted(found, key=lambda item: -item[0]):
+            if not any(box.intersects(other) for other in kept):
+                kept.append(box)
+        boxes.extend(sorted(kept, key=lambda b: b.x0))
     return boxes
 
 
@@ -276,7 +299,7 @@ def detect_signature(
     labels: tuple[str, ...] = EMPLOYEE_LABELS,
 ) -> SignatureResult:
     """`image` is the P_ttd render whose pixels line up with `page` coordinates (straightened for scans)."""
-    zone = closing_zone(page)
+    zone = signature_block(page)
     company = _phrase_boxes(zone, _COMPANY_LABEL)
     employee = _phrase_boxes(zone, labels)
     pixels = _pixels(page, image)

@@ -1,0 +1,10 @@
+# Allow-list: the image needs only the package source and its dependency pins.
+*
+!pyproject.toml
+!requirements.lock
+!src/
+**/__pycache__
+**/*.py[cod]
+# Never let a contract, output, or secret into the build context, even by accident.
+**/*.pdf
+**/.env*

@@ -16,6 +16,7 @@ from contract_extractor.stages.page_selection import (
     candidate_pages,
     closing_zone,
     select_pages,
+    signature_block,
 )
 
 EMPLOYEE = "Budi Santoso"
@@ -63,6 +64,56 @@ def test_opening_dibuat_dan_ditandatangani_does_not_open_a_closing_zone_on_page_
     page = identity_page()
     zone = closing_zone(page)
     assert all(line.top > 600 for line in zone)
+
+
+def _closing_page(number: int, closing: list[str], footer: str | None = None):
+    """A last page with a multi-line closing paragraph, a block without place/date, and optionally a footer."""
+    body = flow(["Pasal 10 Penutup", *(["Hal-hal yang belum diatur akan ditetapkan kemudian oleh Pihak Pertama dan Pihak Kedua."] * 6), *closing])
+    block = [(470.0, 80.0, "PIHAK PERTAMA"), (470.0, 380.0, "PIHAK KEDUA"), (550.0, 80.0, "Andi Wijaya"), (550.0, 380.0, EMPLOYEE)]
+    rows = body + block + ([(745.0, 50.0, footer)] if footer else [])
+    return page_text(number, rows)
+
+
+# Closing paragraphs worded like the real samples: no "demikian perjanjian", several lines long.
+SIGNED_IN_SOUND_MIND = [
+    "Perjanjian ini dibuat dalam dua salinan yang masing-masing mempunyai kekuatan hukum yang sama.",
+    "Para pihak menandatangani perjanjian ini dalam keadaan sadar dan tanpa paksaan dari pihak manapun",
+    "serta telah membaca dan memahami seluruh isi perjanjian ini sebelum dibubuhi tanda tangan para pihak.",
+]
+RUNNING_FOOTER = "PT Contoh Sejahtera Gedung Contoh Lantai 5 Jalan Contoh Raya Nomor 1 Jakarta Indonesia"
+
+
+def test_multi_line_closing_paragraph_without_demikian_finds_the_signature_page():
+    pages = [identity_page(), body_page(2, SALARY_LINES), body_page(3), body_page(4), _closing_page(5, SIGNED_IN_SOUND_MIND)]
+    assert select_pages(pages, 5, None).p_ttd == 5
+
+
+def test_running_footer_does_not_push_the_closing_zone_off_the_page():
+    page = _closing_page(5, SIGNED_IN_SOUND_MIND, footer=RUNNING_FOOTER)
+    zone = closing_zone(page)
+    assert zone and zone[0].text.startswith("Para pihak menandatangani")
+    assert all(line.top < 745.0 for line in zone)
+    pages = [identity_page(), body_page(2, SALARY_LINES), body_page(3), body_page(4), page]
+    assert select_pages(pages, 5, None).p_ttd == 5
+
+
+def test_signature_block_leaves_out_the_closing_paragraph():
+    block = signature_block(_closing_page(5, SIGNED_IN_SOUND_MIND, footer=RUNNING_FOOTER))
+    assert [line.text for line in block] == ["PIHAK PERTAMA PIHAK KEDUA", f"Andi Wijaya {EMPLOYEE}"]
+
+
+def test_two_column_label_line_right_under_the_closing_paragraph_stays_in_the_block():
+    # Vendor 1: the party labels follow the last paragraph line at normal line spacing.
+    rows = flow(["Pasal 10 Penutup", *SIGNED_IN_SOUND_MIND])
+    label_y = rows[-1][0] + 14.0
+    rows += [(label_y, 80.0, "PIHAK PERTAMA"), (label_y, 380.0, "PIHAK KEDUA"), (label_y + 90.0, 380.0, EMPLOYEE)]
+    block = signature_block(page_text(5, rows))
+    assert [line.text for line in block] == ["PIHAK PERTAMA PIHAK KEDUA", EMPLOYEE]
+
+
+def test_signing_word_in_the_middle_of_a_body_page_opens_no_zone():
+    page = body_page(3, ["Dokumen yang telah ditandatangani para pihak berlaku sebagai bukti yang sah bagi Pihak Pertama dan Pihak Kedua."])
+    assert all(line.top > 600 for line in closing_zone(page))
 
 
 def test_period_continuing_on_page_two_becomes_second_p_id():

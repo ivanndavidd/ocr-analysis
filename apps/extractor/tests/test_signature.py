@@ -3,7 +3,17 @@
 import cv2
 import numpy as np
 import pytest
-from helpers import BODY_FILLER, PageExtras, flow, make_pdf, page_text, scribble_ops, signature_rows, signed_contract_pdf
+from helpers import (
+    BODY_FILLER,
+    PageExtras,
+    flow,
+    make_pdf,
+    page_text,
+    pdf_rect,
+    scribble_ops,
+    signature_rows,
+    signed_contract_pdf,
+)
 
 from contract_extractor.models import SignatureStatus
 from contract_extractor.pdf.objects import read_page_objects
@@ -80,6 +90,49 @@ def test_two_anchored_rois_that_disagree_are_uncertain(tmp_path):
     )
     result = _detect(pdf, page_number=1)
     assert (result.status, result.candidates) == (UNCERTAIN, 2)
+
+
+def _vendor_c_page(employee_label: str = "PIHAK KEDUA") -> list[tuple[float, float, str]]:
+    """Closing page laid out like samples C and D: the closing paragraph wraps a short line ending in the employee
+    label, a running paragraph continues under it, then the two-column block with a company line under the labels."""
+    rows = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6)
+    rows += flow(
+        [
+            "Demikian perjanjian ini dibuat dan ditandatangani oleh Pihak Pertama dan Pihak Kedua",
+            "dalam rangkap dua bermeterai cukup yang masing-masing mempunyai kekuatan hukum sama",
+            "bagi PIHAK KEDUA.",
+            "Perjanjian ini ditandatangani dalam keadaan sadar dan tanpa paksaan dari pihak manapun.",
+        ],
+        start_y=200.0,
+    )
+    return rows + [
+        (300.0, 80.0, "PIHAK PERTAMA"),
+        (300.0, 380.0, employee_label),
+        (316.0, 80.0, "PT Contoh Sejahtera"),
+        (380.0, 80.0, "Andi Wijaya"),
+        (380.0, 380.0, "Budi Santoso"),
+        (394.0, 80.0, "Direktur"),
+    ]
+
+
+VENDOR_C_SIGNATURE_BOX = (385.0, 336.0, 70.0, 40.0)  # right above the printed name
+
+
+@pytest.mark.parametrize("name", ["Budi Santoso", None])
+def test_paragraph_line_ending_in_the_employee_label_is_not_an_anchor(tmp_path, name):
+    box = VENDOR_C_SIGNATURE_BOX
+    extras = PageExtras(annots=[(f"/Subtype /Ink /Rect [{pdf_rect(box)}]", scribble_ops(box))])
+    pdf = make_pdf(tmp_path / "c.pdf", [("layout", [(x, y, t) for y, x, t in _vendor_c_page()])], {0: extras})
+    result = _detect(pdf, name=name, page_number=1)
+    assert (result.status, result.source) == (SIGNED, "annotation")
+    assert result.anchor == (ANCHOR_NAME if name else ANCHOR_LABEL)
+
+
+def test_ocr_garbled_employee_label_still_anchors():
+    page = page_text(1, _vendor_c_page(employee_label="PIHAKKEDUA"))
+    result = detect_signature(page, False, np.full((1100, 850), 255, np.uint8), None, None)
+    assert (result.anchor, result.status) == (ANCHOR_LABEL, UNSIGNED)
+    assert result.roi is not None and result.roi[0] > 0.5  # the employee's right-hand column
 
 
 def test_signed_widget_and_annotations_are_read(tmp_path):

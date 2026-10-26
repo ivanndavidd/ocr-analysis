@@ -212,3 +212,26 @@ Proceed without waiting when:
 - Existing project conventions indicate the correct approach.
 - The missing detail has an obvious default and can be documented in the final response.
 - You can implement and verify a focused change within the current workspace.
+
+## Build and run
+
+The only app is `apps/extractor`: a Python 3.11 batch CLI (`contract-extractor`). It is not a server, so there is no port, no `EXPOSE`, and no health path. The Python stack deviates from `allowedStack` and its Tech Architecture Group exception is pending (see `PROJECT.md`); there is no `package.json` or `bun` command table. Run every command below inside `apps/extractor`.
+
+| Task | Command |
+| --- | --- |
+| Create the venv | `uv venv --python 3.11 .venv` |
+| Install pinned dependencies | `uv pip install --python .venv -r requirements.lock` then `uv pip install --python .venv --no-deps -e .` |
+| Test | `.venv/Scripts/python -m pytest` (Windows) or `.venv/bin/python -m pytest`; tests marked `tesseract` skip when Tesseract with `ind+eng` is absent |
+| Run locally | `contract-extractor run <pdf-or-folder> --out output [--config config.yaml] [--recursive]` |
+| Build the image | `container build -t contract-extractor .` |
+| Run the image | `container run --rm --read-only --tmpfs /tmp --mount type=bind,source=<pdf-folder>,target=/data/in,readonly --volume <out-folder>:/data/out contract-extractor` |
+
+The image runs as UID/GID 10001, reads `/data/in`, writes `results.json`, `results.csv` and `results.xlsx` to `/data/out`, and keeps temp files on the `/tmp` tmpfs. Add `--mount type=bind,source=<config.yaml>,target=/data/config.yaml,readonly` and append `run /data/in --out /data/out --config /data/config.yaml` to use a config file. With the default config nothing leaves the container; Apple Container documents no `--network none`, so network isolation is the host's job.
+
+Environment (see `.env.example`; none is required with the default config):
+
+| Variable | Needed when |
+| --- | --- |
+| `TESSERACT_CMD` | Tesseract is not on `PATH` (the image has it on `PATH`) |
+| `ANTHROPIC_API_KEY` | `extractor.enabled: true` with `provider: claude` |
+| `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS` | `extractor.enabled: true` with `provider: gemini-vertex` (ADC, no API key) |
