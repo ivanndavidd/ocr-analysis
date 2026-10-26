@@ -30,7 +30,8 @@ LABEL_MATCH_MIN = 85  # OCR can merge or garble a label under a signature stroke
 SINGLE_TOKEN_MATCH_MIN = 90  # a one-word name (`Abdkarim`) needs a closer match
 MAX_WORD_GAP = 2.0  # words further apart than this many word heights belong to different columns
 ROI_WIDTH = 2.5  # times the name width, centred on the name
-ROI_HEIGHT = 5.0  # times the name line height
+ROI_HEIGHT = 5.0  # times the name line height, when no employee label sits above the name
+LABEL_REACH = 10.0  # name heights; an employee label further above the name belongs to another part of the page
 MAX_ROI_WIDTH = 0.5  # of the page width
 VECTOR_MIN_SEGMENTS = 8
 VECTOR_MIN_LENGTH = 1.0  # total stroke length, in ROI widths; a tick or a short underline stays below it
@@ -160,12 +161,23 @@ def _column(cx: float, half_width: float, page: PageText, company: list[Box]) ->
 
 
 def roi_above(name: Box, page: PageText, labels: list[Box], company: list[Box]) -> Box:
-    """From the name's bottom edge upward, so a signature written over the printed name still counts."""
+    """From the name's bottom edge upward, so a signature written over the printed name still counts.
+
+    The space between the employee label and the printed name is where the signature goes, so when a label
+    sits above the name in the same column the ROI spans exactly that space, taller or shorter than the default.
+    """
     x0, x1 = _column((name.x0 + name.x1) / 2, ROI_WIDTH * name.width / 2, page, company)
     top = name.bottom - ROI_HEIGHT * name.height
-    for label in labels:  # stop early at an employee label above the name, in the same column
-        if label.bottom <= name.top and label.bottom > top and label.x1 > x0 and label.x0 < x1:
-            top = label.bottom
+    above = [
+        label
+        for label in labels
+        if label.bottom <= name.top
+        and label.x1 > x0
+        and label.x0 < x1
+        and name.bottom - label.bottom <= LABEL_REACH * name.height
+    ]
+    if above:
+        top = max(label.bottom for label in above)  # the nearest one
     return Box(x0, max(0.0, top), x1, name.bottom)
 
 

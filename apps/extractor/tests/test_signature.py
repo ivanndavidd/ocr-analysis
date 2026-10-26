@@ -128,6 +128,35 @@ def test_paragraph_line_ending_in_the_employee_label_is_not_an_anchor(tmp_path, 
     assert result.anchor == (ANCHOR_NAME if name else ANCHOR_LABEL)
 
 
+def test_name_roi_spans_the_whole_gap_up_to_the_employee_label(tmp_path):
+    # Sample C: about seven name heights between the label and the printed name, the signature written high in
+    # that gap. A fixed five-name-height ROI missed it: the real scan came out uncertain, this page unsigned.
+    rows = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + [
+        (300.0, 80.0, "PIHAK PERTAMA"),
+        (300.0, 380.0, "PIHAK KEDUA"),
+        (380.0, 80.0, "Andi Wijaya"),
+        (380.0, 380.0, "Budi Santoso"),
+        (394.0, 80.0, "Direktur"),
+    ]
+    extras = PageExtras(ops=scribble_ops((385.0, 313.0, 70.0, 40.0)))
+    pdf = make_pdf(tmp_path / "c.pdf", [("layout", [(x, y, t) for y, x, t in rows])], {0: extras})
+    page = read_document(pdf, 200).texts[0]
+    with PageRenderer(pdf) as renderer:
+        image = renderer.render_gray(1, 300)
+
+    result = detect_signature(page, False, image, None, "Budi Santoso")  # pixels only, as on a scan
+    assert (result.status, result.source, result.anchor) == (SIGNED, "pixels", ANCHOR_NAME)
+    assert result.roi is not None and result.roi[1] < 313.0 / 792.0  # starts at the label, above the signature
+
+
+def test_label_far_above_the_name_does_not_stretch_the_roi():
+    page = page_text(1, [(100.0, 380.0, "PIHAK KEDUA"), (448.0, 380.0, "Budi Santoso")])
+    result = detect_signature(page, False, np.full((1100, 850), 255, np.uint8), None, "Budi Santoso")
+    name_height = 11.0  # helpers' word height
+    assert result.roi is not None
+    assert (result.roi[3] - result.roi[1]) * 792.0 <= 5.0 * name_height + 1.0  # the default height, not 350 pt
+
+
 def test_ocr_garbled_employee_label_still_anchors():
     page = page_text(1, _vendor_c_page(employee_label="PIHAKKEDUA"))
     result = detect_signature(page, False, np.full((1100, 850), 255, np.uint8), None, None)

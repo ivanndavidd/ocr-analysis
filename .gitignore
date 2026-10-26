@@ -34,3 +34,7 @@ Thumbs.db
 
 # Local agent settings
 .claude/settings.local.json
+
+# Local run configs (machine paths, extractor choices); only the example is shared
+apps/extractor/config*.yaml
+!apps/extractor/config.example.yaml
