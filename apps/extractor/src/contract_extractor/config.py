@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,8 +54,17 @@ class OcrSettings(_Strict):
 
 
 class ExtractorSettings(_Strict):
+    # Sends masked P_id text to a cloud LLM; off until the client's cloud policy approves it.
+    enabled: bool = False
     provider: ExtractorProvider = ExtractorProvider.CLAUDE
+    model: str | None = Field(None, pattern=r"^[A-Za-z0-9][A-Za-z0-9@._\-]{0,99}$")  # null: provider default
     max_chars_per_page: int = Field(4000, ge=500, le=20000)
+    timeout_s: int = Field(60, ge=5, le=600)
+    max_retries: int = Field(2, ge=0, le=10)
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"  # claude only; tune on the Fase 0 test set
+    refusal_fallback: bool = True  # claude only: a declined request is re-run on a fallback Claude model
+    vertex_project: str | None = Field(None, pattern=r"^[a-z][a-z0-9\-]{4,61}[a-z0-9]$")  # else GOOGLE_CLOUD_PROJECT
+    vertex_location: str | None = Field(None, pattern=r"^[a-z0-9\-]{2,40}$")  # else GOOGLE_CLOUD_LOCATION
 
 
 class OutputSettings(_Strict):

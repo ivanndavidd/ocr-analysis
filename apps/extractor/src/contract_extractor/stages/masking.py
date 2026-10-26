@@ -26,9 +26,16 @@ _MONEY_WORDS = re.compile(
 )
 # >= 10 digits with at most one separator between digits (NIK, rekening, HP).
 _DIGIT_RUN = re.compile(r"(?<!\d)(?:\d[\s.\-]?){9,}\d(?!\d)")
+# ID lines keep their label, so the extractor can tell the employee block apart, but lose the whole value,
+# even when OCR broke the digits into short runs (`3171O1234567OOO1`) that the digit-run rule misses.
+_ID_VALUE = re.compile(
+    r"^(\s*(?:\d+[.)]\s*)?(?:nik|no\.?\s*ktp|nomor\s*ktp|npwp|no\.?\s*rek(?:ening)?|nomor\s*rekening)\b\s*[:.]?\s*)(.+)$",
+    re.IGNORECASE | re.MULTILINE,
+)
 _PLACEHOLDER = "\x00"
 
 REDACTED_LINE = "[REDACTED-LINE]"
+REDACTED_ID = "[REDACTED-ID]"
 PAGE_SEPARATOR = "\n\n"  # two characters, so digits on either side can never join into one run
 
 
@@ -88,10 +95,17 @@ def mask_text(text: str) -> MaskResult:
     result.counts["nominal"] += n
 
     protected, kept = _protect_dates(masked)
-    protected, n = _DIGIT_RUN.subn("[REDACTED-ID]", protected)
+    protected, n = _DIGIT_RUN.subn(REDACTED_ID, protected)
     result.counts["deret_angka"] += n
-    result.text = _restore_dates(protected, kept)
+    masked = _restore_dates(protected, kept)
 
+    def redact_id_value(m: re.Match[str]) -> str:
+        if m.group(2).strip() == REDACTED_ID:
+            return m.group(0)
+        result.counts["nilai_identitas"] += 1
+        return m.group(1) + REDACTED_ID
+
+    result.text = _ID_VALUE.sub(redact_id_value, masked)
     assert_no_leak(result.text)
     return result
 

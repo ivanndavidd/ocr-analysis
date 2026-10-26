@@ -1,11 +1,13 @@
 """Real Tesseract runs on synthetic scans. Skipped when Tesseract with ind+eng is not installed."""
 
+import re
 from datetime import date
 
 import pytest
 from helpers import scan_pdf_from, signed_contract_pdf
 
 from contract_extractor.config import Settings
+from contract_extractor.extractors.base import Evidence, ExtractionResult
 from contract_extractor.models import PageKind, RegexPeriod
 from contract_extractor.pdf.render import PageRenderer
 from contract_extractor.pipeline import REASON_OCR_LOW_CONFIDENCE, REASON_PAGE_SELECTION_AMBIGUOUS, process_file
@@ -49,3 +51,28 @@ def test_scanned_contract_end_to_end(ocr_runner, scanned_contract):
     # Tahap 3, local part, on OCR text: period found by regex, NIK and birth line masked.
     assert result.log.periode_regex == RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 12, 31))
     assert result.log.pola_dimask >= 2
+
+
+def test_scanned_contract_payload_is_masked_and_answer_verifies(ocr_runner, scanned_contract):
+    sent: list[str] = []
+
+    class RecordingExtractor:
+        name = "fake-llm"
+
+        def extract(self, masked_text: str) -> ExtractionResult:
+            sent.append(masked_text)
+            return ExtractionResult(
+                nama_karyawan="Budi Santoso",
+                tanggal_mulai=date(2026, 1, 1),
+                tanggal_selesai=date(2026, 12, 31),
+                bukti=Evidence(nama="Nama : Budi Santoso", periode="mulai tanggal 1 Januari 2026 sampai dengan"),
+                confidence=0.95,
+            )
+
+    result = process_file(scanned_contract, Settings(), ocr_runner, RecordingExtractor())
+
+    [payload] = sent
+    assert not re.search(r"\d{5,}", payload)  # no NIK fragment survives OCR + masking
+    assert "Lahir" not in payload and "1990" not in payload
+    assert (result.nama_karyawan, result.tanggal_selesai) == ("Budi Santoso", date(2026, 12, 31))
+    assert result.log.validasi_nama_file == {"nama": "cocok", "periode": "cocok"}

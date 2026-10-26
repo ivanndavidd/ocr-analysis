@@ -22,6 +22,18 @@ class ExtractionResult(BaseModel):
     confidence: float = Field(0.0, ge=0.0, le=1.0)
 
 
+class ExtractorError(Exception):
+    """A failed extraction call. `kind` is safe to log; it never holds document text or API messages."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__(kind)
+        self.kind = kind
+
+
+class ExtractorUnavailable(Exception):
+    """The configured extractor cannot run (credentials, model, or settings); raised before any file is read."""
+
+
 class Extractor(Protocol):
     name: str
 

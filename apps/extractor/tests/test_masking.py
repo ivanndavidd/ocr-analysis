@@ -122,3 +122,29 @@ def test_each_page_is_cut_separately_and_counts_add_up():
 def test_digits_at_page_edges_do_not_join_across_the_separator():
     result = mask_pages(["kode 12345", "67890 lanjut"], max_chars_per_page=4000)
     assert result.text == "kode 12345" + PAGE_SEPARATOR + "67890 lanjut"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "NIK : 3171O1234567OOO1",  # OCR read zeros as letters: no 10-digit run is left for the digit rule
+        "No. KTP: 3171 0123 456 7 0001",
+        "No. Rekening : 123-456 7890 BCA",
+        "NPWP : 01.234.567.8-901.000",
+    ],
+)
+def test_id_lines_lose_their_whole_value_but_keep_the_label(line):
+    masked = mask_text(line).text
+    label = line.split(":")[0]
+    assert masked == f"{label}: [REDACTED-ID]" or masked == f"{label} : [REDACTED-ID]"
+    assert not re.search(r"\d{3,}", masked)
+
+
+def test_id_value_rule_counts_only_values_the_digit_rule_missed():
+    result = mask_text("NIK : 3171O1234567OOO1\nNIK : 3171012345670001")
+    assert (result.counts["nilai_identitas"], result.counts["deret_angka"]) == (1, 1)
+
+
+def test_words_that_merely_start_like_an_id_label_are_kept():
+    assert mask_text("Status nikah : belum").text == "Status nikah : belum"
+    assert mask_text("Nikah : belum").text == "Nikah : belum"

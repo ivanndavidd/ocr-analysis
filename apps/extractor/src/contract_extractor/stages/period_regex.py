@@ -105,6 +105,21 @@ def _durations(text: str, cutoff: int, dates: list[_DateHit]) -> list[int]:
     return found
 
 
+def dates_in_text(text: str) -> set[date]:
+    """Every valid four-digit-year date in the text, anchored or not; used to verify extractor answers."""
+    return {hit.value for hit in _dates(text)}
+
+
+def durations_in_text(text: str) -> set[int]:
+    """Every `N bulan` / `N tahun` in months that is not part of a date; used to verify extractor answers."""
+    dates = _dates(text)
+    found = set()
+    for m in _DURATION.finditer(text):
+        if not any(d.start < m.end() and m.start() < d.end for d in dates):
+            found.add(int(m.group(1)) * (12 if m.group(2).lower() == "tahun" else 1))
+    return found
+
+
 def _single(values: list[_T]) -> tuple[_T | None, bool]:
     """The one distinct value, and whether several distinct values conflicted."""
     distinct = list(dict.fromkeys(values))

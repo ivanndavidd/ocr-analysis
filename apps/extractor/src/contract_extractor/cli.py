@@ -11,6 +11,8 @@ import typer
 
 from contract_extractor.config import load_settings
 from contract_extractor.export import write_outputs
+from contract_extractor.extractors.base import ExtractorUnavailable
+from contract_extractor.extractors.factory import build_extractor
 from contract_extractor.ocr.engine import OcrUnavailable, build_runner
 from contract_extractor.pipeline import process_path
 
@@ -43,11 +45,15 @@ def run(
     try:
         # Local OCR is part of the product; refuse to run degraded rather than silently skip scans.
         ocr = build_runner(settings)
-    except OcrUnavailable as exc:
+        # An enabled extractor that cannot run would send every file to review; stop before reading any file.
+        extractor = build_extractor(settings)
+    except (OcrUnavailable, ExtractorUnavailable) as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+    if extractor is None:
+        typer.echo("extractor nonaktif (extractor.enabled: false): tidak ada teks yang dikirim, semua file masuk review")
 
-    results = process_path(input_path, settings, recursive, ocr)
+    results = process_path(input_path, settings, recursive, ocr, extractor)
     written = write_outputs(results, out_dir, settings.output.formats)
 
     summary = Counter(r.keputusan.value for r in results)

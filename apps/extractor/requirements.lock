@@ -1,22 +1,66 @@
-# Resolved for Python 3.11. Regenerate: uv pip compile pyproject.toml --extra dev --python-version 3.11 --upgrade --no-header -o requirements.lock
 annotated-doc==0.0.5
     # via typer
 annotated-types==0.8.0
     # via pydantic
+anthropic==1.13.0
+    # via contract-extractor (pyproject.toml)
+anyio==4.15.1
+    # via
+    #   anthropic
+    #   google-genai
+    #   httpx
+    #   httpx2
+certifi==2026.10.23
+    # via
+    #   httpcore
+    #   httpx
+    #   requests
 cffi==2.1.1
     # via cryptography
 charset-normalizer==3.5.2
-    # via pdfminer-six
+    # via
+    #   pdfminer-six
+    #   requests
 colorama==0.4.6
     # via
     #   pytest
     #   typer
 cryptography==50.0.2
-    # via pdfminer-six
+    # via
+    #   google-auth
+    #   pdfminer-six
+distro==1.9.0
+    # via google-genai
+docstring-parser==0.18.0
+    # via anthropic
 et-xmlfile==2.0.0
     # via openpyxl
+google-auth==2.62.0
+    # via google-genai
+google-genai==2.29.0
+    # via contract-extractor (pyproject.toml)
+h11==0.16.0
+    # via
+    #   httpcore
+    #   httpcore2
+httpcore==1.0.9
+    # via httpx
+httpcore2==2.16.0
+    # via httpx2
+httpx==0.28.1
+    # via google-genai
+httpx2==2.16.0
+    # via anthropic
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+    #   httpx2
+    #   requests
 iniconfig==2.3.1
     # via pytest
+jiter==0.18.0
+    # via anthropic
 markdown-it-py==4.2.0
     # via rich
 mdurl==0.1.2
@@ -43,10 +87,17 @@ pillow==13.0.0
     #   pytesseract
 pluggy==1.7.0
     # via pytest
+pyasn1==0.6.4
+    # via pyasn1-modules
+pyasn1-modules==0.4.2
+    # via google-auth
 pycparser==3.12
     # via cffi
 pydantic==2.14.1
-    # via contract-extractor (pyproject.toml)
+    # via
+    #   contract-extractor (pyproject.toml)
+    #   anthropic
+    #   google-genai
 pydantic-core==2.50.1
     # via pydantic
 pygments==2.21.0
@@ -65,16 +116,38 @@ pyyaml==6.0.3
     # via contract-extractor (pyproject.toml)
 rapidfuzz==3.14.5
     # via contract-extractor (pyproject.toml)
+requests==2.34.2
+    # via
+    #   google-auth
+    #   google-genai
 rich==15.0.0
     # via typer
 shellingham==1.5.4
     # via typer
+sniffio==1.3.1
+    # via
+    #   anthropic
+    #   google-genai
+tenacity==9.1.4
+    # via google-genai
+truststore==0.10.5
+    # via
+    #   httpcore2
+    #   httpx2
 typer==0.27.3
     # via contract-extractor (pyproject.toml)
 typing-extensions==4.16.0
     # via
+    #   anthropic
+    #   anyio
+    #   google-genai
+    #   httpx2
     #   pydantic
     #   pydantic-core
     #   typing-inspection
 typing-inspection==0.4.4
     # via pydantic
+urllib3==2.8.0
+    # via requests
+websockets==16.1.1
+    # via google-genai

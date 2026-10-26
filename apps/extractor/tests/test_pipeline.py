@@ -12,16 +12,19 @@ from contract_extractor import pipeline
 from contract_extractor.cli import app
 from contract_extractor.config import ExtractorSettings, InputSettings, PageSelectionSettings, Settings
 from contract_extractor.export import write_csv, write_xlsx
-from contract_extractor.models import Decision, FileResult, PageKind, RegexPeriod
+from contract_extractor.extractors.base import Evidence, ExtractionResult, ExtractorError
+from contract_extractor.models import Decision, FileResult, Level, PageKind, RegexPeriod
 from contract_extractor.pipeline import (
     FLAG_INPUT_REJECTED,
     FLAG_PIPELINE_INCOMPLETE,
     FLAG_PROCESSING_ERROR,
+    REASON_EXTRACTOR_DISABLED,
     REASON_MASK_LEAK,
     REASON_PAGE_SELECTION_AMBIGUOUS,
     process_file,
     process_path,
 )
+from contract_extractor.stages.filename import parse_filename
 from contract_extractor.stages.masking import MaskLeakError, mask_pages
 
 
@@ -162,7 +165,7 @@ def test_native_contract_gets_regex_period_and_a_masked_p_id_payload(tmp_path, m
 
     assert result.log.periode_regex == RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 12, 31))
     assert result.log.pola_dimask == 2  # NIK digit run and the birth line
-    assert "extraction_not_implemented" in result.log.alasan
+    assert REASON_EXTRACTOR_DISABLED in result.log.alasan
     assert REASON_MASK_LEAK not in result.log.alasan
 
     [payload] = spy.payloads
@@ -170,7 +173,7 @@ def test_native_contract_gets_regex_period_and_a_masked_p_id_payload(tmp_path, m
     assert "3171012345670001" not in payload and "1990" not in payload
     assert "Gaji" not in payload and "7.500.000" not in payload  # page 2 never enters the payload
 
-    # Preparing the payload sends nothing; the extractor arrives in Fase 2b.
+    # With the extractor disabled, preparing the payload sends nothing.
     assert result.log.teks_keluar_karakter == 0
     assert result.log.extractor is None
 
@@ -187,10 +190,108 @@ def test_mask_leak_fails_closed(tmp_path, monkeypatch):
         raise MaskLeakError("mask_leak")
 
     monkeypatch.setattr(pipeline, "mask_pages", leaky)
+    extractor = FakeExtractor()
     pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
-    result = process_file(pdf, Settings())
+    result = process_file(pdf, Settings(), extractor=extractor)
 
     assert REASON_MASK_LEAK in result.log.alasan
     assert FLAG_PROCESSING_ERROR not in result.flags
     assert result.log.pola_dimask == 0
     assert result.keputusan is Decision.REVIEW_PRIORITY
+    assert extractor.payloads == [] and result.log.teks_keluar_karakter == 0
+
+
+GOOD_ANSWER = ExtractionResult(
+    nama_karyawan="Budi Santoso",
+    tanggal_mulai=date(2026, 1, 1),
+    tanggal_selesai=date(2026, 12, 31),
+    bukti=Evidence(
+        nama="Nama : Budi Santoso",
+        periode="mulai tanggal 1 Januari 2026 sampai dengan tanggal 31 Desember 2026",
+    ),
+    confidence=0.95,
+)
+
+
+class FakeExtractor:
+    name = "fake-llm"
+
+    def __init__(self, answer: ExtractionResult = GOOD_ANSWER, error: ExtractorError | None = None):
+        self.answer, self.error = answer, error
+        self.payloads: list[str] = []
+
+    def extract(self, masked_text: str) -> ExtractionResult:
+        self.payloads.append(masked_text)
+        if self.error:
+            raise self.error
+        return self.answer
+
+
+def test_extractor_answer_is_verified_and_fills_the_result(tmp_path):
+    extractor = FakeExtractor()
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    result = process_file(pdf, Settings(), extractor=extractor)
+
+    assert (result.nama_karyawan, result.tanggal_mulai, result.tanggal_selesai, result.durasi_bulan) == (
+        "Budi Santoso",
+        date(2026, 1, 1),
+        date(2026, 12, 31),
+        12,
+    )
+    assert result.confidence == {"nama": 0.95, "periode": 0.95}
+    assert result.log.validasi_nama_file == {"nama": "cocok", "periode": "cocok"}
+
+    # Data-minimization proof: one masked P_id payload left the machine, and the log says so.
+    [payload] = extractor.payloads
+    assert "3171012345670001" not in payload and "Gaji" not in payload
+    assert result.log.extractor == "fake-llm"
+    assert result.log.teks_keluar_karakter == len(payload)
+    assert result.log.komponen_halaman[1] == ["text_layer", "fake-llm:masked"]
+    assert all("fake-llm:masked" not in result.log.komponen_halaman[n] for n in (2, 3, 4, 5))
+
+    assert REASON_EXTRACTOR_DISABLED not in result.log.alasan
+    assert result.keputusan is Decision.REVIEW_PRIORITY  # signature detection is still pending
+
+
+def test_extracted_name_that_differs_from_the_filename_is_reported(tmp_path):
+    pdf = signed_contract_pdf(tmp_path / "Rina Wulandari - 1 Januari 2026 - 31 Desember 2026.pdf")
+    result = process_file(pdf, Settings(), extractor=FakeExtractor())
+    assert result.log.validasi_nama_file == {"nama": "tidak_cocok", "periode": "cocok"}
+
+
+def test_extractor_error_is_isolated_to_the_file(tmp_path):
+    extractor = FakeExtractor(error=ExtractorError("api:RateLimitError"))
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    result = process_file(pdf, Settings(), extractor=extractor)
+
+    assert "extractor_error:api:RateLimitError" in result.log.alasan
+    assert FLAG_PROCESSING_ERROR not in result.flags
+    assert result.nama_karyawan is None
+    assert result.log.teks_keluar_karakter > 0  # the request was sent even though it failed
+
+
+def test_ambiguous_page_selection_sends_nothing(contracts_dir):
+    extractor = FakeExtractor()
+    results = [r for r in process_path(contracts_dir, Settings(), extractor=extractor) if r.log.n_halaman]
+    assert len(results) == 2  # neither readable file has a signature page, so P_ttd is missing in both
+    assert all(REASON_PAGE_SELECTION_AMBIGUOUS in r.log.alasan for r in results)
+    assert extractor.payloads == []
+
+
+def test_p_id_text_from_failed_ocr_is_never_sent():
+    extractor = FakeExtractor()
+    result = FileResult(file="Budi Santoso - 12 bulan.pdf")
+    levels = pipeline._extract(result, "Nama : Budi Santoso", False, parse_filename(result.file), extractor)
+    assert levels == {"extraction": Level.RED}
+    assert extractor.payloads == [] and result.log.extractor is None
+
+
+@pytest.mark.tesseract
+def test_cli_refuses_an_enabled_extractor_that_cannot_run(contracts_dir, tmp_path, tesseract_cmd, monkeypatch):
+    monkeypatch.setenv("TESSERACT_CMD", str(tesseract_cmd))
+    config = tmp_path / "config.yaml"
+    config.write_text("extractor:\n  enabled: true\n  provider: gemini-vertex\n", encoding="utf-8")
+    outcome = CliRunner().invoke(app, ["run", str(contracts_dir), "-c", str(config), "--out", str(tmp_path / "out")])
+    assert outcome.exit_code == 2
+    assert "extractor.model is required" in outcome.output
+    assert not (tmp_path / "out").exists()

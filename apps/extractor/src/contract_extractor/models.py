@@ -68,6 +68,7 @@ class FileLog(BaseModel):
     ocr_conf: dict[int, float] = Field(default_factory=dict)
     ocr_cloud_dipakai: bool = False
     periode_regex: RegexPeriod | None = None
+    validasi_nama_file: dict[str, str] = Field(default_factory=dict)  # "nama"/"periode" -> cocok|mirip|tidak_cocok
     extractor: str | None = None
     # Counted only when an extractor actually sends text; preparing the masked payload alone sends nothing.
     teks_keluar_karakter: int = 0

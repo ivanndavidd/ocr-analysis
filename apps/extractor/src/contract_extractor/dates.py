@@ -43,6 +43,14 @@ def safe_date(year: int, month: int, day: int) -> date | None:
         return None
 
 
+def end_from_duration(start: date, months: int) -> date | None:
+    """Last day of a contract of whole months, e.g. 1 Jan + 12 = 31 Dec; None when the anniversary day
+    does not exist in the target month (31 Jan + 1), so the caller leaves it for review instead of guessing."""
+    total = start.month - 1 + months
+    anniversary = safe_date(start.year + total // 12, total % 12 + 1, start.day)
+    return anniversary - timedelta(days=1) if anniversary else None
+
+
 def months_between(start: date, end: date) -> int:
     """Whole contract months for an inclusive range, e.g. 1 Jan - 31 Mar = 3, 15 Jan - 14 Apr = 3."""
     after_end = end + timedelta(days=1)
