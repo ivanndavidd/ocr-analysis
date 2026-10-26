@@ -1,0 +1,66 @@
+# Resolved for Python 3.11. Regenerate: uv pip compile pyproject.toml --extra dev --python-version 3.11 --upgrade --no-header -o requirements.lock
+annotated-doc==0.0.5
+    # via typer
+annotated-types==0.8.0
+    # via pydantic
+cffi==2.1.1
+    # via cryptography
+charset-normalizer==3.5.2
+    # via pdfminer-six
+colorama==0.4.6
+    # via
+    #   pytest
+    #   typer
+cryptography==50.0.2
+    # via pdfminer-six
+et-xmlfile==2.0.0
+    # via openpyxl
+iniconfig==2.3.1
+    # via pytest
+markdown-it-py==4.2.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
+openpyxl==3.1.5
+    # via contract-extractor (pyproject.toml)
+packaging==26.3
+    # via pytest
+pdfminer-six==20260107
+    # via pdfplumber
+pdfplumber==0.11.10
+    # via contract-extractor (pyproject.toml)
+pillow==13.0.0
+    # via pdfplumber
+pluggy==1.7.0
+    # via pytest
+pycparser==3.12
+    # via cffi
+pydantic==2.14.1
+    # via contract-extractor (pyproject.toml)
+pydantic-core==2.50.1
+    # via pydantic
+pygments==2.21.0
+    # via
+    #   pytest
+    #   rich
+pypdfium2==5.14.0
+    # via pdfplumber
+pytest==9.1.1
+    # via contract-extractor (pyproject.toml)
+pyyaml==6.0.3
+    # via contract-extractor (pyproject.toml)
+rapidfuzz==3.14.5
+    # via contract-extractor (pyproject.toml)
+rich==15.0.0
+    # via typer
+shellingham==1.5.4
+    # via typer
+typer==0.27.3
+    # via contract-extractor (pyproject.toml)
+typing-extensions==4.16.0
+    # via
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via pydantic

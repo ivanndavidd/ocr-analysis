@@ -1,0 +1,20 @@
+# Salin ke config.yaml lalu sesuaikan. Kredensial API tidak disimpan di sini; pakai environment variable.
+
+input:
+  max_file_mb: 50        # file lebih besar ditolak sebelum dibuka
+  max_pages: 200         # dokumen dengan halaman lebih banyak ditolak
+
+ocr:
+  primary: tesseract
+  fallback: paddle
+  # OCR cloud mengirim gambar P_id mentah SEBELUM masking (termasuk NIK dan alamat).
+  # Hanya boleh true dengan persetujuan tertulis terpisah dari client.
+  cloud_fallback: false
+
+extractor:
+  provider: claude       # claude | gemini-vertex
+  max_chars_per_page: 4000
+
+output:
+  dir: output
+  formats: [json, csv, xlsx]
