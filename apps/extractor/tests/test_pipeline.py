@@ -3,8 +3,9 @@ import json
 import logging
 from datetime import date
 
+import numpy as np
 import pytest
-from helpers import BODY_FILLER, make_pdf, signed_contract_pdf
+from helpers import BODY_FILLER, WORD_FOOTER, WORD_MARGIN, PageExtras, make_pdf, signed_contract_pdf
 from openpyxl import load_workbook
 from typer.testing import CliRunner
 
@@ -22,16 +23,19 @@ from contract_extractor.extractors.base import Evidence, ExtractionResult, Extra
 from contract_extractor.models import Decision, FileResult, Level, PageKind, RegexPeriod, SignatureStatus
 from contract_extractor.pipeline import (
     FLAG_AUTO_DISABLED,
+    FLAG_FORMAT_NONSTANDARD,
     FLAG_INPUT_REJECTED,
     FLAG_PROCESSING_ERROR,
     REASON_EXTRACTOR_DISABLED,
     REASON_MASK_LEAK,
+    REASON_OCR_UNAVAILABLE,
     REASON_PAGE_SELECTION_AMBIGUOUS,
     process_file,
     process_path,
 )
 from contract_extractor.stages.filename import parse_filename
 from contract_extractor.stages.masking import MaskLeakError, mask_pages
+from contract_extractor.stages.page_classify import ISSUE_PHOTO_IN_DOCUMENT, VENDOR_REQUEST
 
 
 def _by_file(results):
@@ -48,7 +52,8 @@ def test_batch_continues_past_a_broken_file_and_ignores_non_pdf(contracts_dir):
 
     native = results["Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf"]
     assert native.log.n_halaman == 3
-    assert native.log.jenis_halaman == {1: PageKind.NATIVE, 2: PageKind.NATIVE, 3: PageKind.UNCLASSIFIED}
+    assert native.log.jenis_halaman == {1: PageKind.NATIVE, 2: PageKind.NATIVE, 3: PageKind.BLANK}
+    assert native.log.format_halaman == {} and native.catatan_vendor is None  # an empty page is not a format issue
 
     scan = results["Rina Wulandari - 12 bulan.pdf"]
     assert scan.log.jenis_halaman == {1: PageKind.SCAN, 2: PageKind.SCAN}
@@ -74,6 +79,25 @@ def test_all_green_file_stays_in_review_until_auto_is_allowed(tmp_path):
 
     allowed = process_file(pdf, Settings(decision=DecisionSettings(allow_auto=True)), extractor=FakeExtractor())
     assert (allowed.keputusan, allowed.flags) == (Decision.AUTO, [])
+
+
+def test_non_standard_page_is_read_noted_for_the_vendor_and_never_auto_passes(tmp_path):
+    photo = np.full((640, 460), 200, np.uint8)
+    pasted = (("layout", [(WORD_MARGIN, 760.0, WORD_FOOTER)]), PageExtras(images=[(photo, (72.0, 72.0, 468.0, 605.0))]))
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", appendix=pasted)
+    result = process_file(pdf, Settings(decision=DecisionSettings(allow_auto=True)), extractor=FakeExtractor())
+
+    assert result.log.jenis_halaman[6] is PageKind.UNCLASSIFIED
+    assert result.log.format_halaman == {6: ISSUE_PHOTO_IN_DOCUMENT}
+    assert result.catatan_vendor == "Halaman 6: foto atau scan ditempel ke dokumen Word, tidak satu halaman penuh. " + VENDOR_REQUEST
+    assert REASON_OCR_UNAVAILABLE in result.log.alasan  # the page goes to OCR instead of being skipped
+    assert (result.log.p_id, result.log.p_ttd) == ([1], 5)
+    # Every other component is green (see the all-green test above); the format alone sends it to review.
+    assert (result.keputusan, result.flags) == (Decision.REVIEW, [FLAG_FORMAT_NONSTANDARD])
+
+    write_csv([result], tmp_path / "r.csv")
+    with (tmp_path / "r.csv").open(encoding="utf-8-sig", newline="") as fh:
+        assert next(csv.DictReader(fh))["catatan_vendor"] == result.catatan_vendor
 
 
 def test_native_pdf_selects_identity_and_signature_pages(tmp_path):

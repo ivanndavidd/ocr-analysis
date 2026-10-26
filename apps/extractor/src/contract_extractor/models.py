@@ -23,6 +23,7 @@ class PageKind(str, Enum):
     SCAN = "scan"
     HYBRID = "hybrid"
     UNCLASSIFIED = "unclassified"
+    BLANK = "blank"
 
 
 class SignatureStatus(str, Enum):
@@ -69,6 +70,7 @@ class FileLog(BaseModel):
 
     n_halaman: int | None = None
     jenis_halaman: dict[int, PageKind] = Field(default_factory=dict)
+    format_halaman: dict[int, str] = Field(default_factory=dict)  # page -> format issue code; standard pages absent
     p_id: list[int] = Field(default_factory=list)
     p_ttd: int | None = None
     halaman_sensitif: list[int] = Field(default_factory=list)
@@ -99,4 +101,6 @@ class FileResult(BaseModel):
     keputusan: Decision = Decision.REVIEW_PRIORITY
     flags: list[str] = Field(default_factory=list)
     confidence: dict[str, float] = Field(default_factory=dict)
+    # Plain-language note HR can forward to the vendor; page numbers and format issues only, never content.
+    catatan_vendor: str | None = None
     log: FileLog = Field(default_factory=FileLog)

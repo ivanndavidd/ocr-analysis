@@ -26,6 +26,7 @@ from contract_extractor.stages.filename import (
     parse_filename,
 )
 from contract_extractor.stages.masking import PAGE_SEPARATOR, MaskLeakError, mask_pages
+from contract_extractor.stages.page_classify import vendor_note
 from contract_extractor.stages.page_selection import candidate_pages, select_pages
 from contract_extractor.stages.period_regex import find_period
 from contract_extractor.stages.scoring import COMPONENT_FILENAME, decide, filename_level, ocr_level, signature_level
@@ -40,6 +41,8 @@ for _pdf_logger in ("pdfminer", "pdfplumber"):
 FLAG_INPUT_REJECTED = "input_rejected"
 FLAG_PROCESSING_ERROR = "processing_error"
 FLAG_AUTO_DISABLED = "auto_disabled"
+FLAG_FORMAT_NONSTANDARD = "format_nonstandard"
+COMPONENT_FORMAT = "format_halaman"
 REASON_PAGE_SELECTION_AMBIGUOUS = "page_selection_ambiguous"
 REASON_OCR_UNAVAILABLE = "ocr_unavailable"
 REASON_OCR_LOW_CONFIDENCE = "ocr_low_confidence"
@@ -52,7 +55,8 @@ REASON_SIGNATURE_UNCERTAIN = "signature_uncertain"
 
 SIGNATURE_DPI = 300  # native pages; scans reuse the OCR read resolution so word coordinates line up
 
-_NEEDS_OCR = (PageKind.SCAN, PageKind.HYBRID)
+# Unclassified pages carry content in a non-standard form (a pasted photo, outlined text): read them rather than skip.
+_NEEDS_OCR = (PageKind.SCAN, PageKind.HYBRID, PageKind.UNCLASSIFIED)
 
 
 @dataclass
@@ -264,6 +268,10 @@ def process_file(
         doc = read_document(path, settings.input.max_pages, settings.page_selection.economy_mode)
         result.log.n_halaman = doc.n_pages
         result.log.jenis_halaman = doc.kinds
+        result.log.format_halaman = doc.issues
+        result.catatan_vendor = vendor_note(doc.issues)
+        if doc.issues:
+            result.flags.append(FLAG_FORMAT_NONSTANDARD)
 
         parsed = parse_filename(path.name)
         result.flags.extend(parsed.flags)
@@ -272,7 +280,9 @@ def process_file(
 
         pages = _select_and_read(path, doc, result, parsed.name, quality_name, ocr)
         levels = dict(pages.levels)
-        payload = _prepare_extraction(result, pages.p_id_pages, settings.extractor.max_chars_per_page)
+        if doc.issues:
+            levels[COMPONENT_FORMAT] = Level.YELLOW  # read by OCR, but a person checks every non-standard file
+        payload =_prepare_extraction(result, pages.p_id_pages, settings.extractor.max_chars_per_page)
         levels.update(_extract(result, payload, pages.p_id_trusted, parsed, extractor))
         levels["signature"] = _signature(path, doc, result, pages, parsed, ocr)
 

@@ -9,7 +9,8 @@ import pdfplumber
 
 from contract_extractor.layout import PageText
 from contract_extractor.models import PageKind, Word
-from contract_extractor.stages.page_classify import PageStats, classify_page
+from contract_extractor.pdf.objects import vector_path
+from contract_extractor.stages.page_classify import HEADER_FOOTER_BAND, PageStats, classify_page
 from contract_extractor.stages.page_selection import candidate_pages
 
 _PDF_MAGIC = b"%PDF-"
@@ -28,7 +29,8 @@ class InputRejected(Exception):
 class DocumentRead:
     n_pages: int
     kinds: dict[int, PageKind] = field(default_factory=dict)
-    texts: list[PageText] = field(default_factory=list)  # native pages only; scan/hybrid need OCR
+    issues: dict[int, str] = field(default_factory=dict)  # format issue per non-standard page, for the vendor note
+    texts: list[PageText] = field(default_factory=list)  # native pages only; the other kinds need OCR
 
 
 def validate_pdf_file(path: Path, max_bytes: int) -> None:
@@ -46,11 +48,17 @@ def validate_pdf_file(path: Path, max_bytes: int) -> None:
 
 def _page_stats(page: pdfplumber.page.Page, number: int) -> PageStats:
     area = float(page.width * page.height) or 1.0
-    coverage = max(
-        ((im["x1"] - im["x0"]) * (im["bottom"] - im["top"]) / area for im in page.images),
-        default=0.0,
+    coverages = [(im["x1"] - im["x0"]) * (im["bottom"] - im["top"]) / area for im in page.images]
+    band_top, band_bottom = HEADER_FOOTER_BAND * page.height, (1 - HEADER_FOOTER_BAND) * page.height
+    return PageStats(
+        number=number,
+        n_chars=len(page.chars),
+        max_image_coverage=min(max(coverages, default=0.0), 1.0),
+        total_image_coverage=min(sum(coverages), 1.0),
+        n_images=len(coverages),
+        body_chars=sum(1 for c in page.chars if c["top"] >= band_top and c["bottom"] <= band_bottom),
+        vector_segments=sum(vector_path(curve).segments for curve in page.curves) + len(page.lines),
     )
-    return PageStats(number=number, n_chars=len(page.chars), max_image_coverage=min(coverage, 1.0))
 
 
 def _native_text(page: pdfplumber.page.Page, number: int) -> PageText:
@@ -72,9 +80,11 @@ def read_document(path: Path, max_pages: int, economy_mode: bool = False) -> Doc
         doc = DocumentRead(n_pages=n_pages)
         for number in numbers:
             page = pdf.pages[number - 1]
-            kind = classify_page(_page_stats(page, number))
-            doc.kinds[number] = kind
-            if kind is PageKind.NATIVE:
+            page_class = classify_page(_page_stats(page, number))
+            doc.kinds[number] = page_class.kind
+            if page_class.issue:
+                doc.issues[number] = page_class.issue
+            if page_class.kind is PageKind.NATIVE:
                 doc.texts.append(_native_text(page, number))
             page.close()
         return doc

@@ -85,7 +85,7 @@ def _bezier_length(p0: tuple[float, float], c1: tuple[float, float], c2: tuple[f
     return total
 
 
-def _vector(curve: dict[str, Any]) -> VectorPath:
+def vector_path(curve: dict[str, Any]) -> VectorPath:
     segments, length = 0, 0.0
     current: tuple[float, float] | None = None
     for command in curve.get("path") or []:
@@ -119,6 +119,6 @@ def read_page_objects(path: Path, page_number: int) -> PageObjects:
             box = Box(image["x0"], image["top"], image["x1"], image["bottom"])
             if box.width * box.height / area <= BACKGROUND_IMAGE_COVERAGE:
                 found.images.append(box)
-        found.vectors.extend(_vector(curve) for curve in page.curves)
+        found.vectors.extend(vector_path(curve) for curve in page.curves)
         page.close()
         return found

@@ -188,7 +188,7 @@ Semua halaman dibaca di mesin lokal hanya untuk memilih `P_id` (identitas dan pe
 Langkah:
 
 1. Buka PDF dengan pypdfium2. Untuk setiap halaman ambil teks dari text layer (`page.get_textpage().get_text_bounded()`).
-2. Bila halaman bukan native (scan atau hybrid, lihat klasifikasi di Bagian 9) dan termasuk kandidat (tiga halaman pertama atau lima terakhir), render halaman ke grayscale 150 dpi dan jalankan Tesseract lokal (`ind+eng`) hanya untuk mendapatkan teks kasar. Resolusi rendah cukup karena tujuannya skoring, bukan ekstraksi. Text layer halaman hybrid diabaikan karena biasanya hanya header/footer.
+2. Bila halaman bukan native (scan, hybrid, atau unclassified, lihat klasifikasi di Bagian 9) dan termasuk kandidat (tiga halaman pertama atau lima terakhir), render halaman ke grayscale 150 dpi dan jalankan Tesseract lokal (`ind+eng`) hanya untuk mendapatkan teks kasar. Resolusi rendah cukup karena tujuannya skoring, bukan ekstraksi. Text layer halaman hybrid diabaikan karena biasanya hanya header/footer.
 3. Hitung empat skor per halaman dari kata kunci dan pola di bawah: skor identitas, skor periode, skor tanda tangan, skor sensitif.
 4. Tambahkan bonus bila nama dari nama file ditemukan secara fuzzy (rapidfuzz `partial_ratio` ≥ 85) di halaman itu: bonus besar untuk skor tanda tangan bila nama berada di zona penutup halaman (definisi di bawah tabel), bonus kecil untuk skor identitas.
 5. `P_id` = halaman dengan skor identitas tertinggi di antara tiga halaman pertama. Bila halaman dengan skor periode tertinggi berbeda dan masih di tiga halaman pertama, halaman itu ikut menjadi `P_id` kedua; `P_id` maksimal dua halaman. `P_ttd` = halaman dengan skor tanda tangan tertinggi, dicari dari halaman terakhir ke depan, maksimal lima halaman. Halaman identitas utama tidak boleh menjadi `P_ttd` kecuali kontraknya satu halaman, karena pada halaman identitas yang pendek, label kedua pihak dan nama karyawan di bagian bawah bisa terlihat seperti blok tanda tangan.
@@ -210,19 +210,25 @@ Mode hemat yang bisa dipakai bila volume besar: jalankan OCR skoring hanya pada 
 
 ## 9. Tahap 2: Klasifikasi halaman dan OCR
 
-Hanya `P_id` dan `P_ttd` yang masuk tahap ini. Tiap halaman diklasifikasikan native, scan, atau hybrid, lalu dibaca lewat tangga OCR yang berhenti di anak tangga pertama yang cukup baik.
+Hanya `P_id` dan `P_ttd` yang masuk tahap ini. Tiap halaman diklasifikasikan native, scan, hybrid, unclassified, atau kosong, lalu dibaca lewat tangga OCR yang berhenti di anak tangga pertama yang cukup baik.
 
-Klasifikasi per halaman:
+Format standar mengikuti sampel: PDF langsung dari Word (native) atau scan satu gambar penuh per halaman. Halaman berformat lain tetap dibaca lewat OCR, bukan dilewati, tetapi diberi kode temuan format. File dengan minimal satu temuan mendapat flag `format_nonstandard`, kolom `catatan_vendor`, dan komponen keputusan "format halaman" kuning, sehingga selalu masuk review.
 
-| Jenis | Ciri | Cara baca |
-| --- | --- | --- |
-| Native | Text layer ≥ 50 karakter dan tidak ada satu gambar pun yang menutupi > 70% halaman; cakupan bbox teks tidak dipakai karena halaman native di sampel hanya 8–37% | Text layer langsung, dengan koordinat kata dari pdfplumber `extract_words()` |
-| Scan | Text layer kosong atau hampir kosong; satu gambar menutupi > 70% halaman | Render 300 dpi → OCR |
-| Hybrid | Ada text layer (header/footer dari Word) tetapi gambar menutupi > 70% halaman | Perlakukan sebagai scan; text layer diabaikan |
+Klasifikasi per halaman, dari statistik pdfplumber (jumlah karakter text layer, karakter di luar pita header/footer, luas gambar, dan segmen vektor):
 
-Halaman yang tidak masuk ketiga kategori (teks < 50 karakter tanpa gambar dominan, misalnya halaman hampir kosong) dicatat `page_unclassified` dan file masuk review.
+| Jenis | Ciri | Cara baca | Temuan format |
+| --- | --- | --- | --- |
+| Native | Tidak ada gambar > 70% halaman, gabungan gambar < 40% halaman atau ada teks isi ≥ 200 karakter, dan text layer ≥ 50 karakter. Juga text layer 1–49 karakter tanpa gambar besar dan tanpa teks vektor, misalnya halaman tanda tangan yang hanya berisi label dan nama. Cakupan bbox teks tidak dipakai karena halaman native di sampel hanya 8–37% | Text layer langsung, dengan koordinat kata dari pdfplumber `extract_words()` | Tidak ada |
+| Scan | Satu gambar menutupi > 70% halaman, dan text layer < 50 karakter atau berisi teks isi ≥ 200 karakter (scan searchable dari scanner) | Render 300 dpi → OCR; text layer diabaikan | Tidak ada |
+| Hybrid | Satu gambar > 70% halaman dengan text layer ≥ 50 karakter yang hampir seluruhnya di pita header/footer (foto satu halaman ditempel ke Word bermargin sempit) | Perlakukan sebagai scan; text layer diabaikan | `scan_with_word_text` |
+| Unclassified | Gabungan gambar ≥ 40% halaman tanpa teks isi: satu gambar ≥ 40% (`photo_in_document`, foto ditempel di dalam margin Word) atau beberapa potongan gambar (`split_images`). Juga text layer < 50 karakter dengan ≥ 1.000 segmen vektor (`vector_text`, teks di-outline), dan halaman tanpa teks yang hanya berisi gambar kecil (`image_without_text`) | Perlakukan sebagai scan | Kode di kolom kiri |
+| Kosong | Tanpa teks, tanpa gambar, segmen vektor < 1.000 (halaman kosong dari page break, garis bingkai) | Tidak dibaca | Tidak ada |
 
-Tangga OCR untuk halaman scan dan hybrid:
+Teks isi adalah karakter di luar pita header/footer, yaitu 10% teratas dan terbawah halaman. Ambang 70% saja tidak cukup untuk definisi hybrid di Bagian 1: foto halaman A4 yang ditempel di dalam margin default Word (1 inci) hanya menutupi 57–63% halaman. Dengan footer ≥ 50 karakter, halaman seperti itu dulu tergolong native, sehingga hanya footer yang terbaca dan isi foto diabaikan tanpa flag. Ambang 40%, 200 karakter, dan 1.000 segmen adalah nilai awal. Di sampel, gambar pada halaman native paling besar 1,5% halaman dan tanda tangan vektor perusahaan 79 segmen. Ketiganya dikalibrasi di test set Fase 0 yang wajib memuat file hybrid. Batasan: PDF native yang kop suratnya berupa gambar latar satu halaman penuh dibaca sebagai scan tanpa temuan, karena tanpa render mode teks pipeline tidak bisa membedakannya dari scan searchable. Pada mode hemat hanya halaman kandidat yang diklasifikasikan dan diperiksa formatnya.
+
+Catatan vendor berisi satu kalimat per kelompok halaman dengan temuan yang sama, diikuti permintaan kirim ulang, misalnya `Halaman 1, 2: foto atau scan ditempel ke dokumen Word, tidak satu halaman penuh. Mohon kirim ulang sebagai PDF langsung dari Word, atau scan satu gambar penuh per halaman.` Isinya hanya nomor halaman dan jenis temuan, tidak pernah isi kontrak atau nama, sehingga HR bisa meneruskannya ke vendor. Kode temuan per halaman dicatat di `log.format_halaman`.
+
+Tangga OCR untuk halaman scan, hybrid, dan unclassified:
 
 1. Preprocessing dengan OpenCV: grayscale, deskew berdasarkan sudut garis teks dominan, adaptive threshold, penghapusan bayangan dengan background subtraction untuk foto HP.
 2. Tesseract 5 lokal, bahasa `ind+eng`, mode `--psm 6`, keluaran `image_to_data` agar tiap kata punya bounding box dan confidence.
@@ -316,7 +322,7 @@ Jalur PDF native (tanpa scan):
 
 `unsigned` pada PDF native mendapat confidence normal, bukan tinggi, karena cara menandatangani PDF native terus bertambah.
 
-Jalur scan dan hybrid:
+Jalur scan, hybrid, dan unclassified:
 
 1. Render `P_ttd` dengan anotasi ikut di-render (file scan di sampel juga memuat anotasi Ink), pada resolusi baca OCR (`ocr.read_dpi`, 300 dpi) dan dengan koreksi kemiringan yang sama dengan OCR, sehingga piksel sejajar dengan daftar `Word` berkoordinat dari Tahap 2. Field digital dan anotasi yang berpotongan dengan ROI dicek seperti langkah 1 dan 2 jalur native; gambar tidak dicek, karena halaman scan itu sendiri gambar. Tanpa objek, status diambil dari analisis tinta, dengan sumber `pixels` bila signed.
 2. Temukan jangkar utama: deretan kata bersebelahan di satu baris zona penutup (Bagian 8) yang cocok fuzzy dengan nama karyawan, skor terbaik dari perbandingan tanpa spasi dan `token_sort_ratio`, minimal 85, atau 90 bila nama hanya satu kata seperti `Abd.karim`. Nama depan saja tidak mencapai ambang. Jarak antar kata lebih dari 2× tinggi kata memutus deretan, sehingga nama perwakilan perusahaan dan nama karyawan pada baris yang sama tidak pernah menyatu. Jangkar sekunder: sebutan karyawan yang ditemukan di teks `P_id` (`PIHAK KEDUA`, `Tenaga Kerja`, `Karyawan`, `Pekerja`; semuanya bila tidak satu pun ditemukan) di zona penutup. Bila sebutan itu muncul dua kali bertumpuk secara vertikal (label di atas, peran di bawah nama, seperti pada vendor 1), ROI adalah area di antara keduanya; bila hanya satu, ROI di bawahnya. Label pihak perusahaan (`PIHAK PERTAMA`, `Pengusaha`, `Perusahaan`, `Direktur`, `PT`) tidak pernah menjadi jangkar; label di kolom lain membatasi ROI di titik tengah antara label itu dan jangkar.
@@ -377,6 +383,7 @@ Confidence per field digabung menjadi keputusan per file dengan aturan sederhana
 | Ekstraksi | LLM confidence ≥ 0,9, bukti terverifikasi, regex sepakat | Bukti terverifikasi tetapi regex tidak sepakat | Bukti tidak ditemukan atau field null |
 | Validasi nama file | Nama dan periode cocok | Mirip, atau `filename_nonstandard`, atau `filename_unparsed` | Tidak cocok |
 | Tanda tangan | signed atau unsigned dengan margin jelas | uncertain | Jangkar tidak ditemukan |
+| Format halaman | Semua halaman berformat standar (komponen tidak dicatat) | Ada halaman dengan temuan format (`format_nonstandard`, Bagian 9) | Tidak dipakai |
 
 Keputusan: semua hijau → `auto`; ada kuning tanpa merah → `review`; ada merah → `review_priority`. Mismatch nama file dengan field lain hijau diberi label tambahan `filename_mismatch` agar HR memeriksa apakah file salah nama, bukan ekstraksinya yang salah.
 
@@ -394,8 +401,9 @@ Keluaran per file ditulis sebagai satu baris CSV/Excel dan satu objek JSON:
   "keputusan": "auto",
   "flags": [],
   "confidence": {"nama": 0.97, "periode": 0.95, "ttd": 0.92},
+  "catatan_vendor": null,
   "log": {
-    "n_halaman": 6, "p_id": [1], "p_ttd": 6,
+    "n_halaman": 6, "format_halaman": {}, "p_id": [1], "p_ttd": 6,
     "halaman_sensitif": [2, 3],
     "ocr_p_id": "tesseract", "ocr_p_ttd": "tesseract",
     "periode_regex": {"tanggal_mulai": "2026-01-01", "tanggal_selesai": "2026-12-31", "durasi_bulan": null, "ambigu": false},
@@ -403,6 +411,8 @@ Keluaran per file ditulis sebagai satu baris CSV/Excel dan satu objek JSON:
   }
 }
 ```
+
+CSV dan Excel memuat satu baris per file: field utama di atas tanpa blok `log`, `flags`, confidence per field, `alasan`, dan terakhir `catatan_vendor` (kosong untuk file berformat standar).
 
 Kolom `file` berisi path relatif terhadap folder input, sehingga file bernama sama di subfolder berbeda (mode `--recursive`) tetap bisa dibedakan; untuk satu folder datar isinya sama dengan nama file.
 

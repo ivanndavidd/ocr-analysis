@@ -252,23 +252,27 @@ def signature_extras(*marks: str) -> PageExtras:
     return extras
 
 
-def signed_contract_pdf(path: Path, *marks: str, employee: str = "Budi Santoso") -> Path:
+def signed_contract_pdf(
+    path: Path, *marks: str, employee: str = "Budi Santoso", appendix: tuple[tuple[str, object], PageExtras] | None = None
+) -> Path:
     """Five-page native contract: identity on page 1, salary on page 2, mid-page signature block on page 5.
 
     Without marks nobody has signed; `marks` (see signature_extras) adds signatures to the closing page.
+    `appendix` adds a sixth page (make_pdf page spec and its extras) after the closing page.
     """
     closing_page = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0, employee)
-    return make_pdf(
-        path,
-        [
-            ("text", "\n".join(IDENTITY_LINES + PERIOD_LINES)),
-            ("text", "\n".join(SALARY_LINES + [BODY_FILLER] * 40)),
-            ("text", "\n".join([BODY_FILLER] * 45)),
-            ("text", "\n".join([BODY_FILLER] * 45)),
-            ("layout", [(x, y, text) for y, x, text in closing_page]),
-        ],
-        {4: signature_extras(*marks)},
-    )
+    pages: list[tuple[str, object]] = [
+        ("text", "\n".join(IDENTITY_LINES + PERIOD_LINES)),
+        ("text", "\n".join(SALARY_LINES + [BODY_FILLER] * 40)),
+        ("text", "\n".join([BODY_FILLER] * 45)),
+        ("text", "\n".join([BODY_FILLER] * 45)),
+        ("layout", [(x, y, text) for y, x, text in closing_page]),
+    ]
+    extras = {4: signature_extras(*marks)}
+    if appendix:
+        pages.append(appendix[0])
+        extras[len(pages) - 1] = appendix[1]
+    return make_pdf(path, pages, extras)
 
 
 def scan_pdf_from(native: Path, out: Path, dpi: int = 200, skew_deg: float = 0.0) -> Path:
@@ -288,6 +292,28 @@ def scan_pdf_from(native: Path, out: Path, dpi: int = 200, skew_deg: float = 0.0
     finally:
         pdf.close()
     return make_pdf(out, pages)
+
+
+WORD_FOOTER = "PT Contoh Sejahtera Abadi - Jl. Contoh No. 1, Jakarta 10110"  # 59 characters, in the footer band
+WORD_MARGIN = 72.0  # Word's default one-inch margin
+
+
+def pasted_photo_pdf_from(native: Path, out: Path, dpi: int = 200, footer: str = WORD_FOOTER) -> Path:
+    """Photograph every page, paste each photo inside Word's default margins, add a footer, export to PDF."""
+    pdf = pdfium.PdfDocument(str(native))
+    pages: list[tuple[str, object]] = []
+    extras: dict[int, PageExtras] = {}
+    width = PAGE_W - 2 * WORD_MARGIN
+    box = (WORD_MARGIN, WORD_MARGIN, width, width * PAGE_H / PAGE_W)
+    try:
+        for index, page in enumerate(pdf):
+            image = np.array(page.render(scale=dpi / 72, grayscale=True).to_numpy(), dtype=np.uint8)
+            extras[index] = PageExtras(images=[(image[:, :, 0] if image.ndim == 3 else image, box)])
+            pages.append(("layout", [(WORD_MARGIN, 760.0, footer)]))
+            page.close()
+    finally:
+        pdf.close()
+    return make_pdf(out, pages, extras)
 
 
 def find_tesseract() -> Path | None:

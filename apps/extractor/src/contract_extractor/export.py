@@ -25,6 +25,7 @@ COLUMNS = [
     "confidence_periode",
     "confidence_ttd",
     "alasan",
+    "catatan_vendor",
 ]
 
 # Values from PDFs and filenames are untrusted; a leading formula character would execute in Excel.
@@ -45,6 +46,7 @@ def _row(result: FileResult) -> dict[str, object]:
         "confidence_periode": result.confidence.get("periode"),
         "confidence_ttd": result.confidence.get("ttd"),
         "alasan": ";".join(result.log.alasan),
+        "catatan_vendor": result.catatan_vendor,
     }
 
 

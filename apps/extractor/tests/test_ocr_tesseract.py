@@ -4,13 +4,19 @@ import re
 from datetime import date
 
 import pytest
-from helpers import scan_pdf_from, signed_contract_pdf
+from helpers import pasted_photo_pdf_from, scan_pdf_from, signed_contract_pdf
 
 from contract_extractor.config import Settings
 from contract_extractor.extractors.base import Evidence, ExtractionResult
-from contract_extractor.models import PageKind, RegexPeriod, SignatureStatus
+from contract_extractor.models import Decision, PageKind, RegexPeriod, SignatureStatus
 from contract_extractor.pdf.render import PageRenderer
-from contract_extractor.pipeline import REASON_OCR_LOW_CONFIDENCE, REASON_PAGE_SELECTION_AMBIGUOUS, process_file
+from contract_extractor.pipeline import (
+    FLAG_FORMAT_NONSTANDARD,
+    REASON_OCR_LOW_CONFIDENCE,
+    REASON_PAGE_SELECTION_AMBIGUOUS,
+    process_file,
+)
+from contract_extractor.stages.page_classify import ISSUE_PHOTO_IN_DOCUMENT
 
 pytestmark = pytest.mark.tesseract
 
@@ -80,6 +86,25 @@ def test_scanned_contract_payload_is_masked_and_answer_verifies(ocr_runner, scan
     assert "Lahir" not in payload and "1990" not in payload
     assert (result.nama_karyawan, result.tanggal_selesai) == ("Budi Santoso", date(2026, 12, 31))
     assert result.log.validasi_nama_file == {"nama": "cocok", "periode": "cocok"}
+
+
+def test_contract_photographed_into_word_is_read_and_reported(tmp_path, ocr_runner):
+    native = signed_contract_pdf(tmp_path / "native.pdf")
+    pasted = pasted_photo_pdf_from(native, tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    result = process_file(pasted, Settings(), ocr_runner)
+
+    # Before, the Word footer made these pages native, so only the footer was read and the photo was ignored.
+    assert set(result.log.jenis_halaman.values()) == {PageKind.UNCLASSIFIED}
+    assert result.log.format_halaman == {n: ISSUE_PHOTO_IN_DOCUMENT for n in range(1, 6)}
+    assert result.catatan_vendor.startswith("Halaman 1, 2, 3, 4, 5: foto atau scan ditempel ke dokumen Word")
+    assert FLAG_FORMAT_NONSTANDARD in result.flags
+
+    assert (result.log.p_id, result.log.p_ttd) == ([1], 5)
+    assert REASON_OCR_LOW_CONFIDENCE not in result.log.alasan
+    assert result.log.periode_regex == RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 12, 31))
+    assert result.status_ttd is SignatureStatus.UNSIGNED
+    assert result.log.tanda_tangan.jangkar == "nama"
+    assert result.keputusan is not Decision.AUTO
 
 
 def test_signed_scan_is_detected_from_pixels(tmp_path, ocr_runner):
