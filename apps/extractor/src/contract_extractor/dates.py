@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 # Full names and the abbreviations seen in Indonesian contracts and filenames.
@@ -20,6 +21,10 @@ _MONTH_WORDS: dict[int, tuple[str, ...]] = {
     12: ("des", "dec", "desember", "december"),
 }
 MONTHS: dict[str, int] = {w: m for m, words in _MONTH_WORDS.items() for w in words}
+# Regex alternation of every month word, longest first so `januari` wins over `jan`.
+MONTH_PATTERN = "|".join(sorted(MONTHS, key=len, reverse=True))
+# d/m/yyyy with one repeated separator. Four-digit years only: document text never yields a two-digit year.
+NUMERIC_DATE = re.compile(r"(?<!\d)(\d{1,2})([/.\-])(\d{1,2})\2(\d{4})(?!\d)")
 
 
 def month_number(word: str) -> int | None:

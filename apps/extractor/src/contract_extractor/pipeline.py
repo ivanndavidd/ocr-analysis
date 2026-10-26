@@ -13,7 +13,9 @@ from contract_extractor.ocr.engine import OcrRunner
 from contract_extractor.pdf.reader import DocumentRead, InputRejected, read_document, validate_pdf_file
 from contract_extractor.pdf.render import PageRenderer
 from contract_extractor.stages.filename import FLAG_NONSTANDARD, normalize_name, parse_filename
+from contract_extractor.stages.masking import PAGE_SEPARATOR, MaskLeakError, mask_pages
 from contract_extractor.stages.page_selection import candidate_pages, select_pages
+from contract_extractor.stages.period_regex import find_period
 from contract_extractor.stages.scoring import decide, ocr_level
 
 log = logging.getLogger(__name__)
@@ -28,9 +30,10 @@ FLAG_PIPELINE_INCOMPLETE = "pipeline_incomplete"
 REASON_PAGE_SELECTION_AMBIGUOUS = "page_selection_ambiguous"
 REASON_OCR_UNAVAILABLE = "ocr_unavailable"
 REASON_OCR_LOW_CONFIDENCE = "ocr_low_confidence"
+REASON_MASK_LEAK = "mask_leak"
 
-# Stages still to be built (Fase 2-3). Each counts as red until it lands, so nothing auto-passes.
-PENDING_STAGES = ("masking_extraction", "signature")
+# Stages still to be built (Fase 2b-3). Each counts as red until it lands, so nothing auto-passes.
+PENDING_STAGES = ("extraction", "signature")
 
 _NEEDS_OCR = (PageKind.SCAN, PageKind.HYBRID)
 
@@ -47,8 +50,11 @@ def _add_reason(result: FileResult, reason: str) -> None:
 
 def _select_and_read(
     path: Path, doc: DocumentRead, result: FileResult, employee_name: str, quality_name: str, ocr: OcrRunner | None
-) -> dict[str, Level]:
-    """Tahap 1 (page selection with rough OCR for scan/hybrid) and Tahap 2 (full OCR of P_id and P_ttd)."""
+) -> tuple[dict[str, Level], list[PageText]]:
+    """Tahap 1 (page selection with rough OCR for scan/hybrid) and Tahap 2 (full OCR of P_id and P_ttd).
+
+    Returns the component levels and the full-resolution text of the P_id pages, in page order.
+    """
     components = result.log.komponen_halaman
     for page in doc.texts:
         components.setdefault(page.number, []).append("text_layer")
@@ -74,13 +80,16 @@ def _select_and_read(
         if selection.ambiguous:
             # No cloud stage may run for this file; it goes straight to review.
             _add_reason(result, REASON_PAGE_SELECTION_AMBIGUOUS)
-            return {"page_selection": selection.level, "ocr_p_id": Level.RED}
+            return {"page_selection": selection.level, "ocr_p_id": Level.RED}, []
 
+        native = {page.number: page for page in doc.texts}
+        read_pages: dict[int, PageText] = {}
         engines: dict[int, str] = {}
         confidences: dict[int, float] = {}
         for number in sorted({*selection.p_id, selection.p_ttd}):
             if doc.kinds[number] is PageKind.NATIVE:
                 engines[number], confidences[number] = "text_layer", 1.0
+                read_pages[number] = native[number]
             elif renderer is None or ocr is None:
                 engines[number], confidences[number] = "none", 0.0
             else:
@@ -89,16 +98,36 @@ def _select_and_read(
                 confidences[number] = outcome.mean_conf
                 components.setdefault(number, []).append(f"{engines[number]}@{ocr.read_dpi}dpi")
                 result.log.ocr_conf[number] = round(outcome.mean_conf, 3)
+                if outcome.page is not None:
+                    read_pages[number] = outcome.page
                 if not outcome.passed:
                     _add_reason(result, REASON_OCR_LOW_CONFIDENCE)
 
         result.log.ocr_p_id = engines[selection.p_id[0]]
         result.log.ocr_p_ttd = engines[selection.p_ttd]  # type: ignore[index]
         p_id_conf = min(confidences[n] for n in selection.p_id)
-        return {"page_selection": selection.level, "ocr_p_id": ocr_level(p_id_conf)}
+        p_id_pages = [read_pages[n] for n in selection.p_id if n in read_pages]
+        return {"page_selection": selection.level, "ocr_p_id": ocr_level(p_id_conf)}, p_id_pages
     finally:
         if renderer is not None:
             renderer.close()
+
+
+def _prepare_extraction(result: FileResult, p_id_pages: list[PageText], max_chars_per_page: int) -> str | None:
+    """Tahap 3, local part: regex period from the raw P_id text, then the masked payload for the extractor.
+
+    Returns the only text allowed to leave the machine, or None when masking fails closed. Nothing is sent here.
+    """
+    if not p_id_pages:
+        return None
+    result.log.periode_regex = find_period(PAGE_SEPARATOR.join(page.text for page in p_id_pages))
+    try:
+        masked = mask_pages([page.text for page in p_id_pages], max_chars_per_page)
+    except MaskLeakError:
+        _add_reason(result, REASON_MASK_LEAK)
+        return None
+    result.log.pola_dimask = masked.total
+    return masked.text
 
 
 def process_file(path: Path, settings: Settings, ocr: OcrRunner | None = None) -> FileResult:
@@ -116,7 +145,9 @@ def process_file(path: Path, settings: Settings, ocr: OcrRunner | None = None) -
         # A nonstandard filename's "name" may include period text, so it cannot vouch for OCR quality.
         quality_name = "" if FLAG_NONSTANDARD in parsed.flags else normalize_name(parsed.name)
 
-        levels = _select_and_read(path, doc, result, parsed.name, quality_name, ocr)
+        levels, p_id_pages = _select_and_read(path, doc, result, parsed.name, quality_name, ocr)
+        # The extractor that sends this payload arrives in Fase 2b; until then no text leaves the machine.
+        _prepare_extraction(result, p_id_pages, settings.extractor.max_chars_per_page)
         levels.update({stage: Level.RED for stage in PENDING_STAGES})
         result.log.alasan.extend(f"{stage}_not_implemented" for stage in PENDING_STAGES)
         result.flags.append(FLAG_PIPELINE_INCOMPLETE)

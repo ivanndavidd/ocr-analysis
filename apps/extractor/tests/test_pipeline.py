@@ -1,24 +1,28 @@
 import csv
 import json
 import logging
+from datetime import date
 
 import pytest
 from helpers import BODY_FILLER, make_pdf, signed_contract_pdf
 from openpyxl import load_workbook
 from typer.testing import CliRunner
 
+from contract_extractor import pipeline
 from contract_extractor.cli import app
-from contract_extractor.config import InputSettings, PageSelectionSettings, Settings
+from contract_extractor.config import ExtractorSettings, InputSettings, PageSelectionSettings, Settings
 from contract_extractor.export import write_csv, write_xlsx
-from contract_extractor.models import Decision, FileResult, PageKind
+from contract_extractor.models import Decision, FileResult, PageKind, RegexPeriod
 from contract_extractor.pipeline import (
     FLAG_INPUT_REJECTED,
     FLAG_PIPELINE_INCOMPLETE,
     FLAG_PROCESSING_ERROR,
+    REASON_MASK_LEAK,
     REASON_PAGE_SELECTION_AMBIGUOUS,
     process_file,
     process_path,
 )
+from contract_extractor.stages.masking import MaskLeakError, mask_pages
 
 
 def _by_file(results):
@@ -120,6 +124,7 @@ def test_scan_pages_without_ocr_are_flagged_not_guessed(contracts_dir):
     scan = _by_file(process_path(contracts_dir, Settings()))["Rina Wulandari - 12 bulan.pdf"]
     assert "ocr_unavailable" in scan.log.alasan
     assert scan.log.p_id == [] and scan.log.p_ttd is None
+    assert scan.log.periode_regex is None and scan.log.pola_dimask == 0
 
 
 def test_exports_neutralize_formula_injection(tmp_path):
@@ -135,3 +140,57 @@ def test_exports_neutralize_formula_injection(tmp_path):
     ws = load_workbook(tmp_path / "r.xlsx").active
     assert ws["A2"].data_type == "s"
     assert ws["A2"].value == "=HYPERLINK(\"http://x\")"
+
+
+class MaskSpy:
+    """Wraps mask_pages to capture the payload the extractor would receive."""
+
+    def __init__(self, monkeypatch):
+        self.payloads: list[str] = []
+        monkeypatch.setattr(pipeline, "mask_pages", self)
+
+    def __call__(self, pages, max_chars_per_page):
+        masked = mask_pages(pages, max_chars_per_page)
+        self.payloads.append(masked.text)
+        return masked
+
+
+def test_native_contract_gets_regex_period_and_a_masked_p_id_payload(tmp_path, monkeypatch):
+    spy = MaskSpy(monkeypatch)
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    result = process_file(pdf, Settings())
+
+    assert result.log.periode_regex == RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 12, 31))
+    assert result.log.pola_dimask == 2  # NIK digit run and the birth line
+    assert "extraction_not_implemented" in result.log.alasan
+    assert REASON_MASK_LEAK not in result.log.alasan
+
+    [payload] = spy.payloads
+    assert "Budi Santoso" in payload and "31 Desember 2026" in payload
+    assert "3171012345670001" not in payload and "1990" not in payload
+    assert "Gaji" not in payload and "7.500.000" not in payload  # page 2 never enters the payload
+
+    # Preparing the payload sends nothing; the extractor arrives in Fase 2b.
+    assert result.log.teks_keluar_karakter == 0
+    assert result.log.extractor is None
+
+
+def test_payload_respects_the_per_page_character_limit(tmp_path, monkeypatch):
+    spy = MaskSpy(monkeypatch)
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    process_file(pdf, Settings(extractor=ExtractorSettings(max_chars_per_page=500)))
+    assert len(spy.payloads[0]) == 500
+
+
+def test_mask_leak_fails_closed(tmp_path, monkeypatch):
+    def leaky(pages, max_chars_per_page):
+        raise MaskLeakError("mask_leak")
+
+    monkeypatch.setattr(pipeline, "mask_pages", leaky)
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    result = process_file(pdf, Settings())
+
+    assert REASON_MASK_LEAK in result.log.alasan
+    assert FLAG_PROCESSING_ERROR not in result.flags
+    assert result.log.pola_dimask == 0
+    assert result.keputusan is Decision.REVIEW_PRIORITY

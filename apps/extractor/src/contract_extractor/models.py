@@ -43,6 +43,15 @@ class Level(str, Enum):
     RED = "merah"
 
 
+class RegexPeriod(BaseModel):
+    """Periode dari jalur regex lokal (Bagian 10 PRD): pembanding hasil extractor, bukan pengganti."""
+
+    tanggal_mulai: date | None = None
+    tanggal_selesai: date | None = None
+    durasi_bulan: int | None = None
+    ambigu: bool = False  # conflicting candidates were found; the conflicting fields stay null
+
+
 class FileLog(BaseModel):
     """Bukti data minimization per file. Tidak boleh memuat isi teks atau PII."""
 
@@ -58,7 +67,9 @@ class FileLog(BaseModel):
     ocr_p_ttd: str | None = None
     ocr_conf: dict[int, float] = Field(default_factory=dict)
     ocr_cloud_dipakai: bool = False
+    periode_regex: RegexPeriod | None = None
     extractor: str | None = None
+    # Counted only when an extractor actually sends text; preparing the masked payload alone sends nothing.
     teks_keluar_karakter: int = 0
     pola_dimask: int = 0
     alasan: list[str] = Field(default_factory=list)

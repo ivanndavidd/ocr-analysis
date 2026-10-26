@@ -1,10 +1,12 @@
 """Real Tesseract runs on synthetic scans. Skipped when Tesseract with ind+eng is not installed."""
 
+from datetime import date
+
 import pytest
 from helpers import scan_pdf_from, signed_contract_pdf
 
 from contract_extractor.config import Settings
-from contract_extractor.models import PageKind
+from contract_extractor.models import PageKind, RegexPeriod
 from contract_extractor.pdf.render import PageRenderer
 from contract_extractor.pipeline import REASON_OCR_LOW_CONFIDENCE, REASON_PAGE_SELECTION_AMBIGUOUS, process_file
 
@@ -43,3 +45,7 @@ def test_scanned_contract_end_to_end(ocr_runner, scanned_contract):
     assert result.log.komponen_halaman[1] == ["tesseract@150dpi", "tesseract@300dpi"]
     assert result.log.komponen_halaman[3] == ["tesseract@150dpi"]
     assert result.log.komponen_halaman[5] == ["tesseract@150dpi", "tesseract@300dpi"]
+
+    # Tahap 3, local part, on OCR text: period found by regex, NIK and birth line masked.
+    assert result.log.periode_regex == RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 12, 31))
+    assert result.log.pola_dimask >= 2

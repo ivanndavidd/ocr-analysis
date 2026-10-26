@@ -2,7 +2,14 @@ import re
 
 import pytest
 
-from contract_extractor.stages.masking import REDACTED_LINE, MaskLeakError, assert_no_leak, mask_text
+from contract_extractor.stages.masking import (
+    PAGE_SEPARATOR,
+    REDACTED_LINE,
+    MaskLeakError,
+    assert_no_leak,
+    mask_pages,
+    mask_text,
+)
 
 # Leak corpus: synthetic NIK, account, phone, and salary values in many separator formats.
 LEAK_CORPUS = [
@@ -94,3 +101,24 @@ def test_recheck_fails_closed_on_unmasked_text(leaky):
 def test_input_nul_bytes_cannot_smuggle_digits_through_date_placeholders():
     masked = mask_text("NIK 3171\x00012345670001").text
     assert "3171" not in masked
+
+
+def test_pages_are_masked_before_the_cut_so_no_partial_nik_survives():
+    page = "x" * 3990 + "NIK 3171012345670001"  # a cut-first approach would keep "317101"
+    masked = mask_pages([page], max_chars_per_page=4000).text
+    assert len(masked) == 4000
+    assert "317101" not in masked
+
+
+def test_each_page_is_cut_separately_and_counts_add_up():
+    pages = ["NIK : 3171012345670001\n" + "a" * 5000, "Alamat : Jl. Mawar\n" + "b" * 5000]
+    result = mask_pages(pages, max_chars_per_page=1000)
+    first, second = result.text.split(PAGE_SEPARATOR)
+    assert len(first) == len(second) == 1000
+    assert first.startswith("NIK : [REDACTED-ID]") and second.startswith(REDACTED_LINE)
+    assert result.counts["deret_angka"] == 1 and result.counts["baris_identitas"] == 1
+
+
+def test_digits_at_page_edges_do_not_join_across_the_separator():
+    result = mask_pages(["kode 12345", "67890 lanjut"], max_chars_per_page=4000)
+    assert result.text == "kode 12345" + PAGE_SEPARATOR + "67890 lanjut"

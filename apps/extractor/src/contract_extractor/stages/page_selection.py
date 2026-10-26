@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from contract_extractor.dates import MONTHS
+from contract_extractor.dates import MONTH_PATTERN
 from contract_extractor.layout import Line, PageText
 from contract_extractor.models import Level
 from contract_extractor.stages.filename import name_in_text, normalize_name
@@ -34,8 +34,7 @@ def _kw(*phrases: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![a-z0-9])(?:{alternatives})(?![a-z0-9])", re.IGNORECASE)
 
 
-_MONTH_ALT = "|".join(sorted(MONTHS, key=len, reverse=True))
-_DATE = re.compile(rf"\b\d{{1,2}}\s+(?:{_MONTH_ALT})\.?\s+\d{{4}}\b|\b\d{{1,2}}[/-]\d{{1,2}}[/-]\d{{4}}\b", re.IGNORECASE)
+_DATE = re.compile(rf"\b\d{{1,2}}\s+(?:{MONTH_PATTERN})\.?\s+\d{{4}}\b|\b\d{{1,2}}[/-]\d{{1,2}}[/-]\d{{4}}\b", re.IGNORECASE)
 _BIRTH = re.compile(r"(?:tempat\s*(?:/|,|dan)\s*)?(?:tgl\.?|tanggal)\s*lahir", re.IGNORECASE)
 
 _IDENTITY_KEYWORDS: list[tuple[re.Pattern[str], float]] = [
@@ -72,7 +71,7 @@ _ROLE_PAIRS = [
 ]
 ROLE_PAIR_BONUS = 3.0
 _SIGNING_WORDS = [_kw("tanda tangan", "ditandatangani"), _kw("menyetujui", "disetujui"), _kw("materai", "meterai")]
-_PLACE_DATE = re.compile(rf"^[a-z .]{{3,30}},\s*\d{{1,2}}\s+(?:{_MONTH_ALT})\.?\s+\d{{4}}", re.IGNORECASE)
+_PLACE_DATE = re.compile(rf"^[a-z .]{{3,30}},\s*\d{{1,2}}\s+(?:{MONTH_PATTERN})\.?\s+\d{{4}}", re.IGNORECASE)
 PLACE_DATE_BONUS = 2.0
 EMPTY_ZONE_BONUS = 1.0
 NAME_IN_ZONE_BONUS = 4.0

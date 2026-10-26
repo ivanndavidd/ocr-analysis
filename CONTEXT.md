@@ -19,16 +19,16 @@ Batch pipeline yang membaca PDF kontrak karyawan dari berbagai vendor (native, s
     - `cli.py` — Typer, perintah `run <file|folder> [--config] [--out] [--recursive]`
     - `config.py` — Settings pydantic dari YAML (extra key ditolak)
     - `models.py` — `Word`, enum status, `FileLog`, `FileResult` (skema keluaran Bagian 12)
-    - `dates.py` — tabel bulan ID/EN, tahun dua digit, `months_between`
+    - `dates.py` — tabel bulan ID/EN, pola bulan dan tanggal angka bersama, tahun dua digit, `months_between`
     - `layout.py` — `PageText` (kata berkoordinat per halaman) dan `group_lines`, dipakai text layer maupun OCR
-    - `pipeline.py` — validasi input, baca dokumen, OCR kasar kandidat scan/hybrid, page selection, OCR penuh P_id/P_ttd, isolasi error per file (FR-1), daftar `PENDING_STAGES`
+    - `pipeline.py` — validasi input, baca dokumen, OCR kasar kandidat scan/hybrid, page selection, OCR penuh P_id/P_ttd, regex periode dan payload P_id yang sudah di-mask (belum dikirim), isolasi error per file (FR-1), daftar `PENDING_STAGES`
     - `export.py` — JSON, CSV, XLSX dengan netralisasi formula injection
     - `pdf/reader.py` — validasi file (ekstensi, magic, ukuran, jumlah halaman); `read_document` mengklasifikasi halaman dan membaca kata berkoordinat halaman native via pdfplumber; economy mode hanya membuka halaman kandidat
     - `pdf/render.py` — render halaman ke grayscale di memori via pypdfium2, anotasi ikut digambar
     - `ocr/` — `preprocess` (hapus bayangan, deskew, adaptive threshold), `tesseract` (provider lokal), `engine` (`OcrRunner`: skoring 150 dpi dan tangga baca 300 dpi dengan uji kualitas; `build_runner` dari config)
-    - `stages/` — `page_classify`, `masking`, `filename`, `scoring`, `page_selection` (jadi); `signature` (stub)
+    - `stages/` — `page_classify`, `masking` (termasuk `mask_pages`: mask per halaman lalu potong), `filename`, `scoring`, `page_selection`, `period_regex` (jadi); `signature` (stub)
     - `extractors/base.py` — interface `Extractor` (belum ada implementasi)
-  - `tests/` — 142 test pytest; `helpers.py` membangun PDF native dan scan sintetis (nama dan angka fiktif); test bertanda `tesseract` butuh Tesseract dengan data ind+eng
+  - `tests/` — 173 test pytest; `helpers.py` membangun PDF native dan scan sintetis (nama dan angka fiktif); test bertanda `tesseract` butuh Tesseract dengan data ind+eng
 
 ## Plan And Milestones
 
@@ -40,7 +40,8 @@ Batch pipeline yang membaca PDF kontrak karyawan dari berbagai vendor (native, s
 - [x] Fase 1a: reader kata berkoordinat untuk halaman native, page selection dengan zona penutup
 - [x] Fase 1b: render pypdfium2, preprocessing OpenCV, OCR lokal Tesseract (skoring 150 dpi, baca 300 dpi, uji kualitas)
 - [ ] Fase 1c: ukur page selection recall dan confidence OCR per jenis PDF di test set; PaddleOCR bila Tesseract tidak cukup
-- [ ] Fase 2: regex periode, extractor Claude API dan Gemini Vertex, verifikasi bukti
+- [x] Fase 2a: regex periode berjangkar dan masking teks P_id di pipeline, semuanya lokal
+- [ ] Fase 2b: extractor Claude API dan Gemini Vertex, verifikasi bukti, kesepakatan regex dan LLM, level ekstraksi
 - [ ] Fase 3: deteksi tanda tangan (objek native via pypdf + analisis tinta OpenCV)
 - [ ] Fase 4: scoring end-to-end, Dockerfile (python 3.11 + tesseract-ocr-ind), UAT
 
@@ -57,16 +58,18 @@ Batch pipeline yang membaca PDF kontrak karyawan dari berbagai vendor (native, s
 - Logger `pdfminer` dan `pdfplumber` dikunci ke WARNING, karena di DEBUG keduanya mencatat isi content stream (nama, NIK). Log aplikasi merujuk file lewat hash nama file, bukan nama file.
 - Nama file produksi berpola `Nama Karyawan - Masa Kontrak`, dipisah di ` - ` pertama. Nama file sampel tidak mengikuti pola ini.
 - Development dan test hanya memakai data sintetis. Menjalankan pipeline pada PDF asli (`sample/`, test set Fase 0) butuh lingkungan dan persetujuan terpisah.
+- Regex periode adalah pembanding, bukan sumber field keluaran: hasilnya hanya masuk `log.periode_regex`, dan field `tanggal_mulai`/`tanggal_selesai` baru diisi extractor di Fase 2b. Kandidat yang bertentangan membuat field null dan `ambigu` true, tidak memilih salah satu. Jangkar `sejak`, `terhitung`, `hingga` dan bentuk rentang `X s/d Y` ditambahkan di luar daftar awal PRD; PRD sudah diperbarui.
+- Payload P_id di-mask per halaman lalu dipotong ke `extractor.max_chars_per_page`, karena memotong dulu bisa menyisakan potongan NIK di bawah 10 digit. `teks_keluar_karakter` tetap 0 sampai ada extractor yang benar-benar mengirim.
 - Page selection menghitung kehadiran kata kunci, bukan frekuensi. Kata kunci tanda tangan hanya dihitung di zona penutup, dan halaman identitas tidak boleh jadi P_ttd kecuali kontraknya satu halaman. Bobot dan ambang (identitas 6, periode 3, tanda tangan 5, margin 3) adalah nilai awal untuk dikalibrasi di Fase 0.
 
 ## Current State
 
-- `contract-extractor run` memilih P_id dan P_ttd untuk PDF native maupun scan. OCR kasar 150 dpi hanya menyentuh halaman kandidat; OCR penuh 300 dpi hanya P_id dan P_ttd. Log `komponen_halaman` mencatat komponen yang menerima tiap halaman, dan `ocr_conf` mencatat confidence. Tahap yang belum dibangun (`masking_extraction`, `signature`) dihitung merah, jadi setiap file tetap `review_priority`.
-- Verifikasi: 142 test lulus di Python 3.11.15, termasuk Tesseract asli pada scan sintetis miring 1,5°: P_id 1, P_ttd 5, confidence ≥ 0,8, sekitar 17 detik untuk 5 halaman (target PRD ≤ 30 detik). OSV 0 di 32 package.
+- `contract-extractor run` memilih P_id dan P_ttd untuk PDF native maupun scan. OCR kasar 150 dpi hanya menyentuh halaman kandidat; OCR penuh 300 dpi hanya P_id dan P_ttd. Log `komponen_halaman` mencatat komponen yang menerima tiap halaman, dan `ocr_conf` mencatat confidence. Setelah itu, regex periode berjalan di teks P_id mentah (`log.periode_regex`) dan payload P_id di-mask (`log.pola_dimask`); `mask_leak` membatalkan payload (fail closed). Tahap yang belum dibangun (`extraction`, `signature`) dihitung merah, jadi setiap file tetap `review_priority`.
+- Verifikasi: 173 test lulus di Python 3.11.15, termasuk Tesseract asli pada scan sintetis miring 1,5°: P_id 1, P_ttd 5, confidence ≥ 0,8, periode regex benar dari teks OCR, sekitar 17 detik untuk 5 halaman (target PRD ≤ 30 detik). OSV 0 di 32 package.
 - Lokal: Tesseract 5.4.0 ada di `%LOCALAPPDATA%\Programs\Tesseract-OCR` (tidak di PATH; set `TESSERACT_CMD` atau `ocr.tesseract_cmd`), dengan `ind.traineddata` dari tessdata_fast.
 - Review lisensi terbuka: wheel `opencv-python-headless` membawa DLL FFmpeg (LGPL-2.1) untuk video I/O yang tidak dipakai. Lisensi yang dideklarasikan Apache-2.0, tapi salah satu varian kebijakan perusahaan melarang LGPL. Perlu keputusan: terima, atau ganti preprocessing ke library lain.
 - pytesseract menulis citra halaman ke file sementara di folder temp OS selama satu panggilan, lalu menghapusnya. Kalau proses crash di tengah panggilan, file bisa tertinggal; perlu dipertimbangkan untuk Docker (temp di tmpfs).
 - Belum pernah dijalankan pada PDF asli, jadi ambang belum terkalibrasi.
 - Perbandingan periode presisi bulan-tahun (baris "Mirip" di PRD) belum diimplementasikan, menunggu konfirmasi format masa kontrak di nama file.
 - Risk level belum dicatat di PROJECT.md. Kemungkinan besar High karena memproses NIK dan data gaji; perlu `/assess-risk` oleh owner.
-- Langkah berikutnya: Fase 2, regex periode dan masking teks P_id, lalu extractor LLM (butuh keputusan kebijakan cloud dari client sebelum dipakai pada data asli).
+- Langkah berikutnya: Fase 2b, extractor LLM yang mengirim payload ter-mask (butuh keputusan kebijakan cloud dari client sebelum dipakai pada data asli; Gemini free tier hanya untuk data sintetis).

@@ -6,6 +6,8 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
+from contract_extractor.dates import NUMERIC_DATE
+
 _SENSITIVE_LINE = re.compile(r"\b(?:gaji|upah|tunjangan|thr|bonus)\b", re.IGNORECASE)
 _UNNEEDED_IDENTITY_LINE = re.compile(
     r"^\s*(?:\d+[.)]\s*)?(?:"
@@ -24,10 +26,10 @@ _MONEY_WORDS = re.compile(
 )
 # >= 10 digits with at most one separator between digits (NIK, rekening, HP).
 _DIGIT_RUN = re.compile(r"(?<!\d)(?:\d[\s.\-]?){9,}\d(?!\d)")
-_NUMERIC_DATE = re.compile(r"(?<!\d)(\d{1,2})([/.\-])(\d{1,2})\2(\d{4})(?!\d)")
 _PLACEHOLDER = "\x00"
 
 REDACTED_LINE = "[REDACTED-LINE]"
+PAGE_SEPARATOR = "\n\n"  # two characters, so digits on either side can never join into one run
 
 
 class MaskLeakError(Exception):
@@ -55,7 +57,7 @@ def _protect_dates(text: str) -> tuple[str, list[str]]:
         kept.append(m.group(0))
         return _PLACEHOLDER
 
-    return _NUMERIC_DATE.sub(swap, text), kept
+    return NUMERIC_DATE.sub(swap, text), kept
 
 
 def _restore_dates(text: str, kept: list[str]) -> str:
@@ -92,6 +94,19 @@ def mask_text(text: str) -> MaskResult:
 
     assert_no_leak(result.text)
     return result
+
+
+def mask_pages(pages: list[str], max_chars_per_page: int) -> MaskResult:
+    """Mask each page, then cut it to the limit. Masking first means a cut can never leave a partial NIK."""
+    combined = MaskResult(text="")
+    parts = []
+    for page in pages:
+        masked = mask_text(page)
+        combined.counts.update(masked.counts)
+        parts.append(masked.text[:max_chars_per_page])
+    combined.text = PAGE_SEPARATOR.join(parts)
+    assert_no_leak(combined.text)
+    return combined
 
 
 def has_long_digit_run(text: str) -> bool:
