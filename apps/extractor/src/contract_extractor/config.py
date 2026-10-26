@@ -21,6 +21,7 @@ class OcrEngine(str, Enum):
 
 class ExtractorProvider(str, Enum):
     CLAUDE = "claude"
+    CLAUDE_CODE = "claude-code"  # local testing with the user's own `claude auth login`
     GEMINI_VERTEX = "gemini-vertex"
 
 
@@ -65,6 +66,7 @@ class ExtractorSettings(_Strict):
     refusal_fallback: bool = True  # claude only: a declined request is re-run on a fallback Claude model
     vertex_project: str | None = Field(None, pattern=r"^[a-z][a-z0-9\-]{4,61}[a-z0-9]$")  # else GOOGLE_CLOUD_PROJECT
     vertex_location: str | None = Field(None, pattern=r"^[a-z0-9\-]{2,40}$")  # else GOOGLE_CLOUD_LOCATION
+    claude_code_cmd: Path | None = None  # claude-code only; falls back to CLAUDE_CODE_CMD, then PATH
 
 
 class DecisionSettings(_Strict):

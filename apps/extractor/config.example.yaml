@@ -24,15 +24,20 @@ extractor:
   # true mengirim teks P_id yang SUDAH di-mask ke LLM cloud. Butuh persetujuan kebijakan cloud dari client
   # sebelum dipakai pada data asli. false: tidak ada teks yang keluar, semua file masuk review.
   enabled: false
-  provider: claude       # claude | gemini-vertex (Vertex AI saja; Google AI Studio tidak didukung)
-  model: null            # null: claude-sonnet-5-5 untuk claude; gemini-vertex wajib diisi id model Vertex
+  # claude: Claude API dengan API key. claude-code: Claude Code CLI dengan login `claude auth login` milik
+  # pengguna yang menjalankan, untuk uji lokal saja (ketentuan Anthropic: login claude.ai hanya untuk pemakaian
+  # Claude Code oleh pemiliknya; layanan produksi memakai API key atau Vertex AI).
+  # gemini-vertex: Vertex AI saja; Google AI Studio tidak didukung.
+  provider: claude        # claude | claude-code | gemini-vertex
+  model: null            # null: claude-sonnet-5-5 untuk claude dan claude-code; gemini-vertex wajib diisi
   max_chars_per_page: 4000
   timeout_s: 60
   max_retries: 2
-  effort: high           # claude saja: low | medium | high | xhigh | max; dikalibrasi di test set Fase 0
+  effort: high           # claude dan claude-code: low | medium | high | xhigh | max; dikalibrasi di Fase 0
   refusal_fallback: true # claude saja: permintaan yang ditolak classifier diulang di model Claude cadangan
   vertex_project: null   # gemini-vertex; bisa juga lewat env GOOGLE_CLOUD_PROJECT
   vertex_location: null  # gemini-vertex; bisa juga lewat env GOOGLE_CLOUD_LOCATION
+  claude_code_cmd: null  # claude-code; path claude.exe bila tidak di PATH; bisa juga lewat env CLAUDE_CODE_CMD
 
 decision:
   # false: file yang semua komponennya hijau tetap masuk review (flag auto_disabled).

@@ -21,6 +21,13 @@ def build_extractor(settings: Settings) -> Extractor | None:
         claude.check()
         return claude
 
+    if cfg.provider is ExtractorProvider.CLAUDE_CODE:
+        from contract_extractor.extractors.claude_code import build_claude_code
+
+        claude_code = build_claude_code(cfg.claude_code_cmd, cfg.model, cfg.effort, cfg.timeout_s)
+        claude_code.check()
+        return claude_code
+
     from contract_extractor.extractors.gemini import build_gemini_vertex
 
     gemini = build_gemini_vertex(

@@ -234,4 +234,5 @@ Environment (see `.env.example`; none is required with the default config):
 | --- | --- |
 | `TESSERACT_CMD` | Tesseract is not on `PATH` (the image has it on `PATH`) |
 | `ANTHROPIC_API_KEY` | `extractor.enabled: true` with `provider: claude` |
+| `CLAUDE_CODE_CMD` | `provider: claude-code` and the Claude Code binary is not on `PATH`; sign in with `claude auth login` (local testing only, never in the image) |
 | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS` | `extractor.enabled: true` with `provider: gemini-vertex` (ADC, no API key) |
