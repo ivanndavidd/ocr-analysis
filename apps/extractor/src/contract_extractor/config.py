@@ -41,7 +41,13 @@ class PageSelectionSettings(_Strict):
 
 class OcrSettings(_Strict):
     primary: OcrEngine = OcrEngine.TESSERACT
-    fallback: OcrEngine | None = OcrEngine.PADDLE
+    fallback: OcrEngine | None = None  # PaddleOCR is planned but not available yet
+    tesseract_cmd: Path | None = None  # falls back to TESSERACT_CMD, then PATH
+    lang: str = Field("ind+eng", pattern=r"^[a-z_]+(\+[a-z_]+)*$")
+    scoring_dpi: int = Field(150, ge=72, le=300)
+    read_dpi: int = Field(300, ge=150, le=600)
+    timeout_s: int = Field(60, ge=5, le=600)
+    min_mean_conf: float = Field(0.70, ge=0.0, le=1.0)
     # Sends the raw P_id image before masking; off unless the client approved it in writing.
     cloud_fallback: bool = False
 

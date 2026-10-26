@@ -9,12 +9,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from rapidfuzz import fuzz
-
 from contract_extractor.dates import MONTHS
 from contract_extractor.layout import Line, PageText
 from contract_extractor.models import Level
-from contract_extractor.stages.filename import normalize_name
+from contract_extractor.stages.filename import name_in_text, normalize_name
 from contract_extractor.stages.masking import has_long_digit_run
 from contract_extractor.stages.scoring import page_selection_level, worst
 
@@ -26,7 +24,6 @@ PERIOD_THRESHOLD = 3.0
 SIGNATURE_THRESHOLD = 5.0  # a signature page without a name match still reaches 6
 LEVEL_MARGIN = 3.0
 
-NAME_MATCH_MIN = 85
 BODY_LINE_MIN_WORDS = 6
 BODY_LINE_MIN_WIDTH = 0.5  # fraction of the page's text span
 LARGE_EMPTY_ZONE = 0.2  # fraction of page height
@@ -120,18 +117,6 @@ def candidate_pages(n_pages: int) -> list[int]:
     return sorted(set(first) | set(last))
 
 
-def _name_in(name_norm: str, text: str) -> bool:
-    """Fuzzy name match; a text shorter than the name must match whole, so `Budi` alone never counts."""
-    if not name_norm:
-        return False
-    norm = normalize_name(text)
-    if not norm:
-        return False
-    if len(norm) < len(name_norm):
-        return fuzz.ratio(name_norm, norm) >= NAME_MATCH_MIN
-    return fuzz.partial_ratio(name_norm, norm) >= NAME_MATCH_MIN
-
-
 def _presence(patterns: list[tuple[re.Pattern[str], float]], text: str) -> float:
     return sum(weight for pattern, weight in patterns if pattern.search(text))
 
@@ -161,7 +146,7 @@ def _identity_score(page: PageText, name_norm: str) -> float:
         if _NAME_LABEL.search(line.text) and any(_NAME_BLOCK_FOLLOWERS.search(l.text) for l in lines[i + 1 : i + 5]):
             score += NAME_BLOCK_BONUS
             break
-    if any(_name_in(name_norm, line.text) for line in lines):
+    if any(name_in_text(name_norm, line.text) for line in lines):
         score += NAME_ON_IDENTITY_BONUS
     return score
 
@@ -189,7 +174,7 @@ def _signature_score(page: PageText, name_norm: str) -> float:
         score += PLACE_DATE_BONUS
     if (page.height - zone[0].top) / page.height >= LARGE_EMPTY_ZONE:
         score += EMPTY_ZONE_BONUS
-    if any(_name_in(name_norm, l.text) for l in zone):
+    if any(name_in_text(name_norm, l.text) for l in zone):
         score += NAME_IN_ZONE_BONUS
     return score
 

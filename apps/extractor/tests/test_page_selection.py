@@ -10,9 +10,9 @@ from helpers import (
 )
 
 from contract_extractor.models import Level
+from contract_extractor.stages.filename import name_in_text
 from contract_extractor.stages.page_selection import (
     SIGNATURE_THRESHOLD,
-    _name_in,
     candidate_pages,
     closing_zone,
     select_pages,
@@ -124,7 +124,7 @@ def test_candidate_pages(n_pages, pages):
 
 def test_name_match_rejects_a_bare_first_name_and_other_people():
     name = "budi santoso"
-    assert _name_in(name, "Andi Wijaya Budi Santoso")
-    assert _name_in(name, "BUDI SANTOSO, S.Kom")
-    assert not _name_in(name, "Budi")
-    assert not _name_in(name, "Budi Hartono")
+    assert name_in_text(name, "Andi Wijaya Budi Santoso")
+    assert name_in_text(name, "BUDI SANTOSO, S.Kom")
+    assert not name_in_text(name, "Budi")
+    assert not name_in_text(name, "Budi Hartono")

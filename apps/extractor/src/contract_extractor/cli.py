@@ -11,6 +11,7 @@ import typer
 
 from contract_extractor.config import load_settings
 from contract_extractor.export import write_outputs
+from contract_extractor.ocr.engine import OcrUnavailable, build_runner
 from contract_extractor.pipeline import process_path
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -39,8 +40,14 @@ def run(
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     settings = load_settings(config)
     out_dir = out or settings.output.dir.resolve()
+    try:
+        # Local OCR is part of the product; refuse to run degraded rather than silently skip scans.
+        ocr = build_runner(settings)
+    except OcrUnavailable as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
 
-    results = process_path(input_path, settings, recursive)
+    results = process_path(input_path, settings, recursive, ocr)
     written = write_outputs(results, out_dir, settings.output.formats)
 
     summary = Counter(r.keputusan.value for r in results)

@@ -10,6 +10,10 @@ if TYPE_CHECKING:
     import numpy as np
 
 
+class OcrEngineError(Exception):
+    """One OCR call failed (timeout, crash); the ladder moves on to the next provider."""
+
+
 class OCRProvider(Protocol):
     name: str
     is_local: bool  # False means page pixels leave the machine; must be logged per file

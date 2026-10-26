@@ -108,6 +108,22 @@ def name_score(a: str, b: str) -> float:
     return max(fuzz.token_set_ratio(na, nb), fuzz.ratio(na.replace(" ", ""), nb.replace(" ", "")))
 
 
+NAME_IN_TEXT_MIN = 85
+
+
+def name_in_text(name_norm: str, text: str) -> bool:
+    """Fuzzy search for a normalized name in a line; a line shorter than the name must match whole,
+    so a bare first name (`Budi`) never counts as `Budi Santoso`."""
+    if not name_norm:
+        return False
+    norm = normalize_name(text)
+    if not norm:
+        return False
+    if len(norm) < len(name_norm):
+        return fuzz.ratio(name_norm, norm) >= NAME_IN_TEXT_MIN
+    return fuzz.partial_ratio(name_norm, norm) >= NAME_IN_TEXT_MIN
+
+
 def compare_name(from_file: str, extracted: str) -> Match:
     score = name_score(from_file, extracted)
     if score >= 90:

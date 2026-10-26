@@ -186,7 +186,7 @@ Semua halaman dibaca di mesin lokal hanya untuk memilih `P_id` (identitas dan pe
 Langkah:
 
 1. Buka PDF dengan pypdfium2. Untuk setiap halaman ambil teks dari text layer (`page.get_textpage().get_text_bounded()`).
-2. Bila teks < 50 karakter, render halaman ke grayscale 150 dpi dan jalankan Tesseract lokal (`ind+eng`) hanya untuk mendapatkan teks kasar. Resolusi rendah cukup karena tujuannya skoring, bukan ekstraksi.
+2. Bila halaman bukan native (scan atau hybrid, lihat klasifikasi di Bagian 9) dan termasuk kandidat (tiga halaman pertama atau lima terakhir), render halaman ke grayscale 150 dpi dan jalankan Tesseract lokal (`ind+eng`) hanya untuk mendapatkan teks kasar. Resolusi rendah cukup karena tujuannya skoring, bukan ekstraksi. Text layer halaman hybrid diabaikan karena biasanya hanya header/footer.
 3. Hitung empat skor per halaman dari kata kunci dan pola di bawah: skor identitas, skor periode, skor tanda tangan, skor sensitif.
 4. Tambahkan bonus bila nama dari nama file ditemukan secara fuzzy (rapidfuzz `partial_ratio` ≥ 85) di halaman itu: bonus besar untuk skor tanda tangan bila nama berada di zona penutup halaman (definisi di bawah tabel), bonus kecil untuk skor identitas.
 5. `P_id` = halaman dengan skor identitas tertinggi di antara tiga halaman pertama. Bila halaman dengan skor periode tertinggi berbeda dan masih di tiga halaman pertama, halaman itu ikut menjadi `P_id` kedua; `P_id` maksimal dua halaman. `P_ttd` = halaman dengan skor tanda tangan tertinggi, dicari dari halaman terakhir ke depan, maksimal lima halaman. Halaman identitas utama tidak boleh menjadi `P_ttd` kecuali kontraknya satu halaman, karena pada halaman identitas yang pendek, label kedua pihak dan nama karyawan di bagian bawah bisa terlihat seperti blok tanda tangan.
@@ -225,7 +225,7 @@ Tangga OCR untuk halaman scan dan hybrid:
 1. Preprocessing dengan OpenCV: grayscale, deskew berdasarkan sudut garis teks dominan, adaptive threshold, penghapusan bayangan dengan background subtraction untuk foto HP.
 2. Tesseract 5 lokal, bahasa `ind+eng`, mode `--psm 6`, keluaran `image_to_data` agar tiap kata punya bounding box dan confidence.
 3. Uji kualitas: mean confidence kata ≥ 70, dan nama dari nama file ditemukan fuzzy di `P_id`. Lolos → selesai.
-4. Gagal → PaddleOCR lokal, yang lebih tahan terhadap foto miring dan kontras rendah. Uji kualitas yang sama.
+4. Gagal → PaddleOCR lokal, yang lebih tahan terhadap foto miring dan kontras rendah. Uji kualitas yang sama. Langkah ini ditunda sampai kualitas Tesseract diukur di test set; sebelum itu tangga langsung ke langkah 5.
 5. Masih gagal → secara default file masuk review dengan alasan `ocr_low_confidence`. Dalam konfigurasi default tidak ada komponen cloud di tangga ini.
 6. Opsi non-default `ocr.cloud_fallback: true`: OCR cloud (Azure Document Intelligence, Google Document AI, atau AWS Textract) untuk `P_id` saja. Opsi ini mengirim gambar halaman mentah sebelum masking, termasuk NIK dan alamat, sehingga hanya boleh diaktifkan dengan persetujuan tertulis terpisah dari client, dan setiap pemakaiannya dicatat di log per file. `P_ttd` tidak pernah masuk opsi ini.
 
@@ -392,9 +392,9 @@ Seluruh pipeline ditulis dalam Python 3.11 dan berjalan sebagai satu container D
 | --- | --- | --- | --- |
 | Baca PDF, render, koordinat teks | pypdfium2 (render per halaman, text layer), pdfplumber (kata berkoordinat, gambar, kurva), pypdf (anotasi, field tanda tangan, `/SigFlags`) | PyMuPDF, pdf2image | PyMuPDF berlisensi AGPL-3.0 yang dilarang kebijakan lisensi perusahaan; ketiga pengganti berlisensi permisif (Apache-2.0/BSD-3, MIT, BSD-3), dan pdfplumber sudah memakai pypdfium2 untuk render. pdf2image butuh Poppler (GPL) |
 | OCR lokal utama | Tesseract 5, `ind+eng`, via pytesseract | EasyOCR | Deploy ringan tanpa GPU, keluaran per kata dengan bbox dan confidence, kualitas baik pada scan bersih |
-| OCR lokal fallback | PaddleOCR (PP-OCRv4) | docTR | Lebih tahan terhadap foto miring dan kontras rendah; jalan di CPU meski lebih lambat |
+| OCR lokal fallback | PaddleOCR (PP-OCRv4), ditunda | docTR | Lebih tahan terhadap foto miring dan kontras rendah; jalan di CPU meski lebih lambat. Ditambahkan setelah kualitas Tesseract diukur, karena paddlepaddle dan paddlex membawa dependency tree besar yang harus diaudit lisensi dan OSV-nya |
 | OCR cloud (opsional) | Azure Document Intelligence atau Google Document AI | AWS Textract | Keduanya mengembalikan bbox per kata dan punya region Asia Tenggara; pilihan akhir mengikuti cloud yang sudah dipakai client |
-| Preprocessing dan deteksi tanda tangan | OpenCV + NumPy + scikit-image | YOLO signature detector, vision LLM | Tanpa data latih, hasil bisa dijelaskan per fitur, sepenuhnya lokal |
+| Preprocessing dan deteksi tanda tangan | OpenCV (`opencv-python-headless`) + NumPy | YOLO signature detector, vision LLM | Tanpa data latih, hasil bisa dijelaskan per fitur, sepenuhnya lokal. Wheel OpenCV membawa DLL FFmpeg (LGPL-2.1) untuk video I/O yang tidak dipakai; perlu keputusan review lisensi |
 | Extractor LLM cloud | Claude API (Sonnet) dengan structured output JSON; Gemini Flash via Vertex AI sebagai pembanding kedua | OpenAI API | Akurasi tinggi pada teks OCR berantakan dan instruksi bahasa Indonesia; skema JSON ditegakkan. Gemini hanya lewat Vertex AI (terms enterprise, no-training) untuk data asli; Google AI Studio free tier tidak memenuhi NFR privasi dan hanya untuk data sintetis saat development |
 | Extractor LLM lokal | Tidak dipakai: client memutuskan tidak memakai LLM lokal | Qwen2.5-7B-Instruct, Llama 3.1 8B | Semua ekstraksi lewat API cloud, sehingga persetujuan client atas kebijakan cloud menjadi prasyarat proyek; fallback bila cloud ditolak adalah pra-isi untuk diverifikasi manusia, bukan model lokal |
 | Fuzzy matching | rapidfuzz | thefuzz, jellyfish | Cepat, `token_set_ratio` tahan terhadap urutan kata dan gelar |

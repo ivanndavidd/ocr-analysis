@@ -21,16 +21,26 @@ markdown-it-py==4.2.0
     # via rich
 mdurl==0.1.2
     # via markdown-it-py
+numpy==2.4.6
+    # via
+    #   contract-extractor (pyproject.toml)
+    #   opencv-python-headless
+opencv-python-headless==4.14.0.94
+    # via contract-extractor (pyproject.toml)
 openpyxl==3.1.5
     # via contract-extractor (pyproject.toml)
 packaging==26.3
-    # via pytest
+    # via
+    #   pytesseract
+    #   pytest
 pdfminer-six==20260107
     # via pdfplumber
 pdfplumber==0.11.10
     # via contract-extractor (pyproject.toml)
 pillow==13.0.0
-    # via pdfplumber
+    # via
+    #   pdfplumber
+    #   pytesseract
 pluggy==1.7.0
     # via pytest
 pycparser==3.12
@@ -44,7 +54,11 @@ pygments==2.21.0
     #   pytest
     #   rich
 pypdfium2==5.14.0
-    # via pdfplumber
+    # via
+    #   contract-extractor (pyproject.toml)
+    #   pdfplumber
+pytesseract==0.3.13
+    # via contract-extractor (pyproject.toml)
 pytest==9.1.1
     # via contract-extractor (pyproject.toml)
 pyyaml==6.0.3

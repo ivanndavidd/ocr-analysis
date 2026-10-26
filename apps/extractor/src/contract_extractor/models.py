@@ -52,8 +52,11 @@ class FileLog(BaseModel):
     p_ttd: int | None = None
     halaman_sensitif: list[int] = Field(default_factory=list)
     skor_halaman: dict[int, dict[str, float]] = Field(default_factory=dict)
+    # Every component that received each page (e.g. "text_layer", "tesseract@150dpi"); the data-minimization proof.
+    komponen_halaman: dict[int, list[str]] = Field(default_factory=dict)
     ocr_p_id: str | None = None
     ocr_p_ttd: str | None = None
+    ocr_conf: dict[int, float] = Field(default_factory=dict)
     ocr_cloud_dipakai: bool = False
     extractor: str | None = None
     teks_keluar_karakter: int = 0

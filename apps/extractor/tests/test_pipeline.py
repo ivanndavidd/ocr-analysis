@@ -2,7 +2,8 @@ import csv
 import json
 import logging
 
-from helpers import BODY_FILLER, IDENTITY_LINES, PERIOD_LINES, SALARY_LINES, flow, make_pdf, signature_rows
+import pytest
+from helpers import BODY_FILLER, make_pdf, signed_contract_pdf
 from openpyxl import load_workbook
 from typer.testing import CliRunner
 
@@ -18,20 +19,6 @@ from contract_extractor.pipeline import (
     process_file,
     process_path,
 )
-
-
-def _signed_contract_pdf(path):
-    closing_page = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0)
-    return make_pdf(
-        path,
-        [
-            ("text", "\n".join(IDENTITY_LINES + PERIOD_LINES)),
-            ("text", "\n".join(SALARY_LINES + [BODY_FILLER] * 40)),
-            ("text", "\n".join([BODY_FILLER] * 45)),
-            ("text", "\n".join([BODY_FILLER] * 45)),
-            ("layout", [(x, y, text) for y, x, text in closing_page]),
-        ],
-    )
 
 
 def _by_file(results):
@@ -67,7 +54,7 @@ def test_incomplete_pipeline_never_auto_passes(contracts_dir):
 
 
 def test_native_pdf_selects_identity_and_signature_pages(tmp_path):
-    pdf = _signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
+    pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf")
     result = process_file(pdf, Settings())
 
     assert result.log.p_id == [1]
@@ -106,7 +93,9 @@ def test_logs_never_contain_the_employee_name(contracts_dir, caplog):
         assert name not in joined
 
 
-def test_cli_writes_all_three_outputs(contracts_dir, tmp_path):
+@pytest.mark.tesseract
+def test_cli_writes_all_three_outputs(contracts_dir, tmp_path, tesseract_cmd, monkeypatch):
+    monkeypatch.setenv("TESSERACT_CMD", str(tesseract_cmd))
     out = tmp_path / "out"
     outcome = CliRunner().invoke(app, ["run", str(contracts_dir), "--out", str(out)])
     assert outcome.exit_code == 0, outcome.output
@@ -116,6 +105,21 @@ def test_cli_writes_all_three_outputs(contracts_dir, tmp_path):
     assert len(payload) == 3
     assert (out / "results.csv").exists()
     assert (out / "results.xlsx").exists()
+
+
+def test_cli_refuses_to_run_without_local_ocr(contracts_dir, tmp_path, monkeypatch):
+    monkeypatch.setenv("TESSERACT_CMD", str(tmp_path / "missing" / "tesseract.exe"))
+    monkeypatch.setenv("PATH", str(tmp_path))
+    outcome = CliRunner().invoke(app, ["run", str(contracts_dir), "--out", str(tmp_path / "out")])
+    assert outcome.exit_code == 2
+    assert "tesseract not found" in outcome.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_scan_pages_without_ocr_are_flagged_not_guessed(contracts_dir):
+    scan = _by_file(process_path(contracts_dir, Settings()))["Rina Wulandari - 12 bulan.pdf"]
+    assert "ocr_unavailable" in scan.log.alasan
+    assert scan.log.p_id == [] and scan.log.p_ttd is None
 
 
 def test_exports_neutralize_formula_injection(tmp_path):

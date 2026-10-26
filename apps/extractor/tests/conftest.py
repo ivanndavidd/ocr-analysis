@@ -5,7 +5,26 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from helpers import make_pdf
+from helpers import find_tesseract, make_pdf
+
+from contract_extractor.config import OcrSettings, Settings
+from contract_extractor.ocr.engine import OcrRunner, OcrUnavailable, build_runner
+
+
+@pytest.fixture(scope="session")
+def tesseract_cmd() -> Path:
+    cmd = find_tesseract()
+    if cmd is None:
+        pytest.skip("Tesseract is not installed")
+    return cmd
+
+
+@pytest.fixture(scope="session")
+def ocr_runner(tesseract_cmd: Path) -> OcrRunner:
+    try:
+        return build_runner(Settings(ocr=OcrSettings(tesseract_cmd=tesseract_cmd)))
+    except OcrUnavailable as exc:
+        pytest.skip(f"Tesseract cannot run with ind+eng: {exc}")
 
 IDENTITY_PAGE = "\n".join(
     [
