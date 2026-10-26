@@ -34,6 +34,11 @@ class InputSettings(_Strict):
     max_pages: int = Field(200, ge=1, le=2000)
 
 
+class PageSelectionSettings(_Strict):
+    # Read only the first 3 and last 5 pages; middle pages are never opened.
+    economy_mode: bool = False
+
+
 class OcrSettings(_Strict):
     primary: OcrEngine = OcrEngine.TESSERACT
     fallback: OcrEngine | None = OcrEngine.PADDLE
@@ -53,6 +58,7 @@ class OutputSettings(_Strict):
 
 class Settings(_Strict):
     input: InputSettings = Field(default_factory=InputSettings)
+    page_selection: PageSelectionSettings = Field(default_factory=PageSelectionSettings)
     ocr: OcrSettings = Field(default_factory=OcrSettings)
     extractor: ExtractorSettings = Field(default_factory=ExtractorSettings)
     output: OutputSettings = Field(default_factory=OutputSettings)

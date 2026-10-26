@@ -4,6 +4,9 @@ input:
   max_file_mb: 50        # file lebih besar ditolak sebelum dibuka
   max_pages: 200         # dokumen dengan halaman lebih banyak ditolak
 
+page_selection:
+  economy_mode: false    # true: hanya 3 halaman pertama dan 5 terakhir yang dibuka
+
 ocr:
   primary: tesseract
   fallback: paddle

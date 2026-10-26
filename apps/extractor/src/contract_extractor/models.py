@@ -51,6 +51,7 @@ class FileLog(BaseModel):
     p_id: list[int] = Field(default_factory=list)
     p_ttd: int | None = None
     halaman_sensitif: list[int] = Field(default_factory=list)
+    skor_halaman: dict[int, dict[str, float]] = Field(default_factory=dict)
     ocr_p_id: str | None = None
     ocr_p_ttd: str | None = None
     ocr_cloud_dipakai: bool = False

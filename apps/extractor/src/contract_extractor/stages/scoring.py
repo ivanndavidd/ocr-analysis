@@ -15,6 +15,13 @@ FLAG_FILENAME_MISMATCH = "filename_mismatch"
 COMPONENT_FILENAME = "validasi_nama_file"
 
 
+_SEVERITY = {Level.GREEN: 0, Level.YELLOW: 1, Level.RED: 2}
+
+
+def worst(*levels: Level) -> Level:
+    return max(levels, key=_SEVERITY.__getitem__)
+
+
 def page_selection_level(score: float, threshold: float, margin: float) -> Level:
     if score < threshold:
         return Level.RED

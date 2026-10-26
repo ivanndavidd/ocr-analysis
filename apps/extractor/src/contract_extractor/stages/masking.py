@@ -94,8 +94,13 @@ def mask_text(text: str) -> MaskResult:
     return result
 
 
+def has_long_digit_run(text: str) -> bool:
+    """True when text holds a >= 10-digit run (NIK, rekening, HP), ignoring adjacent valid dates."""
+    protected, _ = _protect_dates(text.replace(_PLACEHOLDER, ""))
+    return _DIGIT_RUN.search(protected) is not None
+
+
 def assert_no_leak(text: str) -> None:
     """Re-check with the same rules as masking; separators are not stripped globally."""
-    protected, _ = _protect_dates(text.replace(_PLACEHOLDER, ""))
-    if _DIGIT_RUN.search(protected) or _RUPIAH.search(text):
+    if has_long_digit_run(text) or _RUPIAH.search(text):
         raise MaskLeakError("mask_leak")

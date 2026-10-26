@@ -20,12 +20,13 @@ Batch pipeline yang membaca PDF kontrak karyawan dari berbagai vendor (native, s
     - `config.py` — Settings pydantic dari YAML (extra key ditolak)
     - `models.py` — `Word`, enum status, `FileLog`, `FileResult` (skema keluaran Bagian 12)
     - `dates.py` — tabel bulan ID/EN, tahun dua digit, `months_between`
-    - `pipeline.py` — validasi input, statistik halaman, isolasi error per file (FR-1), daftar `PENDING_STAGES`
+    - `layout.py` — `PageText` (kata berkoordinat per halaman) dan `group_lines`, dipakai text layer maupun OCR
+    - `pipeline.py` — validasi input, baca dokumen, page selection, isolasi error per file (FR-1), daftar `PENDING_STAGES`
     - `export.py` — JSON, CSV, XLSX dengan netralisasi formula injection
-    - `pdf/reader.py` — validasi file (ekstensi, magic, ukuran, jumlah halaman) dan statistik halaman via pdfplumber
-    - `stages/` — `page_classify` (jadi), `masking` (jadi), `filename` (jadi), `scoring` (jadi), `page_selection` dan `signature` (stub)
+    - `pdf/reader.py` — validasi file (ekstensi, magic, ukuran, jumlah halaman); `read_document` mengklasifikasi halaman dan membaca kata berkoordinat halaman native via pdfplumber; economy mode hanya membuka halaman kandidat
+    - `stages/` — `page_classify`, `masking`, `filename`, `scoring`, `page_selection` (jadi); `signature` (stub)
     - `ocr/base.py`, `extractors/base.py` — interface `OCRProvider` dan `Extractor` (belum ada implementasi)
-  - `tests/` — 95 test pytest, semuanya memakai PDF dan data sintetis
+  - `tests/` — 116 test pytest; `helpers.py` membangun PDF dan halaman sintetis (nama dan angka fiktif)
 
 ## Plan And Milestones
 
@@ -34,7 +35,8 @@ Batch pipeline yang membaca PDF kontrak karyawan dari berbagai vendor (native, s
 - [x] Scaffold paket: CLI, config, model, pipeline, export, interface OCR/extractor
 - [x] Modul murni + test: masking dengan korpus kebocoran, parser nama file, scoring, klasifikasi halaman
 - [ ] Fase 0: test set berlabel 50–100 file di lingkungan yang disetujui untuk data asli, definisi signed, persetujuan kebijakan cloud
-- [ ] Fase 1: page selection (zona penutup), OCR lokal Tesseract → PaddleOCR, render pypdfium2
+- [x] Fase 1a: reader kata berkoordinat untuk halaman native, page selection dengan zona penutup
+- [ ] Fase 1b: render pypdfium2, OCR lokal Tesseract → PaddleOCR (skoring 150 dpi dan baca 300 dpi), lalu ukur page selection recall di test set
 - [ ] Fase 2: regex periode, extractor Claude API dan Gemini Vertex, verifikasi bukti
 - [ ] Fase 3: deteksi tanda tangan (objek native via pypdf + analisis tinta OpenCV)
 - [ ] Fase 4: scoring end-to-end, Dockerfile (python 3.11 + tesseract-ocr-ind), UAT
@@ -48,12 +50,13 @@ Batch pipeline yang membaca PDF kontrak karyawan dari berbagai vendor (native, s
 - Logger `pdfminer` dan `pdfplumber` dikunci ke WARNING, karena di DEBUG keduanya mencatat isi content stream (nama, NIK). Log aplikasi merujuk file lewat hash nama file, bukan nama file.
 - Nama file produksi berpola `Nama Karyawan - Masa Kontrak`, dipisah di ` - ` pertama. Nama file sampel tidak mengikuti pola ini.
 - Development dan test hanya memakai data sintetis. Menjalankan pipeline pada PDF asli (`sample/`, test set Fase 0) butuh lingkungan dan persetujuan terpisah.
+- Page selection menghitung kehadiran kata kunci, bukan frekuensi. Kata kunci tanda tangan hanya dihitung di zona penutup, dan halaman identitas tidak boleh jadi P_ttd kecuali kontraknya satu halaman. Bobot dan ambang (identitas 6, periode 3, tanda tangan 5, margin 3) adalah nilai awal untuk dikalibrasi di Fase 0.
 
 ## Current State
 
-- `contract-extractor run` sudah berjalan end-to-end pada PDF sintetis. Tahap yang belum dibangun dicatat di `PENDING_STAGES`, sehingga setiap file keluar dengan `pipeline_incomplete` dan `review_priority`, tidak pernah `auto`.
-- Verifikasi: 95 test lulus di Python 3.11.15; OSV 0 kerentanan di 29 package pada lock; semua lisensi permisif (MIT, BSD, Apache-2.0, ISC, PSF-2.0, MIT-CMU).
-- Belum pernah dijalankan pada PDF asli. Tesseract belum terpasang di mesin ini. Belum ada commit.
+- `contract-extractor run` memilih P_id dan P_ttd untuk PDF native dan mencatat skor per halaman di log. Halaman scan belum punya teks (OCR belum ada), jadi dokumen scan selalu `page_selection_ambiguous`. Tahap yang belum dibangun (`ocr`, `masking_extraction`, `signature`) dihitung merah, jadi setiap file tetap `review_priority`.
+- Verifikasi: 116 test lulus di Python 3.11.15. Pada kontrak sintetis 5 halaman, skor identitas 15 lawan ≤ 4 di halaman lain, dan skor tanda tangan 11 lawan 0 (7 tanpa nama dari nama file). Lock tidak berubah (OSV 0, lisensi permisif).
+- Belum pernah dijalankan pada PDF asli, jadi ambang belum terkalibrasi. Tesseract belum terpasang di mesin ini.
 - Perbandingan periode presisi bulan-tahun (baris "Mirip" di PRD) belum diimplementasikan, menunggu konfirmasi format masa kontrak di nama file.
 - Risk level belum dicatat di PROJECT.md. Kemungkinan besar High karena memproses NIK dan data gaji; perlu `/assess-risk` oleh owner.
-- Langkah berikutnya: Fase 1, dimulai dari page selection dan reader halaman (teks + kata berkoordinat) untuk native.
+- Langkah berikutnya: Fase 1b, OCR lokal untuk halaman scan/hybrid (butuh Tesseract 5 dengan data `ind` terpasang), lalu tambahkan pytesseract dan OpenCV ke dependency.

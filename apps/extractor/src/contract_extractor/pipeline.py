@@ -7,10 +7,10 @@ import logging
 from pathlib import Path
 
 from contract_extractor.config import Settings
-from contract_extractor.models import FileResult
-from contract_extractor.pdf.reader import InputRejected, read_page_stats, validate_pdf_file
+from contract_extractor.models import FileResult, Level
+from contract_extractor.pdf.reader import InputRejected, read_document, validate_pdf_file
 from contract_extractor.stages.filename import parse_filename
-from contract_extractor.stages.page_classify import classify_page
+from contract_extractor.stages.page_selection import select_pages
 from contract_extractor.stages.scoring import decide
 
 log = logging.getLogger(__name__)
@@ -22,9 +22,10 @@ for _pdf_logger in ("pdfminer", "pdfplumber"):
 FLAG_INPUT_REJECTED = "input_rejected"
 FLAG_PROCESSING_ERROR = "processing_error"
 FLAG_PIPELINE_INCOMPLETE = "pipeline_incomplete"
+REASON_PAGE_SELECTION_AMBIGUOUS = "page_selection_ambiguous"
 
-# Stages still to be built (Fase 1-3). Shrink this as each one lands.
-PENDING_STAGES = ("page_selection", "ocr", "masking_extraction", "signature")
+# Stages still to be built (Fase 1-3). Each counts as red until it lands, so nothing auto-passes.
+PENDING_STAGES = ("ocr", "masking_extraction", "signature")
 
 
 def file_id(path: Path) -> str:
@@ -37,17 +38,28 @@ def process_file(path: Path, settings: Settings) -> FileResult:
     fid = file_id(path)
     try:
         validate_pdf_file(path, settings.input.max_file_mb * 1024 * 1024)
-        stats = read_page_stats(path, settings.input.max_pages)
+        doc = read_document(path, settings.input.max_pages, settings.page_selection.economy_mode)
 
-        result.log.n_halaman = len(stats)
-        result.log.jenis_halaman = {s.number: classify_page(s) for s in stats}
+        result.log.n_halaman = doc.n_pages
+        result.log.jenis_halaman = doc.kinds
 
         parsed = parse_filename(path.name)
         result.flags.extend(parsed.flags)
 
+        selection = select_pages(doc.texts, doc.n_pages, parsed.name)
+        result.log.p_id = selection.p_id
+        result.log.p_ttd = selection.p_ttd
+        result.log.halaman_sensitif = selection.sensitive_pages
+        result.log.skor_halaman = {n: s.as_dict() for n, s in selection.scores.items()}
+        if selection.ambiguous:
+            # No cloud stage may run for this file; it goes straight to review.
+            result.log.alasan.append(REASON_PAGE_SELECTION_AMBIGUOUS)
+
+        levels = {"page_selection": selection.level}
+        levels.update({stage: Level.RED for stage in PENDING_STAGES})
         result.log.alasan.extend(f"{stage}_not_implemented" for stage in PENDING_STAGES)
         result.flags.append(FLAG_PIPELINE_INCOMPLETE)
-        result.keputusan, extra_flags = decide({})
+        result.keputusan, extra_flags = decide(levels)
         result.flags.extend(extra_flags)
     except InputRejected as exc:
         result.flags.append(FLAG_INPUT_REJECTED)
