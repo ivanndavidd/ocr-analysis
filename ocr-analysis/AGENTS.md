@@ -215,7 +215,7 @@ Proceed without waiting when:
 
 ## Build and run
 
-The only app is `apps/extractor`: a Python 3.11 batch CLI (`contract-extractor`). It is not a server, so there is no port, no `EXPOSE`, and no health path. The Python stack deviates from `allowedStack` and its Tech Architecture Group exception is pending (see `PROJECT.md`); there is no `package.json` or `bun` command table. Run every command below inside `apps/extractor`.
+`apps/extractor` is a Python 3.11 batch CLI (`contract-extractor`). It is not a server, so there is no port, no `EXPOSE`, and no health path. The Python stack deviates from `allowedStack` and its Tech Architecture Group exception is pending (see `PROJECT.md`). Run every command in the first table inside `apps/extractor`; the local website has its own table below.
 
 | Task | Command |
 | --- | --- |
@@ -223,17 +223,30 @@ The only app is `apps/extractor`: a Python 3.11 batch CLI (`contract-extractor`)
 | Install pinned dependencies | `uv pip install --python .venv -r requirements.lock` then `uv pip install --python .venv --no-deps -e .` |
 | Test | `.venv/Scripts/python -m pytest` (Windows) or `.venv/bin/python -m pytest`; tests marked `tesseract` skip when Tesseract with `ind+eng` is absent |
 | Run locally | `contract-extractor run <pdf-or-folder> --out output [--config config.yaml] [--recursive]` |
-| Evaluate gates | `contract-extractor evaluate <results.json> <labels.csv> [--kelompok kalibrasi] [--json <report.json>] [--detail <detail.csv>]`; labels follow `label-template.csv` and, since they name real employees, stay in the gitignored `data/` folder |
+| Evaluate gates | `contract-extractor evaluate <results.json> <labels.csv> [--kelompok kalibrasi] [--json <report.json>] [--detail <detail.csv>]`; labels follow `label-template.csv` and, since they name real employees, stay in the gitignored `data/` folder. NIK accuracy needs an optional `nik` label column and a `run` with `output.nik: full`, whose output then holds full NIKs |
 | Build the image | `container build -t contract-extractor .` |
 | Run the image | `container run --rm --read-only --tmpfs /tmp --mount type=bind,source=<pdf-folder>,target=/data/in,readonly --volume <out-folder>:/data/out contract-extractor` |
 
 The image runs as UID/GID 10001, reads `/data/in`, writes `results.json`, `results.csv` and `results.xlsx` to `/data/out`, and keeps temp files on the `/tmp` tmpfs. Add `--mount type=bind,source=<config.yaml>,target=/data/config.yaml,readonly` and append `run /data/in --out /data/out --config /data/config.yaml` to use a config file. With the default config nothing leaves the container; Apple Container documents no `--network none`, so network isolation is the host's job.
+
+Local website (`apps/backend` Bun + Elysia on 127.0.0.1:3000, `apps/frontend` Svelte + Vite on 127.0.0.1:5173 proxying `/api`). The backend starts `<EXTRACTOR_PYTHON> -m contract_extractor serve-stdio` workers, so the extractor venv above must exist. Run these from the repository root:
+
+| Task | Command |
+| --- | --- |
+| Install | `bun install` |
+| Configure | copy `apps/backend/.env.example` to `apps/backend/.env` and set `EXTRACTOR_PYTHON`, plus `FOLDER_ROOT` for a local folder or the `SHAREPOINT_*` settings (Entra ID app, Microsoft Graph) for SharePoint; with any `SHAREPOINT_*` set, tenant, client and site must be, plus exactly one credential (certificate preferred over client secret). Claude helping the text patterns is on by default (`CLAUDE_MODE`): with `ANTHROPIC_API_KEY` set it uses the Claude API, otherwise the Claude Code login of whoever runs the backend (local testing only) |
+| Test | `bun run test` (no Python needed: the pool is tested against a fake worker) |
+| Type check | `bun run typecheck` |
+| Run locally | `bun run dev`, then open http://127.0.0.1:5173 and sign in (mock sign-in: any email and a name, no password) |
+| Database migration | after changing `apps/backend/src/modules/database/schema.ts`, in `apps/backend` run `bun add -d --exact drizzle-kit@0.31.11`, `bun run db:generate`, then `bun remove drizzle-kit` (it is not kept installed: its esbuild 0.18 carries GHSA-67mh-4wv8-2f99); keep the new file in `apps/backend/drizzle/`. The backend applies migrations on start |
 
 Environment (see `.env.example`; none is required with the default config):
 
 | Variable | Needed when |
 | --- | --- |
 | `TESSERACT_CMD` | Tesseract is not on `PATH` (the image has it on `PATH`) |
-| `ANTHROPIC_API_KEY` | `extractor.enabled: true` with `provider: claude` |
-| `CLAUDE_CODE_CMD` | `provider: claude-code` and the Claude Code binary is not on `PATH`; sign in with `claude auth login` (local testing only, never in the image) |
+| `ANTHROPIC_API_KEY` | `provider: claude` (CLI with `extractor.enabled: true`, or the website with Claude on) should use the Claude API; production keeps it in Vault. Left empty, the same provider uses the Claude Code login instead |
+| `CLAUDE_CODE_CMD` | Claude is reached through Claude Code (`provider: claude-code`, or `provider: claude` without an API key) and the binary is not on `PATH`; sign in with `claude auth login` (local testing only, never in the image) |
+| `CLAUDE_MODE`, `CLAUDE_MODEL`, `CLAUDE_EFFORT` | Website backend only: switch Claude's help off (nothing then leaves the machine), or change its model (default `claude-haiku-5-5`) or effort for the text call (default `max`; crops always run at `low`) |
+| `DATABASE_URL`, `DATABASE_DIR` | Website backend only: `DATABASE_URL` points the database (the `User` table and the saved OCR runs and results, which every signed-in user sees as the shared run history) at a PostgreSQL server; left empty, PostgreSQL runs inside the backend (PGlite) with its files in `DATABASE_DIR` (default `apps/backend/data/pglite`) |
 | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS` | `extractor.enabled: true` with `provider: gemini-vertex` (ADC, no API key) |
