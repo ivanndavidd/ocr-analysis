@@ -1,0 +1,9536 @@
+{
+ "engines": {
+  "tesseract_fast": {
+   "key": "tesseract_fast",
+   "label": "Tesseract 5.4 (fast models, production today)",
+   "family": "tesseract",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": true,
+   "overall": {
+    "files": 800,
+    "read": 800,
+    "all_correct": 622,
+    "no_yellow": 441,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 1,
+    "values_correct": 6996,
+    "values": 7200,
+    "decisions": {
+     "auto": 306,
+     "review": 483,
+     "review_priority": 11
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 473,
+    "read": 473,
+    "all_correct": 296,
+    "no_yellow": 135,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 1,
+    "values_correct": 4054,
+    "values": 4257,
+    "decisions": {
+     "review": 462,
+     "review_priority": 11
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 327,
+     "read": 327,
+     "all_correct": 326,
+     "no_yellow": 306,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 2942,
+     "values": 2943,
+     "decisions": {
+      "auto": 306,
+      "review": 21
+     },
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 256,
+     "read": 256,
+     "all_correct": 150,
+     "no_yellow": 71,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 2182,
+     "values": 2304,
+     "decisions": {
+      "review": 249,
+      "review_priority": 7
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 217,
+     "read": 217,
+     "all_correct": 146,
+     "no_yellow": 64,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 1872,
+     "values": 1953,
+     "decisions": {
+      "review": 213,
+      "review_priority": 4
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 800,
+     "correct": 800,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 800,
+     "correct": 792,
+     "wrong": 1,
+     "missing": 7,
+     "undecided": 0,
+     "marked": 194,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 800,
+     "correct": 774,
+     "wrong": 8,
+     "missing": 18,
+     "undecided": 0,
+     "marked": 44,
+     "wrong_unmarked": 1
+    },
+    "start": {
+     "n": 800,
+     "correct": 796,
+     "wrong": 0,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 18,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 800,
+     "correct": 794,
+     "wrong": 2,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 25,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 800,
+     "correct": 795,
+     "wrong": 2,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 36,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 800,
+     "correct": 645,
+     "wrong": 2,
+     "missing": 0,
+     "undecided": 153,
+     "marked": 237,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 800,
+     "correct": 800,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 800,
+     "correct": 800,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 473,
+     "correct": 473,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 473,
+     "correct": 465,
+     "wrong": 1,
+     "missing": 7,
+     "undecided": 0,
+     "marked": 194,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 473,
+     "correct": 447,
+     "wrong": 8,
+     "missing": 18,
+     "undecided": 0,
+     "marked": 44,
+     "wrong_unmarked": 1
+    },
+    "start": {
+     "n": 473,
+     "correct": 469,
+     "wrong": 0,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 18,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 473,
+     "correct": 467,
+     "wrong": 2,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 25,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 473,
+     "correct": 468,
+     "wrong": 2,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 36,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 473,
+     "correct": 319,
+     "wrong": 2,
+     "missing": 0,
+     "undecided": 152,
+     "marked": 216,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 473,
+     "correct": 473,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 473,
+     "correct": 473,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 327,
+      "correct": 326,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 21,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 256,
+      "correct": 251,
+      "wrong": 0,
+      "missing": 5,
+      "undecided": 0,
+      "marked": 97,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 256,
+      "correct": 239,
+      "wrong": 4,
+      "missing": 13,
+      "undecided": 0,
+      "marked": 34,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 256,
+      "correct": 254,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 10,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 256,
+      "correct": 252,
+      "wrong": 2,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 14,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 256,
+      "correct": 253,
+      "wrong": 2,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 20,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 256,
+      "correct": 165,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 90,
+      "marked": 130,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 217,
+      "correct": 217,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 217,
+      "correct": 214,
+      "wrong": 1,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 97,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 217,
+      "correct": 208,
+      "wrong": 4,
+      "missing": 5,
+      "undecided": 0,
+      "marked": 10,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 11,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 16,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 217,
+      "correct": 154,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 62,
+      "marked": 86,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 217,
+      "correct": 217,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 217,
+      "correct": 217,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "digital": {
+     "name": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 327,
+      "correct": 326,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 21,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:blurry": {
+     "name": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 6,
+      "correct": 3,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clean": {
+     "name": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 117,
+      "correct": 114,
+      "wrong": 1,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 47,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 117,
+      "correct": 112,
+      "wrong": 1,
+      "missing": 4,
+      "undecided": 0,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 117,
+      "correct": 116,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 117,
+      "correct": 116,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 117,
+      "correct": 116,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 117,
+      "correct": 82,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 34,
+      "marked": 51,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 47,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 94,
+      "correct": 90,
+      "wrong": 3,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 10,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 94,
+      "correct": 69,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 25,
+      "marked": 32,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 59,
+      "correct": 58,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 22,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 59,
+      "correct": 54,
+      "wrong": 1,
+      "missing": 4,
+      "undecided": 0,
+      "marked": 11,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 59,
+      "correct": 57,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 59,
+      "correct": 56,
+      "wrong": 1,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 59,
+      "correct": 57,
+      "wrong": 1,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 59,
+      "correct": 39,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 19,
+      "marked": 30,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 96,
+      "correct": 95,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 40,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 96,
+      "correct": 91,
+      "wrong": 2,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 11,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 96,
+      "correct": 95,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 96,
+      "correct": 95,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 11,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 96,
+      "correct": 63,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 33,
+      "marked": 46,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 101,
+      "correct": 98,
+      "wrong": 0,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 35,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 101,
+      "correct": 94,
+      "wrong": 1,
+      "missing": 6,
+      "undecided": 0,
+      "marked": 12,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 101,
+      "correct": 63,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 38,
+      "marked": 54,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "digital": {
+     "files": 327,
+     "read": 327,
+     "all_correct": 326,
+     "no_yellow": 306,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 2942,
+     "values": 2943,
+     "decisions": {
+      "auto": 306,
+      "review": 21
+     },
+     "auto_wrong": 0
+    },
+    "photo:blurry": {
+     "files": 6,
+     "read": 6,
+     "all_correct": 3,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 51,
+     "values": 54,
+     "decisions": {
+      "review": 6
+     },
+     "auto_wrong": 0
+    },
+    "photo:clean": {
+     "files": 117,
+     "read": 117,
+     "all_correct": 77,
+     "no_yellow": 34,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 1007,
+     "values": 1053,
+     "decisions": {
+      "review": 114,
+      "review_priority": 3
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 94,
+     "read": 94,
+     "all_correct": 66,
+     "no_yellow": 29,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 814,
+     "values": 846,
+     "decisions": {
+      "review": 93,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 59,
+     "read": 59,
+     "all_correct": 35,
+     "no_yellow": 19,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 498,
+     "values": 531,
+     "decisions": {
+      "review_priority": 5,
+      "review": 54
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 96,
+     "read": 96,
+     "all_correct": 58,
+     "no_yellow": 22,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 823,
+     "values": 864,
+     "decisions": {
+      "review": 94,
+      "review_priority": 2
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 101,
+     "read": 101,
+     "all_correct": 57,
+     "no_yellow": 30,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 861,
+     "values": 909,
+     "decisions": {
+      "review": 101
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": 0.9589357798165138,
+     "median_s": 0.954,
+     "p95_s": 1.2087999999999999,
+     "max_s": 1.329
+    },
+    "scan": {
+     "mean_s": 13.86623828125,
+     "median_s": 13.639,
+     "p95_s": 17.37825,
+     "max_s": 21.807
+    },
+    "photo": {
+     "mean_s": 14.23731797235023,
+     "median_s": 14.059,
+     "p95_s": 17.3572,
+     "max_s": 22.468
+    },
+    "image": {
+     "mean_s": 14.036479915433404,
+     "median_s": 13.862,
+     "p95_s": 17.392799999999998,
+     "max_s": 22.468
+    },
+    "all": {
+     "mean_s": 8.69103375,
+     "median_s": 12.26,
+     "p95_s": 16.417550000000002,
+     "max_s": 22.468
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.114164904862579,
+    "ocr_s_per_image_file": 9.498915433403806,
+    "ocr_s_per_call": 2.3088319630010306,
+    "ocr_s_per_megapixel": 0.409448696194202,
+    "ocr_share_of_time": 0.6767305970323487
+   },
+   "resources": {
+    "wall_s": 2389.9,
+    "files_per_hour": 1205.0713418971504,
+    "workers": 3,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 25.880429184549357,
+    "cpu_idle_pct_before": 6.2,
+    "cpu_s_per_file": 8.72449625,
+    "cpu_s_per_image_file": 14.044672304439747,
+    "cpu_measured": "per process",
+    "cpu_s_per_file_machine": 9.171079999999993,
+    "tesseract_process_peak_mb": 95.7,
+    "paused_for_memory_s": 0.0,
+    "priority": "below normal",
+    "pool_peak_mb": 1032,
+    "pool_mean_mb": 439.87124463519314,
+    "worker_peak_mb": 228.3,
+    "ram_used_peak_pct": 60.0,
+    "engine_start_s": 0.939,
+    "model_mb": 4.993199348449707,
+    "errors": 0
+   }
+  },
+  "rapid_v6_small": {
+   "key": "rapid_v6_small",
+   "label": "RapidOCR, PP-OCRv6 small",
+   "family": "rapidocr",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": true,
+   "overall": {
+    "files": 800,
+    "read": 800,
+    "all_correct": 623,
+    "no_yellow": 462,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 6,
+    "values_correct": 7008,
+    "values": 7200,
+    "decisions": {
+     "auto": 306,
+     "review": 490,
+     "review_priority": 4
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 473,
+    "read": 473,
+    "all_correct": 297,
+    "no_yellow": 156,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 6,
+    "values_correct": 4066,
+    "values": 4257,
+    "decisions": {
+     "review": 469,
+     "review_priority": 4
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 327,
+     "read": 327,
+     "all_correct": 326,
+     "no_yellow": 306,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 2942,
+     "values": 2943,
+     "decisions": {
+      "auto": 306,
+      "review": 21
+     },
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 256,
+     "read": 256,
+     "all_correct": 158,
+     "no_yellow": 85,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 3,
+     "values_correct": 2201,
+     "values": 2304,
+     "decisions": {
+      "review": 255,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 217,
+     "read": 217,
+     "all_correct": 139,
+     "no_yellow": 71,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 3,
+     "values_correct": 1865,
+     "values": 1953,
+     "decisions": {
+      "review": 214,
+      "review_priority": 3
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 800,
+     "correct": 800,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 800,
+     "correct": 798,
+     "wrong": 2,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 172,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 800,
+     "correct": 793,
+     "wrong": 5,
+     "missing": 2,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 5
+    },
+    "start": {
+     "n": 800,
+     "correct": 797,
+     "wrong": 0,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 13,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 800,
+     "correct": 797,
+     "wrong": 0,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 10,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 800,
+     "correct": 797,
+     "wrong": 0,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 16,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 800,
+     "correct": 626,
+     "wrong": 1,
+     "missing": 0,
+     "undecided": 173,
+     "marked": 250,
+     "wrong_unmarked": 1
+    },
+    "vendor": {
+     "n": 800,
+     "correct": 800,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 800,
+     "correct": 800,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 473,
+     "correct": 473,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 473,
+     "correct": 471,
+     "wrong": 2,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 172,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 473,
+     "correct": 466,
+     "wrong": 5,
+     "missing": 2,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 5
+    },
+    "start": {
+     "n": 473,
+     "correct": 470,
+     "wrong": 0,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 13,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 473,
+     "correct": 470,
+     "wrong": 0,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 10,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 473,
+     "correct": 470,
+     "wrong": 0,
+     "missing": 3,
+     "undecided": 0,
+     "marked": 16,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 473,
+     "correct": 300,
+     "wrong": 1,
+     "missing": 0,
+     "undecided": 172,
+     "marked": 229,
+     "wrong_unmarked": 1
+    },
+    "vendor": {
+     "n": 473,
+     "correct": 473,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 473,
+     "correct": 473,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 327,
+      "correct": 326,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 21,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 90,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 256,
+      "correct": 253,
+      "wrong": 3,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 3
+     },
+     "start": {
+      "n": 256,
+      "correct": 255,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 256,
+      "correct": 255,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 256,
+      "correct": 255,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 9,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 256,
+      "correct": 159,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 97,
+      "marked": 131,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 256,
+      "correct": 256,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 217,
+      "correct": 217,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 2,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 82,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 217,
+      "correct": 213,
+      "wrong": 2,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 2
+     },
+     "start": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 217,
+      "correct": 215,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 217,
+      "correct": 141,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 75,
+      "marked": 98,
+      "wrong_unmarked": 1
+     },
+     "vendor": {
+      "n": 217,
+      "correct": 217,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 217,
+      "correct": 217,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "digital": {
+     "name": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 327,
+      "correct": 326,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 21,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 327,
+      "correct": 327,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:blurry": {
+     "name": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 6,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 6,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 6,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 6,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 6,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clean": {
+     "name": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 117,
+      "correct": 115,
+      "wrong": 2,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 41,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 117,
+      "correct": 114,
+      "wrong": 2,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 2
+     },
+     "start": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 117,
+      "correct": 74,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 43,
+      "marked": 58,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 117,
+      "correct": 117,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 39,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 94,
+      "correct": 93,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 94,
+      "correct": 65,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 28,
+      "marked": 35,
+      "wrong_unmarked": 1
+     },
+     "vendor": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 94,
+      "correct": 94,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 22,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 59,
+      "correct": 38,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 21,
+      "marked": 30,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 59,
+      "correct": 59,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 36,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 96,
+      "correct": 94,
+      "wrong": 2,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 2
+     },
+     "start": {
+      "n": 96,
+      "correct": 95,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 96,
+      "correct": 95,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 96,
+      "correct": 95,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 96,
+      "correct": 61,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 35,
+      "marked": 44,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 96,
+      "correct": 96,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 32,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 101,
+      "correct": 100,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 101,
+      "correct": 60,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 41,
+      "marked": 57,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 101,
+      "correct": 101,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "digital": {
+     "files": 327,
+     "read": 327,
+     "all_correct": 326,
+     "no_yellow": 306,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 2942,
+     "values": 2943,
+     "decisions": {
+      "auto": 306,
+      "review": 21
+     },
+     "auto_wrong": 0
+    },
+    "photo:blurry": {
+     "files": 6,
+     "read": 6,
+     "all_correct": 2,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 47,
+     "values": 54,
+     "decisions": {
+      "review_priority": 1,
+      "review": 5
+     },
+     "auto_wrong": 0
+    },
+    "photo:clean": {
+     "files": 117,
+     "read": 117,
+     "all_correct": 73,
+     "no_yellow": 36,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 2,
+     "values_correct": 1005,
+     "values": 1053,
+     "decisions": {
+      "review": 116,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 94,
+     "read": 94,
+     "all_correct": 64,
+     "no_yellow": 34,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 813,
+     "values": 846,
+     "decisions": {
+      "review": 93,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 59,
+     "read": 59,
+     "all_correct": 38,
+     "no_yellow": 22,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 510,
+     "values": 531,
+     "decisions": {
+      "review": 59
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 96,
+     "read": 96,
+     "all_correct": 60,
+     "no_yellow": 33,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 2,
+     "values_correct": 824,
+     "values": 864,
+     "decisions": {
+      "review": 95,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 101,
+     "read": 101,
+     "all_correct": 60,
+     "no_yellow": 30,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 867,
+     "values": 909,
+     "decisions": {
+      "review": 101
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": 0.9144617737003058,
+     "median_s": 0.923,
+     "p95_s": 1.1762,
+     "max_s": 1.372
+    },
+    "scan": {
+     "mean_s": 33.05648828125,
+     "median_s": 33.1135,
+     "p95_s": 41.316,
+     "max_s": 52.376
+    },
+    "photo": {
+     "mean_s": 31.027700460829493,
+     "median_s": 31.007,
+     "p95_s": 39.8764,
+     "max_s": 47.271
+    },
+    "image": {
+     "mean_s": 32.12573361522199,
+     "median_s": 32.151,
+     "p95_s": 41.0318,
+     "max_s": 52.376
+    },
+    "all": {
+     "mean_s": 19.36812625,
+     "median_s": 26.179499999999997,
+     "p95_s": 39.8328,
+     "max_s": 52.376
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.031712473572939,
+    "ocr_s_per_image_file": 27.973826638477803,
+    "ocr_s_per_call": 6.938447823807021,
+    "ocr_s_per_megapixel": 1.2447127351541654,
+    "ocr_share_of_time": 0.8707607108222761
+   },
+   "resources": {
+    "wall_s": 5242.4,
+    "files_per_hour": 549.3667022737678,
+    "workers": 3,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 43.39347698334966,
+    "cpu_idle_pct_before": 3.3,
+    "cpu_s_per_file": 34.87976875,
+    "cpu_s_per_image_file": 58.29441226215645,
+    "cpu_measured": "per process",
+    "cpu_s_per_file_machine": 40.935440000000035,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "below normal",
+    "pool_peak_mb": 1639,
+    "pool_mean_mb": 881.2928501469148,
+    "worker_peak_mb": 738.5,
+    "ram_used_peak_pct": 72.2,
+    "engine_start_s": 1.162,
+    "model_mb": 271.4678649902344,
+    "errors": 0
+   }
+  },
+  "tesseract_fast-screen": {
+   "key": "tesseract_fast-screen",
+   "label": "Tesseract 5.4 (fast models, production today)",
+   "family": "tesseract",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": false,
+   "overall": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 0,
+    "values_correct": 516,
+    "values": 540,
+    "decisions": {
+     "review": 59,
+     "review_priority": 1
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 0,
+    "values_correct": 516,
+    "values": 540,
+    "decisions": {
+     "review": 59,
+     "review_priority": 1
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 0,
+     "read": 0,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 0,
+     "values": 0,
+     "decisions": {},
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 33,
+     "read": 33,
+     "all_correct": 19,
+     "no_yellow": 10,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 283,
+     "values": 297,
+     "decisions": {
+      "review": 33
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 27,
+     "read": 27,
+     "all_correct": 20,
+     "no_yellow": 11,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 233,
+     "values": 243,
+     "decisions": {
+      "review": 26,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 25,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 54,
+     "wrong": 2,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 7,
+     "wrong_unmarked": 0
+    },
+    "start": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 45,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 15,
+     "marked": 23,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 25,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 54,
+     "wrong": 2,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 7,
+     "wrong_unmarked": 0
+    },
+    "start": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 45,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 15,
+     "marked": 23,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 15,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 33,
+      "correct": 28,
+      "wrong": 1,
+      "missing": 4,
+      "undecided": 0,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 33,
+      "correct": 24,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 9,
+      "marked": 15,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 10,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 27,
+      "correct": 21,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 6,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "photo:clean": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 13,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 7,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 7,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 9,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 12,
+      "correct": 8,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 1,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "photo:clean": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 10,
+     "no_yellow": 4,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 122,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 13,
+     "read": 13,
+     "all_correct": 10,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 111,
+     "values": 117,
+     "decisions": {
+      "review": 12,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 7,
+     "read": 7,
+     "all_correct": 3,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 59,
+     "values": 63,
+     "decisions": {
+      "review": 7
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 12,
+     "read": 12,
+     "all_correct": 8,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 104,
+     "values": 108,
+     "decisions": {
+      "review": 12
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 8,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 120,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": null,
+     "median_s": null,
+     "p95_s": null,
+     "max_s": null
+    },
+    "scan": {
+     "mean_s": 12.896515151515151,
+     "median_s": 12.938,
+     "p95_s": 15.0116,
+     "max_s": 17.619
+    },
+    "photo": {
+     "mean_s": 12.405851851851851,
+     "median_s": 12.251,
+     "p95_s": 14.4636,
+     "max_s": 17.151
+    },
+    "image": {
+     "mean_s": 12.675716666666666,
+     "median_s": 12.724499999999999,
+     "p95_s": 14.9332,
+     "max_s": 17.619
+    },
+    "all": {
+     "mean_s": 12.675716666666666,
+     "median_s": 12.724499999999999,
+     "p95_s": 14.9332,
+     "max_s": 17.619
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.15,
+    "ocr_s_per_image_file": 9.561183333333334,
+    "ocr_s_per_call": 2.303899598393575,
+    "ocr_s_per_megapixel": 0.4065618732415328,
+    "ocr_share_of_time": 0.7542913418439197
+   },
+   "resources": {
+    "wall_s": 197.3,
+    "files_per_hour": 1094.7795235681704,
+    "workers": 4,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 34.95077720207254,
+    "cpu_idle_pct_before": 8.6,
+    "cpu_s_per_file": 13.56319999999999,
+    "cpu_s_per_image_file": null,
+    "cpu_measured": "machine-wide minus idle",
+    "cpu_s_per_file_machine": 13.56319999999999,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "normal",
+    "pool_peak_mb": 724,
+    "pool_mean_mb": 557.839378238342,
+    "worker_peak_mb": 210.3,
+    "ram_used_peak_pct": 71.8,
+    "engine_start_s": 0.10450000000000001,
+    "model_mb": 4.993199348449707,
+    "errors": 0
+   },
+   "baseline_same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 54,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   },
+   "same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 54,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   }
+  },
+  "tesseract_best-screen": {
+   "key": "tesseract_best-screen",
+   "label": "Tesseract 5.4 (best models)",
+   "family": "tesseract",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": false,
+   "overall": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 38,
+    "no_yellow": 20,
+    "no_yellow_but_wrong": 1,
+    "wrong_unmarked_values": 2,
+    "values_correct": 514,
+    "values": 540,
+    "decisions": {
+     "review": 59,
+     "review_priority": 1
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 38,
+    "no_yellow": 20,
+    "no_yellow_but_wrong": 1,
+    "wrong_unmarked_values": 2,
+    "values_correct": 514,
+    "values": 540,
+    "decisions": {
+     "review": 59,
+     "review_priority": 1
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 0,
+     "read": 0,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 0,
+     "values": 0,
+     "decisions": {},
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 33,
+     "read": 33,
+     "all_correct": 18,
+     "no_yellow": 9,
+     "no_yellow_but_wrong": 1,
+     "wrong_unmarked_values": 2,
+     "values_correct": 281,
+     "values": 297,
+     "decisions": {
+      "review": 33
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 27,
+     "read": 27,
+     "all_correct": 20,
+     "no_yellow": 11,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 233,
+     "values": 243,
+     "decisions": {
+      "review": 26,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 26,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 52,
+     "wrong": 4,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 7,
+     "wrong_unmarked": 2
+    },
+    "start": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 45,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 15,
+     "marked": 24,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 26,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 52,
+     "wrong": 4,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 7,
+     "wrong_unmarked": 2
+    },
+    "start": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 59,
+     "wrong": 0,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 45,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 15,
+     "marked": 24,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 16,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 33,
+      "correct": 26,
+      "wrong": 3,
+      "missing": 4,
+      "undecided": 0,
+      "marked": 6,
+      "wrong_unmarked": 2
+     },
+     "start": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 33,
+      "correct": 24,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 9,
+      "marked": 16,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 10,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 27,
+      "correct": 21,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 6,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "photo:clean": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 13,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 7,
+      "correct": 5,
+      "wrong": 1,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 7,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 9,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 12,
+      "correct": 11,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 12,
+      "correct": 8,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 1,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "photo:clean": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 10,
+     "no_yellow": 4,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 122,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 13,
+     "read": 13,
+     "all_correct": 10,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 111,
+     "values": 117,
+     "decisions": {
+      "review": 12,
+      "review_priority": 1
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 7,
+     "read": 7,
+     "all_correct": 2,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 1,
+     "wrong_unmarked_values": 1,
+     "values_correct": 58,
+     "values": 63,
+     "decisions": {
+      "review": 7
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 12,
+     "read": 12,
+     "all_correct": 8,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 103,
+     "values": 108,
+     "decisions": {
+      "review": 12
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 8,
+     "no_yellow": 6,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 120,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": null,
+     "median_s": null,
+     "p95_s": null,
+     "max_s": null
+    },
+    "scan": {
+     "mean_s": 27.733636363636364,
+     "median_s": 27.921,
+     "p95_s": 33.0148,
+     "max_s": 38.363
+    },
+    "photo": {
+     "mean_s": 26.46048148148148,
+     "median_s": 26.671,
+     "p95_s": 32.2232,
+     "max_s": 36.884
+    },
+    "image": {
+     "mean_s": 27.160716666666666,
+     "median_s": 27.0905,
+     "p95_s": 32.9651,
+     "max_s": 38.363
+    },
+    "all": {
+     "mean_s": 27.160716666666666,
+     "median_s": 27.0905,
+     "p95_s": 32.9651,
+     "max_s": 38.363
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.15,
+    "ocr_s_per_image_file": 24.050733333333334,
+    "ocr_s_per_call": 5.795357429718877,
+    "ocr_s_per_megapixel": 1.0226883907500195,
+    "ocr_share_of_time": 0.8854970076268236
+   },
+   "resources": {
+    "wall_s": 419.8,
+    "files_per_hour": 514.5307289185326,
+    "workers": 4,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 30.549388753056235,
+    "cpu_idle_pct_before": 5.2,
+    "cpu_s_per_file": 27.647733333333317,
+    "cpu_s_per_image_file": null,
+    "cpu_measured": "machine-wide minus idle",
+    "cpu_s_per_file_machine": 27.647733333333317,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "normal",
+    "pool_peak_mb": 853,
+    "pool_mean_mb": 681.601466992665,
+    "worker_peak_mb": 208.3,
+    "ram_used_peak_pct": 72.7,
+    "engine_start_s": 0.1085,
+    "model_mb": 22.558409690856934,
+    "errors": 0
+   },
+   "baseline_same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 54,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   },
+   "same_files": {
+    "files": 60,
+    "all_correct": 38,
+    "no_yellow": 20,
+    "wrong_unmarked_values": 2,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 52,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   }
+  },
+  "rapid_v6_small-screen2": {
+   "key": "rapid_v6_small-screen2",
+   "label": "RapidOCR, PP-OCRv6 small",
+   "family": "rapidocr",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": false,
+   "overall": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 43,
+    "no_yellow": 21,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 0,
+    "values_correct": 523,
+    "values": 540,
+    "decisions": {
+     "review": 60
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 43,
+    "no_yellow": 21,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 0,
+    "values_correct": 523,
+    "values": 540,
+    "decisions": {
+     "review": 60
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 0,
+     "read": 0,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 0,
+     "values": 0,
+     "decisions": {},
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 33,
+     "read": 33,
+     "all_correct": 22,
+     "no_yellow": 11,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 286,
+     "values": 297,
+     "decisions": {
+      "review": 33
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 27,
+     "read": 27,
+     "all_correct": 21,
+     "no_yellow": 10,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 237,
+     "values": 243,
+     "decisions": {
+      "review": 27
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 23,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "start": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 43,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 17,
+     "marked": 29,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 23,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "start": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 43,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 17,
+     "marked": 29,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 13,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 33,
+      "correct": 22,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 11,
+      "marked": 17,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 10,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 27,
+      "correct": 21,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 6,
+      "marked": 12,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "photo:clean": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 13,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 7,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 12,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 5,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "photo:clean": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 10,
+     "no_yellow": 3,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 122,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 13,
+     "read": 13,
+     "all_correct": 11,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 115,
+     "values": 117,
+     "decisions": {
+      "review": 13
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 7,
+     "read": 7,
+     "all_correct": 4,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 60,
+     "values": 63,
+     "decisions": {
+      "review": 7
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 12,
+     "read": 12,
+     "all_correct": 7,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 103,
+     "values": 108,
+     "decisions": {
+      "review": 12
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 11,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 123,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": null,
+     "median_s": null,
+     "p95_s": null,
+     "max_s": null
+    },
+    "scan": {
+     "mean_s": 38.09548484848485,
+     "median_s": 40.014,
+     "p95_s": 46.249,
+     "max_s": 47.229
+    },
+    "photo": {
+     "mean_s": 34.91203703703704,
+     "median_s": 34.96,
+     "p95_s": 41.2258,
+     "max_s": 45.331
+    },
+    "image": {
+     "mean_s": 36.662933333333335,
+     "median_s": 36.0235,
+     "p95_s": 45.574149999999996,
+     "max_s": 47.229
+    },
+    "all": {
+     "mean_s": 36.662933333333335,
+     "median_s": 36.0235,
+     "p95_s": 45.574149999999996,
+     "max_s": 47.229
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.033333333333333,
+    "ocr_s_per_image_file": 32.04216666666667,
+    "ocr_s_per_call": 7.944338842975206,
+    "ocr_s_per_megapixel": 1.4243389614526918,
+    "ocr_share_of_time": 0.8739662583826716
+   },
+   "resources": {
+    "wall_s": 749.3,
+    "files_per_hour": 288.26905111437344,
+    "workers": 3,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 47.85528120713306,
+    "cpu_idle_pct_before": 6.7,
+    "cpu_s_per_file": 66.45473333333334,
+    "cpu_s_per_image_file": 66.45473333333334,
+    "cpu_measured": "per process",
+    "cpu_s_per_file_machine": 80.00586666666665,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "below normal",
+    "pool_peak_mb": 1484,
+    "pool_mean_mb": 892.0836762688615,
+    "worker_peak_mb": 741.4,
+    "ram_used_peak_pct": 71.7,
+    "engine_start_s": 1.1056666666666666,
+    "model_mb": 271.4678649902344,
+    "errors": 0
+   },
+   "baseline_same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 54,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   },
+   "same_files": {
+    "files": 60,
+    "all_correct": 43,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 60,
+     "start": 60,
+     "end": 60,
+     "months": 60,
+     "signature": 43,
+     "vendor": 60,
+     "entity": 60
+    }
+   }
+  },
+  "rapid_v6_tiny-screen2": {
+   "key": "rapid_v6_tiny-screen2",
+   "label": "RapidOCR, PP-OCRv6 tiny",
+   "family": "rapidocr",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": false,
+   "overall": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 39,
+    "no_yellow": 18,
+    "no_yellow_but_wrong": 1,
+    "wrong_unmarked_values": 2,
+    "values_correct": 518,
+    "values": 540,
+    "decisions": {
+     "review": 60
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 39,
+    "no_yellow": 18,
+    "no_yellow_but_wrong": 1,
+    "wrong_unmarked_values": 2,
+    "values_correct": 518,
+    "values": 540,
+    "decisions": {
+     "review": 60
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 0,
+     "read": 0,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 0,
+     "values": 0,
+     "decisions": {},
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 33,
+     "read": 33,
+     "all_correct": 20,
+     "no_yellow": 11,
+     "no_yellow_but_wrong": 1,
+     "wrong_unmarked_values": 2,
+     "values_correct": 283,
+     "values": 297,
+     "decisions": {
+      "review": 33
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 27,
+     "read": 27,
+     "all_correct": 19,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 235,
+     "values": 243,
+     "decisions": {
+      "review": 27
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 25,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 57,
+     "wrong": 2,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 2
+    },
+    "start": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 41,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 19,
+     "marked": 27,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 25,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 60,
+     "correct": 57,
+     "wrong": 2,
+     "missing": 1,
+     "undecided": 0,
+     "marked": 1,
+     "wrong_unmarked": 2
+    },
+    "start": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 2,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 41,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 19,
+     "marked": 27,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 14,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 33,
+      "correct": 31,
+      "wrong": 2,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 2
+     },
+     "start": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 33,
+      "correct": 21,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 12,
+      "marked": 15,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 11,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 27,
+      "correct": 20,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 7,
+      "marked": 12,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "photo:clean": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 4,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 13,
+      "correct": 10,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 7,
+      "correct": 6,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 7,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 12,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 6,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 13,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "photo:clean": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 10,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 122,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 13,
+     "read": 13,
+     "all_correct": 9,
+     "no_yellow": 5,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 113,
+     "values": 117,
+     "decisions": {
+      "review": 13
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 7,
+     "read": 7,
+     "all_correct": 3,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 1,
+     "wrong_unmarked_values": 1,
+     "values_correct": 59,
+     "values": 63,
+     "decisions": {
+      "review": 7
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 12,
+     "read": 12,
+     "all_correct": 6,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 102,
+     "values": 108,
+     "decisions": {
+      "review": 12
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 11,
+     "no_yellow": 8,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 122,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": null,
+     "median_s": null,
+     "p95_s": null,
+     "max_s": null
+    },
+    "scan": {
+     "mean_s": 14.057939393939394,
+     "median_s": 14.268,
+     "p95_s": 16.5534,
+     "max_s": 16.935
+    },
+    "photo": {
+     "mean_s": 13.675777777777778,
+     "median_s": 13.459,
+     "p95_s": 15.3942,
+     "max_s": 15.412
+    },
+    "image": {
+     "mean_s": 13.885966666666667,
+     "median_s": 14.0305,
+     "p95_s": 15.485699999999998,
+     "max_s": 16.935
+    },
+    "all": {
+     "mean_s": 13.885966666666667,
+     "median_s": 14.0305,
+     "p95_s": 15.485699999999998,
+     "max_s": 16.935
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.05,
+    "ocr_s_per_image_file": 9.342566666666666,
+    "ocr_s_per_call": 2.3068065843621386,
+    "ocr_s_per_megapixel": 0.41249356115796104,
+    "ocr_share_of_time": 0.6728063584578192
+   },
+   "resources": {
+    "wall_s": 290.0,
+    "files_per_hour": 744.8275862068965,
+    "workers": 3,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 37.85070921985815,
+    "cpu_idle_pct_before": 4.9,
+    "cpu_s_per_file": 22.416166666666665,
+    "cpu_s_per_image_file": 22.416166666666665,
+    "cpu_measured": "per process",
+    "cpu_s_per_file_machine": 24.77893333333333,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "below normal",
+    "pool_peak_mb": 1119,
+    "pool_mean_mb": 637.2872340425532,
+    "worker_peak_mb": 570.7,
+    "ram_used_peak_pct": 62.7,
+    "engine_start_s": 1.7446666666666666,
+    "model_mb": 271.4678649902344,
+    "errors": 0
+   },
+   "baseline_same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 54,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   },
+   "same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 18,
+    "wrong_unmarked_values": 2,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 57,
+     "start": 60,
+     "end": 60,
+     "months": 60,
+     "signature": 41,
+     "vendor": 60,
+     "entity": 60
+    }
+   }
+  },
+  "doctr_crnn-screen2": {
+   "key": "doctr_crnn-screen2",
+   "label": "docTR 1.1 (DBNet ResNet-50 + CRNN VGG16)",
+   "family": "doctr",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": false,
+   "overall": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 38,
+    "no_yellow": 19,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 2,
+    "values_correct": 513,
+    "values": 540,
+    "decisions": {
+     "review": 60
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 60,
+    "read": 60,
+    "all_correct": 38,
+    "no_yellow": 19,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 2,
+    "values_correct": 513,
+    "values": 540,
+    "decisions": {
+     "review": 60
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 0,
+     "read": 0,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 0,
+     "values": 0,
+     "decisions": {},
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 33,
+     "read": 33,
+     "all_correct": 22,
+     "no_yellow": 12,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 283,
+     "values": 297,
+     "decisions": {
+      "review": 33
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 27,
+     "read": 27,
+     "all_correct": 16,
+     "no_yellow": 7,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 230,
+     "values": 243,
+     "decisions": {
+      "review": 27
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 58,
+     "wrong": 2,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 24,
+     "wrong_unmarked": 1
+    },
+    "position": {
+     "n": 60,
+     "correct": 49,
+     "wrong": 1,
+     "missing": 10,
+     "undecided": 0,
+     "marked": 14,
+     "wrong_unmarked": 1
+    },
+    "start": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 3,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 3,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 4,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 46,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 14,
+     "marked": 20,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 60,
+     "correct": 58,
+     "wrong": 2,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 24,
+     "wrong_unmarked": 1
+    },
+    "position": {
+     "n": 60,
+     "correct": 49,
+     "wrong": 1,
+     "missing": 10,
+     "undecided": 0,
+     "marked": 14,
+     "wrong_unmarked": 1
+    },
+    "start": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 3,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 3,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 4,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 60,
+     "correct": 46,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 14,
+     "marked": 20,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 60,
+     "correct": 60,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 33,
+      "correct": 32,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 13,
+      "wrong_unmarked": 1
+     },
+     "position": {
+      "n": 33,
+      "correct": 29,
+      "wrong": 0,
+      "missing": 4,
+      "undecided": 0,
+      "marked": 6,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 33,
+      "correct": 24,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 9,
+      "marked": 13,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 33,
+      "correct": 33,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 27,
+      "correct": 26,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 11,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 27,
+      "correct": 20,
+      "wrong": 1,
+      "missing": 6,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 27,
+      "correct": 22,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 5,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 27,
+      "correct": 27,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "photo:clean": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 7,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 14,
+      "correct": 10,
+      "wrong": 1,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 1
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 13,
+      "correct": 12,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 13,
+      "correct": 10,
+      "wrong": 0,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 13,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 13,
+      "correct": 13,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 7,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 7,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 8,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 12,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 12,
+      "correct": 9,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 12,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 14,
+      "correct": 13,
+      "wrong": 1,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 1
+     },
+     "position": {
+      "n": 14,
+      "correct": 12,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 14,
+      "correct": 11,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 14,
+      "correct": 14,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "photo:clean": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 8,
+     "no_yellow": 2,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 119,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 13,
+     "read": 13,
+     "all_correct": 8,
+     "no_yellow": 5,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 111,
+     "values": 117,
+     "decisions": {
+      "review": 13
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 7,
+     "read": 7,
+     "all_correct": 3,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 59,
+     "values": 63,
+     "decisions": {
+      "review": 7
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 12,
+     "read": 12,
+     "all_correct": 9,
+     "no_yellow": 3,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 104,
+     "values": 108,
+     "decisions": {
+      "review": 12
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 14,
+     "read": 14,
+     "all_correct": 10,
+     "no_yellow": 8,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 1,
+     "values_correct": 120,
+     "values": 126,
+     "decisions": {
+      "review": 14
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": null,
+     "median_s": null,
+     "p95_s": null,
+     "max_s": null
+    },
+    "scan": {
+     "mean_s": 79.90736363636364,
+     "median_s": 78.391,
+     "p95_s": 113.59979999999999,
+     "max_s": 123.715
+    },
+    "photo": {
+     "mean_s": 78.66507407407407,
+     "median_s": 74.962,
+     "p95_s": 105.7332,
+     "max_s": 110.949
+    },
+    "image": {
+     "mean_s": 79.34833333333333,
+     "median_s": 78.02250000000001,
+     "p95_s": 109.1231,
+     "max_s": 123.715
+    },
+    "all": {
+     "mean_s": 79.34833333333333,
+     "median_s": 78.02250000000001,
+     "p95_s": 109.1231,
+     "max_s": 123.715
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.166666666666667,
+    "ocr_s_per_image_file": 75.76315,
+    "ocr_s_per_call": 18.183156000000004,
+    "ocr_s_per_megapixel": 3.1991871463558823,
+    "ocr_share_of_time": 0.9548171564200046
+   },
+   "resources": {
+    "wall_s": 1639.3,
+    "files_per_hour": 131.76355761605564,
+    "workers": 3,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 47.92619047619048,
+    "cpu_idle_pct_before": 5.1,
+    "cpu_s_per_file": 161.12085,
+    "cpu_s_per_image_file": 161.12085,
+    "cpu_measured": "per process",
+    "cpu_s_per_file_machine": 182.26826666666653,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "below normal",
+    "pool_peak_mb": 4028,
+    "pool_mean_mb": 2957.3546365914785,
+    "worker_peak_mb": 1623.3,
+    "ram_used_peak_pct": 81.6,
+    "engine_start_s": 29.737000000000002,
+    "model_mb": 248.70148181915283,
+    "errors": 0
+   },
+   "baseline_same_files": {
+    "files": 60,
+    "all_correct": 39,
+    "no_yellow": 21,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 60,
+     "nik": 60,
+     "position": 54,
+     "start": 59,
+     "end": 59,
+     "months": 59,
+     "signature": 45,
+     "vendor": 60,
+     "entity": 60
+    }
+   },
+   "same_files": {
+    "files": 60,
+    "all_correct": 38,
+    "no_yellow": 19,
+    "wrong_unmarked_values": 2,
+    "fields": {
+     "name": 60,
+     "nik": 58,
+     "position": 49,
+     "start": 60,
+     "end": 60,
+     "months": 60,
+     "signature": 46,
+     "vendor": 60,
+     "entity": 60
+    }
+   }
+  },
+  "easyocr-screen2": {
+   "key": "easyocr-screen2",
+   "label": "EasyOCR 1.7 (Indonesian + English)",
+   "family": "easyocr",
+   "versions": {
+    "contract-extractor": "0.1.0",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "python-doctr": "1.1.0",
+    "easyocr": "1.7.2",
+    "torch": "2.14.1",
+    "pytesseract": "0.3.13",
+    "opencv-python-headless": "4.14.0.94",
+    "numpy": "2.4.6"
+   },
+   "machine": {
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 15.2,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+   },
+   "complete": false,
+   "overall": {
+    "files": 12,
+    "read": 12,
+    "all_correct": 3,
+    "no_yellow": 1,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 0,
+    "values_correct": 98,
+    "values": 108,
+    "decisions": {
+     "review": 12
+    },
+    "auto_wrong": 0
+   },
+   "image": {
+    "files": 12,
+    "read": 12,
+    "all_correct": 3,
+    "no_yellow": 1,
+    "no_yellow_but_wrong": 0,
+    "wrong_unmarked_values": 0,
+    "values_correct": 98,
+    "values": 108,
+    "decisions": {
+     "review": 12
+    },
+    "auto_wrong": 0
+   },
+   "by_form_files": {
+    "digital": {
+     "files": 0,
+     "read": 0,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 0,
+     "values": 0,
+     "decisions": {},
+     "auto_wrong": 0
+    },
+    "scan": {
+     "files": 7,
+     "read": 7,
+     "all_correct": 2,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 57,
+     "values": 63,
+     "decisions": {
+      "review": 7
+     },
+     "auto_wrong": 0
+    },
+    "photo": {
+     "files": 5,
+     "read": 5,
+     "all_correct": 1,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 41,
+     "values": 45,
+     "decisions": {
+      "review": 5
+     },
+     "auto_wrong": 0
+    }
+   },
+   "fields": {
+    "name": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 12,
+     "correct": 10,
+     "wrong": 0,
+     "missing": 2,
+     "undecided": 0,
+     "marked": 7,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 12,
+     "correct": 8,
+     "wrong": 0,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 9,
+     "wrong_unmarked": 0
+    },
+    "start": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 12,
+     "correct": 8,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 4,
+     "marked": 5,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_image": {
+    "name": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "nik": {
+     "n": 12,
+     "correct": 10,
+     "wrong": 0,
+     "missing": 2,
+     "undecided": 0,
+     "marked": 7,
+     "wrong_unmarked": 0
+    },
+    "position": {
+     "n": 12,
+     "correct": 8,
+     "wrong": 0,
+     "missing": 4,
+     "undecided": 0,
+     "marked": 9,
+     "wrong_unmarked": 0
+    },
+    "start": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "end": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "months": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "signature": {
+     "n": 12,
+     "correct": 8,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 4,
+     "marked": 5,
+     "wrong_unmarked": 0
+    },
+    "vendor": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    },
+    "entity": {
+     "n": 12,
+     "correct": 12,
+     "wrong": 0,
+     "missing": 0,
+     "undecided": 0,
+     "marked": 0,
+     "wrong_unmarked": 0
+    }
+   },
+   "fields_by_form": {
+    "digital": {
+     "name": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 0,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan": {
+     "name": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 7,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 7,
+      "correct": 6,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 5,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 7,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 3,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 7,
+      "correct": 7,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo": {
+     "name": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 5,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 3,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 5,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 5,
+      "correct": 5,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "fields_by_group": {
+    "photo:clean": {
+     "name": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 4,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 2,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 4,
+      "correct": 3,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "photo:clutter": {
+     "name": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 1,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:bw": {
+     "name": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 2,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 2,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 1,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 2,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:color": {
+     "name": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 4,
+      "correct": 3,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 3,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 4,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 4,
+      "correct": 2,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 2,
+      "marked": 2,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 4,
+      "correct": 4,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    },
+    "scan:gray": {
+     "name": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "nik": {
+      "n": 1,
+      "correct": 0,
+      "wrong": 0,
+      "missing": 1,
+      "undecided": 0,
+      "marked": 1,
+      "wrong_unmarked": 0
+     },
+     "position": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "start": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "end": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "months": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "signature": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "vendor": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     },
+     "entity": {
+      "n": 1,
+      "correct": 1,
+      "wrong": 0,
+      "missing": 0,
+      "undecided": 0,
+      "marked": 0,
+      "wrong_unmarked": 0
+     }
+    }
+   },
+   "files_by_group": {
+    "photo:clean": {
+     "files": 4,
+     "read": 4,
+     "all_correct": 1,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 33,
+     "values": 36,
+     "decisions": {
+      "review": 4
+     },
+     "auto_wrong": 0
+    },
+    "photo:clutter": {
+     "files": 1,
+     "read": 1,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 8,
+     "values": 9,
+     "decisions": {
+      "review": 1
+     },
+     "auto_wrong": 0
+    },
+    "scan:bw": {
+     "files": 2,
+     "read": 2,
+     "all_correct": 1,
+     "no_yellow": 1,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 16,
+     "values": 18,
+     "decisions": {
+      "review": 2
+     },
+     "auto_wrong": 0
+    },
+    "scan:color": {
+     "files": 4,
+     "read": 4,
+     "all_correct": 1,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 33,
+     "values": 36,
+     "decisions": {
+      "review": 4
+     },
+     "auto_wrong": 0
+    },
+    "scan:gray": {
+     "files": 1,
+     "read": 1,
+     "all_correct": 0,
+     "no_yellow": 0,
+     "no_yellow_but_wrong": 0,
+     "wrong_unmarked_values": 0,
+     "values_correct": 8,
+     "values": 9,
+     "decisions": {
+      "review": 1
+     },
+     "auto_wrong": 0
+    }
+   },
+   "timing": {
+    "digital": {
+     "mean_s": null,
+     "median_s": null,
+     "p95_s": null,
+     "max_s": null
+    },
+    "scan": {
+     "mean_s": 245.39242857142855,
+     "median_s": 238.667,
+     "p95_s": 294.4406,
+     "max_s": 295.154
+    },
+    "photo": {
+     "mean_s": 259.4916,
+     "median_s": 256.232,
+     "p95_s": 286.9954,
+     "max_s": 288.82
+    },
+    "image": {
+     "mean_s": 251.26708333333335,
+     "median_s": 253.1585,
+     "p95_s": 293.8461,
+     "max_s": 295.154
+    },
+    "all": {
+     "mean_s": 251.26708333333335,
+     "median_s": 253.1585,
+     "p95_s": 293.8461,
+     "max_s": 295.154
+    }
+   },
+   "ocr": {
+    "calls_per_image_file": 4.5,
+    "ocr_s_per_image_file": 246.74783333333335,
+    "ocr_s_per_call": 54.83285185185185,
+    "ocr_s_per_megapixel": 9.266944166249374,
+    "ocr_share_of_time": 0.9820141582413136
+   },
+   "resources": {
+    "wall_s": 1105.9,
+    "files_per_hour": 39.06320643819513,
+    "workers": 3,
+    "threads_per_worker": 2,
+    "cpu_mean_pct": 47.38263695450325,
+    "cpu_idle_pct_before": 7.0,
+    "cpu_s_per_file": 470.75525,
+    "cpu_s_per_image_file": 470.75525,
+    "cpu_measured": "per process",
+    "cpu_s_per_file_machine": 579.8946666666669,
+    "tesseract_process_peak_mb": null,
+    "paused_for_memory_s": 0.0,
+    "priority": "below normal",
+    "pool_peak_mb": 8408,
+    "pool_mean_mb": 3900.101207056639,
+    "worker_peak_mb": 4335.5,
+    "ram_used_peak_pct": 100.0,
+    "engine_start_s": 11.037666666666667,
+    "model_mb": 93.99268245697021,
+    "errors": 0
+   },
+   "baseline_same_files": {
+    "files": 12,
+    "all_correct": 8,
+    "no_yellow": 4,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 12,
+     "nik": 12,
+     "position": 12,
+     "start": 12,
+     "end": 12,
+     "months": 12,
+     "signature": 8,
+     "vendor": 12,
+     "entity": 12
+    }
+   },
+   "same_files": {
+    "files": 12,
+    "all_correct": 3,
+    "no_yellow": 1,
+    "wrong_unmarked_values": 0,
+    "fields": {
+     "name": 12,
+     "nik": 10,
+     "position": 8,
+     "start": 12,
+     "end": 12,
+     "months": 12,
+     "signature": 8,
+     "vendor": 12,
+     "entity": 12
+    }
+   }
+  }
+ },
+ "agreement_with_baseline": {
+  "rapid_v6_small": {
+   "nik": {
+    "image_files": 473,
+    "agree": 464,
+    "agree_correct": 464,
+    "agree_wrong": 0,
+    "disagree": 9,
+    "disagree_one_correct": 8,
+    "yellow": 194,
+    "yellow_same_correct": 186,
+    "yellow_same_wrong": 0
+   },
+   "name": {
+    "image_files": 473,
+    "agree": 473,
+    "agree_correct": 473,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "position": {
+    "image_files": 473,
+    "agree": 441,
+    "agree_correct": 441,
+    "agree_wrong": 0,
+    "disagree": 32,
+    "disagree_one_correct": 31,
+    "yellow": 44,
+    "yellow_same_correct": 19,
+    "yellow_same_wrong": 0
+   },
+   "start": {
+    "image_files": 473,
+    "agree": 466,
+    "agree_correct": 466,
+    "agree_wrong": 0,
+    "disagree": 7,
+    "disagree_one_correct": 7,
+    "yellow": 18,
+    "yellow_same_correct": 14,
+    "yellow_same_wrong": 0
+   },
+   "end": {
+    "image_files": 473,
+    "agree": 464,
+    "agree_correct": 464,
+    "agree_wrong": 0,
+    "disagree": 9,
+    "disagree_one_correct": 9,
+    "yellow": 25,
+    "yellow_same_correct": 19,
+    "yellow_same_wrong": 0
+   },
+   "months": {
+    "image_files": 473,
+    "agree": 465,
+    "agree_correct": 465,
+    "agree_wrong": 0,
+    "disagree": 8,
+    "disagree_one_correct": 8,
+    "yellow": 36,
+    "yellow_same_correct": 31,
+    "yellow_same_wrong": 0
+   }
+  },
+  "tesseract_best-screen": {
+   "nik": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 25,
+    "yellow_same_correct": 25,
+    "yellow_same_wrong": 0
+   },
+   "name": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "position": {
+    "image_files": 60,
+    "agree": 52,
+    "agree_correct": 52,
+    "agree_wrong": 0,
+    "disagree": 8,
+    "disagree_one_correct": 2,
+    "yellow": 7,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "start": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 0,
+    "yellow": 1,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "end": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 0,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "months": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 0,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   }
+  },
+  "rapid_v6_small-screen2": {
+   "nik": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 25,
+    "yellow_same_correct": 25,
+    "yellow_same_wrong": 0
+   },
+   "name": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "position": {
+    "image_files": 60,
+    "agree": 54,
+    "agree_correct": 54,
+    "agree_wrong": 0,
+    "disagree": 6,
+    "disagree_one_correct": 6,
+    "yellow": 7,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "start": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 1,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "end": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "months": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   }
+  },
+  "rapid_v6_tiny-screen2": {
+   "nik": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 25,
+    "yellow_same_correct": 25,
+    "yellow_same_wrong": 0
+   },
+   "name": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "position": {
+    "image_files": 60,
+    "agree": 51,
+    "agree_correct": 51,
+    "agree_wrong": 0,
+    "disagree": 9,
+    "disagree_one_correct": 9,
+    "yellow": 7,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "start": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 1,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "end": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "months": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   }
+  },
+  "doctr_crnn-screen2": {
+   "nik": {
+    "image_files": 60,
+    "agree": 58,
+    "agree_correct": 58,
+    "agree_wrong": 0,
+    "disagree": 2,
+    "disagree_one_correct": 2,
+    "yellow": 25,
+    "yellow_same_correct": 23,
+    "yellow_same_wrong": 0
+   },
+   "name": {
+    "image_files": 60,
+    "agree": 60,
+    "agree_correct": 60,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "position": {
+    "image_files": 60,
+    "agree": 46,
+    "agree_correct": 46,
+    "agree_wrong": 0,
+    "disagree": 14,
+    "disagree_one_correct": 11,
+    "yellow": 7,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "start": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 1,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "end": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   },
+   "months": {
+    "image_files": 60,
+    "agree": 59,
+    "agree_correct": 59,
+    "agree_wrong": 0,
+    "disagree": 1,
+    "disagree_one_correct": 1,
+    "yellow": 2,
+    "yellow_same_correct": 1,
+    "yellow_same_wrong": 0
+   }
+  },
+  "easyocr-screen2": {
+   "nik": {
+    "image_files": 12,
+    "agree": 10,
+    "agree_correct": 10,
+    "agree_wrong": 0,
+    "disagree": 2,
+    "disagree_one_correct": 2,
+    "yellow": 6,
+    "yellow_same_correct": 5,
+    "yellow_same_wrong": 0
+   },
+   "name": {
+    "image_files": 12,
+    "agree": 12,
+    "agree_correct": 12,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "position": {
+    "image_files": 12,
+    "agree": 8,
+    "agree_correct": 8,
+    "agree_wrong": 0,
+    "disagree": 4,
+    "disagree_one_correct": 4,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "start": {
+    "image_files": 12,
+    "agree": 12,
+    "agree_correct": 12,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "end": {
+    "image_files": 12,
+    "agree": 12,
+    "agree_correct": 12,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   },
+   "months": {
+    "image_files": 12,
+    "agree": 12,
+    "agree_correct": 12,
+    "agree_wrong": 0,
+    "disagree": 0,
+    "disagree_one_correct": 0,
+    "yellow": 0,
+    "yellow_same_correct": 0,
+    "yellow_same_wrong": 0
+   }
+  }
+ }
+}

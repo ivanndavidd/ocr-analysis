@@ -1,0 +1,95 @@
+annotated-doc                    0.0.5                      MIT                                                        OSV: none
+annotated-types                  0.8.0                      MIT                                                        OSV: none
+anthropic                        1.13.0                     MIT                                                        OSV: none
+anyascii                         0.3.3                      ISC License (ISCL)                                         OSV: none
+anyio                            4.15.1                     MIT                                                        OSV: none
+certifi                          2026.10.23                 MPL-2.0                                                    OSV: none
+cffi                             2.1.1                      MIT-0                                                      OSV: none
+charset-normalizer               3.5.2                      MIT                                                        OSV: none
+click                            8.5.0                      BSD-3-Clause                                               OSV: none
+colorama                         0.4.6                      BSD License                                                OSV: none
+colorlog                         6.12.0                     MIT License                                                OSV: none
+contract-extractor               0.1.0                      UNKNOWN                                                    OSV: none
+contract-extractor               0.1.0                      UNKNOWN                                                    OSV: none
+cryptography                     50.0.2                     Apache-2.0 OR BSD-3-Clause                                 OSV: none
+distro                           1.9.0                      Apache License, Version 2.0                                OSV: none
+docstring_parser                 0.18.0                     MIT                                                        OSV: none
+easyocr                          1.7.2                      Apache License 2.0                                         OSV: none
+et_xmlfile                       2.0.0                      MIT                                                        OSV: none
+filelock                         4.2.9                      MIT                                                        OSV: none
+flatbuffers                      25.12.19                   Apache 2.0                                                 OSV: none
+fsspec                           2026.9.0                   BSD-3-Clause                                               OSV: none
+google-auth                      2.62.0                     Apache 2.0                                                 OSV: none
+google-genai                     2.29.0                     Apache-2.0                                                 OSV: none
+h11                              0.16.0                     MIT                                                        OSV: none
+h5py                             3.16.0                     BSD-3-Clause                                               OSV: none
+hf-xet                           1.8.0                      Apache-2.0                                                 OSV: none
+httpcore                         1.0.9                      BSD-3-Clause                                               OSV: none
+httpcore2                        2.16.0                     BSD-3-Clause                                               OSV: none
+httpx                            0.28.1                     BSD-3-Clause                                               OSV: none
+httpx2                           2.16.0                     BSD-3-Clause                                               OSV: none
+huggingface_hub                  1.33.0                     Apache-2.0                                                 OSV: none
+idna                             3.20                       BSD-3-Clause                                               OSV: none
+ImageIO                          2.38.1                     BSD-2-Clause                                               OSV: none
+iniconfig                        2.3.1                      MIT                                                        OSV: none
+Jinja2                           3.1.6                      BSD License                                                OSV: none
+jiter                            0.18.0                     MIT                                                        OSV: none
+langdetect                       1.0.9                      MIT                                                        OSV: none
+lazy-loader                      0.6                        BSD-3-Clause                                               OSV: none
+markdown-it-py                   4.2.0                      MIT License                                                OSV: none
+MarkupSafe                       3.0.4                      BSD-3-Clause                                               OSV: none
+mdurl                            0.1.2                      MIT License                                                OSV: none
+ml_dtypes                        0.6.0                      Apache-2.0                                                 OSV: none
+mpmath                           1.3.0                      BSD                                                        OSV: none
+networkx                         3.6.1                      BSD-3-Clause                                               OSV: none
+numpy                            2.4.6                      BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0         OSV: none
+omegaconf                        2.4.0                      BSD License                                                OSV: none
+onnx                             1.23.2                     Apache-2.0                                                 OSV: none
+onnxruntime                      1.31.0                     MIT License                                                OSV: none
+opencv-python                    5.0.0.93                   Apache 2.0                                                 OSV: none
+opencv-python-headless           4.14.0.94                  Apache 2.0                                                 OSV: none
+openpyxl                         3.1.5                      MIT                                                        OSV: none
+packaging                        26.3                       Apache-2.0 OR BSD-2-Clause                                 OSV: none
+pdfminer.six                     20260107                   MIT                                                        OSV: none
+pdfplumber                       0.11.10                    MIT License                                                OSV: none
+pillow                           13.0.0                     MIT-CMU                                                    OSV: none
+pip                              26.2.2                     MIT                                                        OSV: none
+pluggy                           1.7.0                      MIT                                                        OSV: none
+protobuf                         7.36.2                     3-Clause BSD License                                       OSV: none
+psutil                           7.2.2                      BSD-3-Clause                                               OSV: none
+pyasn1                           0.6.4                      BSD-2-Clause                                               OSV: GHSA-2qm8-x737-gmw5, GHSA-9m75-vc3g-4x39, GHSA-fm9c-5rcf-2q5p, GHSA-mm57-4v3p-rchx
+pyasn1_modules                   0.4.2                      BSD                                                        OSV: none
+pyclipper                        1.4.0                      MIT                                                        OSV: none
+pycparser                        3.12                       BSD-3-Clause                                               OSV: none
+pydantic                         2.14.1                     MIT                                                        OSV: none
+pydantic_core                    2.50.1                     MIT                                                        OSV: none
+Pygments                         2.21.0                     BSD-2-Clause                                               OSV: none
+pypdfium2                        5.14.0                     BSD-3-Clause, Apache-2.0, dependency licenses              OSV: none
+pytesseract                      0.3.13                     Apache License 2.0                                         OSV: none
+pytest                           9.1.1                      MIT                                                        OSV: none
+python-doctr                     1.1.0                      Apache Software License                                    OSV: none
+PyYAML                           6.0.3                      MIT                                                        OSV: none
+RapidFuzz                        3.14.5                     MIT                                                        OSV: none
+rapidocr                         3.10.0                     Apache-2.0                                                 OSV: none
+requests                         2.34.2                     Apache-2.0                                                 OSV: none
+rich                             15.0.0                     MIT                                                        OSV: none
+scikit-image                     0.26.0                     BSD License                                                OSV: none
+scipy                            1.17.1                     BSD License                                                OSV: none
+setuptools                       84.2.1                     MIT                                                        OSV: none
+shapely                          2.2.0                      BSD-3-Clause                                               OSV: none
+shellingham                      1.5.4                      ISC License                                                OSV: none
+six                              1.17.0                     MIT                                                        OSV: none
+sniffio                          1.3.1                      MIT OR Apache-2.0                                          OSV: none
+sympy                            1.14.0                     BSD                                                        OSV: none
+tenacity                         9.1.4                      Apache 2.0                                                 OSV: none
+tifffile                         2026.3.3                   BSD-3-Clause                                               OSV: none
+torch                            2.14.1                     Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Cl OSV: none
+torchvision                      0.29.1                     BSD                                                        OSV: none
+tqdm                             4.70.1                     MPL-2.0 AND MIT                                            OSV: none
+truststore                       0.10.5                     MIT                                                        OSV: none
+typer                            0.27.3                     MIT                                                        OSV: none
+typing-inspection                0.4.4                      MIT                                                        OSV: none
+typing_extensions                4.16.0                     PSF-2.0                                                    OSV: none
+urllib3                          2.8.0                      MIT                                                        OSV: none
+validators                       0.36.0                     MIT                                                        OSV: none
+websockets                       16.1.1                     BSD-3-Clause                                               OSV: none

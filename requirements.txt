@@ -1,0 +1,15 @@
+# One Python 3.11 environment for everything in contract-ocr.
+#   python -m venv .venv
+#   .venv/Scripts/python -m pip install -r requirements.txt
+#   .venv/Scripts/python -m pip install --no-deps -e ocr-analysis/apps/extractor
+
+# ocr-analysis: the extractor's full pinned set, including pytest. It also supplies numpy, pillow,
+# pypdfium2 and opencv-python-headless (4.14.0.94) for the generator.
+-r ocr-analysis/apps/extractor/requirements.lock
+
+# contract-pdf-generator: the libraries the lock does not have
+Faker==40.44.0
+reportlab==5.1.0
+
+# Runs the notebook in VS Code or Jupyter with this venv as the kernel
+ipykernel==7.4.0

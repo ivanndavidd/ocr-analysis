@@ -1,0 +1,36 @@
+# Repository root is contract-ocr. ocr-analysis/ and contract-pdf-generator/ keep their own .gitignore as well.
+
+# Real contracts with personal data (names, NIK): never commit
+**/Contract Example/
+**/sample/
+
+# Generated data: synthetic NIKs and names, large files
+contract-pdf-generator/output/
+contract-pdf-generator/output.zip
+contract-pdf-generator/accuracy/
+ocr-benchmark/runs/
+ocr-benchmark/models/
+
+# Environments and caches
+.venv/
+node_modules/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local machine settings (paths on this laptop)
+/.claude/
+/.vscode/
+
+# Logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
