@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793844068513,
+      "tag": "0000_create_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793851888548,
+      "tag": "0001_ocr_results",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793852560487,
+      "tag": "0002_seconds_double",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793856791713,
+      "tag": "0003_shared_queue_history",
+      "breakpoints": true
+    }
+  ]
+}
