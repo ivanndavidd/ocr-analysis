@@ -2,8 +2,8 @@ from datetime import date
 
 import pytest
 
-from contract_extractor.dates import months_between
-from contract_extractor.stages.filename import (
+from contract_extractor.common.dates import months_between
+from contract_extractor.extractor_method.pattern.filename import (
     FLAG_NONSTANDARD,
     FLAG_UNPARSED,
     Match,
@@ -34,6 +34,40 @@ def test_parses_range_forms(filename, name, start, end):
 @pytest.mark.parametrize(("filename", "months"), [("Budi Santoso - 12 bulan.pdf", 12), ("Budi Santoso - 1 tahun.pdf", 12)])
 def test_parses_duration_forms(filename, months):
     assert parse_filename(filename) == ParsedFilename(name="Budi Santoso", duration_months=months)
+
+
+@pytest.mark.parametrize(
+    ("filename", "parsed"),
+    [
+        (
+            "Budi Santoso - 1jan-31mar24 - SNA.pdf",
+            ParsedFilename(name="Budi Santoso", start=date(2024, 1, 1), end=date(2024, 3, 31), entity="SNA"),
+        ),
+        (
+            "Budi Santoso - 1 Januari 2026 - 31 Desember 2026 - PT Sinar Niaga.pdf",
+            ParsedFilename(name="Budi Santoso", start=date(2026, 1, 1), end=date(2026, 12, 31), entity="PT Sinar Niaga"),
+        ),
+        (
+            "Budi Santoso - 01-01-2026 - 31-12-2026 -  PT  Sinar Niaga .pdf",
+            ParsedFilename(name="Budi Santoso", start=date(2026, 1, 1), end=date(2026, 12, 31), entity="PT Sinar Niaga"),
+        ),
+        ("Budi Santoso - 12 bulan - SNA.pdf", ParsedFilename(name="Budi Santoso", duration_months=12, entity="SNA")),
+        (
+            "Budi Santoso - 1jan-31mar24 - PT Sinar Niaga - Jakarta.pdf",
+            ParsedFilename(
+                name="Budi Santoso", start=date(2024, 1, 1), end=date(2024, 3, 31), entity="PT Sinar Niaga - Jakarta"
+            ),
+        ),
+    ],
+)
+def test_parses_the_entity_after_the_period(filename, parsed):
+    assert parse_filename(filename) == parsed
+
+
+def test_entity_is_not_guessed_when_the_period_is_unreadable():
+    parsed = parse_filename("Budi Santoso - kontrak baru - SNA.pdf")
+    assert parsed.flags == (FLAG_UNPARSED,)
+    assert parsed.entity is None
 
 
 def test_missing_separator_is_nonstandard_and_whole_stem_is_the_name():

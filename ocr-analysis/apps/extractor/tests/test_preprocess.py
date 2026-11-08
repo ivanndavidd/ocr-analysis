@@ -2,7 +2,15 @@ import cv2
 import numpy as np
 import pytest
 
-from contract_extractor.ocr.preprocess import MAX_DESKEW_DEG, binarize, deskew, estimate_skew, preprocess, remove_shadows
+from contract_extractor.document.ocr.preprocess import (
+    MAX_DESKEW_DEG,
+    binarize,
+    deskew,
+    erase_rules,
+    estimate_skew,
+    preprocess,
+    remove_shadows,
+)
 
 
 def text_image(width: int = 1400, height: int = 1800) -> np.ndarray:
@@ -49,6 +57,39 @@ def test_remove_shadows_flattens_a_lighting_gradient():
 
 def test_binarize_outputs_only_black_and_white():
     assert set(np.unique(binarize(text_image()))) <= {0, 255}
+
+
+def test_erase_rules_removes_table_borders_and_keeps_the_letters():
+    letters = binarize(text_image())
+    ruled = letters.copy()
+    for i in range(15):  # a border under every row, as in a ruled identity table
+        cv2.line(ruled, (60, 160 + i * 110 - 110), (1360, 160 + i * 110 - 110), 0, 3)
+    for x in (60, 1360):
+        cv2.line(ruled, (x, 50), (x, 1700), 0, 3)
+
+    underline = (200, 1712, 350, 1714)  # under one word: shorter than a table border, so it stays
+    cv2.rectangle(ruled, underline[:2], underline[2:], 0, -1)
+
+    erased = erase_rules(ruled)
+    border = (ruled == 0) & (letters == 255)
+    border[underline[1]:underline[3] + 1, underline[0]:underline[2] + 1] = False
+    assert (erased[border] == 255).mean() > 0.99
+    assert (erased[letters == 0] == 0).mean() > 0.97  # the text itself stays
+    assert (erased[underline[1]:underline[3] + 1, underline[0]:underline[2] + 1] == 0).all()
+
+
+def test_erase_rules_leaves_a_page_without_lines_alone():
+    letters = binarize(text_image())
+    assert (erase_rules(letters) == letters).mean() > 0.999
+
+
+def test_preprocess_erases_table_borders_only_when_asked():
+    ruled = text_image()
+    cv2.line(ruled, (60, 60), (1360, 60), 0, 3)
+    kept, _ = preprocess(ruled)
+    erased, _ = preprocess(ruled, erase=True)
+    assert (kept[59:62, 100:1300] == 0).mean() > 0.9
+    assert (erased[59:62, 100:1300] == 255).all()
 
 
 def test_preprocess_reports_the_applied_angle():

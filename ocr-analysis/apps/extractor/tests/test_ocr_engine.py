@@ -1,10 +1,21 @@
+import cv2
 import numpy as np
 import pytest
+from helpers import make_pdf
 
-from contract_extractor.config import OcrEngine, OcrSettings, Settings
-from contract_extractor.models import Word
-from contract_extractor.ocr.base import OcrEngineError
-from contract_extractor.ocr.engine import OcrRunner, OcrUnavailable, build_runner, mean_confidence
+from contract_extractor.common.config import OcrEngine, OcrSettings, Settings
+from contract_extractor.common.models import Word
+from contract_extractor.document.ocr.base import OcrEngineError
+from contract_extractor.common.layout import PageText
+from contract_extractor.document.ocr.engine import (
+    OcrRunner,
+    OcrUnavailable,
+    build_runner,
+    confident_words,
+    mean_confidence,
+)
+from contract_extractor.document.pdf.render import PageRenderer
+from contract_extractor.document.ocr.preprocess import estimate_skew
 
 
 class FakeRenderer:
@@ -61,6 +72,34 @@ def test_all_failing_returns_best_attempt_marked_failed():
     assert outcome.attempts == ["a", "b:error"]
 
 
+class SequenceProvider(FakeProvider):
+    """Answers each read with the next word list: the plain read first, then the one with table borders erased."""
+
+    def __init__(self, name: str, *reads: list[Word]) -> None:
+        super().__init__(name)
+        self.reads = list(reads)
+
+    def read(self, image: np.ndarray) -> list[Word]:
+        return self.reads.pop(0)
+
+
+def test_a_failing_identity_page_is_reread_with_table_borders_erased():
+    runner = OcrRunner([SequenceProvider("a", BLURRY, GOOD)])
+    outcome = runner.read(FakeRenderer(), 1, "budi santoso", erase_rules=True)
+    assert (outcome.passed, outcome.engine, outcome.attempts) == (True, "a", ["a", "a+rules_erased"])
+
+
+def test_a_passing_page_is_never_reread_with_table_borders_erased():
+    provider = SequenceProvider("a", GOOD, BLURRY)
+    outcome = OcrRunner([provider]).read(FakeRenderer(), 1, "budi santoso", erase_rules=True)
+    assert (outcome.passed, outcome.attempts, len(provider.reads)) == (True, ["a"], 1)
+
+
+def test_without_erase_rules_a_failing_page_is_read_once():
+    outcome = OcrRunner([SequenceProvider("a", BLURRY, GOOD)]).read(FakeRenderer(), 1, "budi santoso")
+    assert (outcome.passed, outcome.attempts) == (False, ["a"])
+
+
 def test_confident_text_without_the_filename_name_fails_quality():
     runner = OcrRunner([FakeProvider("a", words(("Nama", 0.95), ("Rina", 0.95), ("Wulandari", 0.95)))])
     assert runner.read(FakeRenderer(), 1, "budi santoso").passed is False
@@ -77,6 +116,32 @@ def test_rough_pass_uses_scoring_dpi_and_full_read_uses_read_dpi():
     runner.rough_text(renderer, 2)
     runner.read(renderer, 5, "")
     assert renderer.calls == [(2, 150), (5, 300)]
+
+
+def test_rough_pass_straightens_a_tilted_photo():
+    page = np.full((900, 700), 255, np.uint8)
+    for i in range(8):
+        cv2.putText(page, "PERJANJIAN KERJA PIHAK KEDUA", (40, 100 + i * 90), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 0, 2)
+    h, w = page.shape
+    tilted = cv2.warpAffine(page, cv2.getRotationMatrix2D((w / 2, h / 2), 4.0, 1.0), (w, h), borderValue=255)
+
+    class TiltedRenderer:
+        def render_gray(self, page_number: int, dpi: int) -> np.ndarray:
+            return tilted
+
+    class Recorder(FakeProvider):
+        def read(self, image: np.ndarray) -> list[Word]:
+            self.image = image
+            return super().read(image)
+
+    engine = Recorder("a", GOOD)
+    OcrRunner([engine]).rough_text(TiltedRenderer(), 1)
+    assert abs(estimate_skew(engine.image)) < 0.5
+    assert len(np.unique(engine.image)) > 2  # grayscale: the engine thresholds it itself
+
+    level = Recorder("b", GOOD)
+    OcrRunner([level]).rough_text(FakeRenderer(), 1)
+    assert (level.image == 255).all()  # a level page goes in as rendered, without shadow removal
 
 
 def test_cloud_fallback_is_refused_until_implemented():
@@ -99,3 +164,67 @@ def test_missing_tesseract_is_reported(tmp_path, monkeypatch):
 def test_invalid_language_string_is_rejected_by_config():
     with pytest.raises(ValueError):
         OcrSettings(lang="ind;rm -rf")
+
+
+class TurnedRenderer(FakeRenderer):
+    """A page photographed turned: it reads as text only at the `upright` turn, which the image width carries."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.turns: dict[int, int] = {}
+        self.turns_read: list[int] = []
+
+    def render_gray(self, page_number: int, dpi: int, turn: int | None = None) -> np.ndarray:
+        turn = self.turns.get(page_number, 0) if turn is None else turn
+        self.turns_read.append(turn)
+        return np.full((200, 160 + turn), 255, np.uint8)
+
+
+class TurnProvider(FakeProvider):
+    def __init__(self, upright: int) -> None:
+        super().__init__("tesseract")
+        self.upright = upright
+
+    def read(self, image: np.ndarray) -> list[Word]:
+        if image.shape[1] - 160 == self.upright:
+            return words(*[("Perjanjian", 0.9)] * 30)
+        return words(("~i", 0.3), ("Pe", 0.5))
+
+
+def _page(found: list[Word]) -> PageText:
+    return PageText(number=1, width=160, height=200, words=tuple(found), source="ocr:tesseract")
+
+
+def test_a_page_that_reads_upright_is_never_turned():
+    renderer = TurnedRenderer()
+    upright = _page(words(*[("Perjanjian", 0.9)] * 30))
+    assert OcrRunner([TurnProvider(0)]).best_turn(renderer, 1, upright) == 0
+    assert renderer.turns_read == []  # nothing else is read
+
+
+@pytest.mark.parametrize("upright", [90, 180, 270])
+def test_a_turned_photo_is_read_in_the_turn_that_reads_best(upright):
+    renderer = TurnedRenderer()
+    assert OcrRunner([TurnProvider(upright)]).best_turn(renderer, 1, _page(words(("~i", 0.3)))) == upright
+    assert renderer.turns_read == [90, 180, 270]
+
+
+def test_a_page_that_reads_badly_every_way_stays_as_it_is():
+    noise = words(("Pe", 0.5))
+    assert OcrRunner([FakeProvider("tesseract", noise)]).best_turn(TurnedRenderer(), 1, _page(noise)) == 0
+    assert confident_words(words(("Nama", 0.9), ("Nm", 0.9), ("Santoso", 0.4))) == 1
+
+
+def test_the_renderer_turns_a_page_by_its_entry(tmp_path):
+    pdf = make_pdf(tmp_path / "x.pdf", [("text", "Nama : Budi Santoso")])
+    with PageRenderer(pdf) as plain, PageRenderer(pdf, {1: 90}) as turning:
+        upright, turned = plain.render_gray(1, 72), turning.render_gray(1, 72)
+        assert turned.shape == upright.shape[::-1]
+        assert turning.render_rgb(1, 72).shape[:2] == turned.shape
+        assert turning.render_gray(1, 72, turn=0).shape == upright.shape
+
+
+def test_the_erased_read_alone_skips_the_plain_read():
+    provider = SequenceProvider("a", GOOD)
+    outcome = OcrRunner([provider]).read_erased(FakeRenderer(), 1, "budi santoso")
+    assert (outcome.passed, outcome.attempts, provider.reads) == (True, ["a+rules_erased"], [])

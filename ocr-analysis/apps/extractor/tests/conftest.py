@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from helpers import find_tesseract, make_pdf
 
-from contract_extractor.config import OcrSettings, Settings
-from contract_extractor.ocr.engine import OcrRunner, OcrUnavailable, build_runner
+from contract_extractor.common.config import OcrSettings, Settings
+from contract_extractor.document.ocr.engine import OcrRunner, OcrUnavailable, build_runner
 
 
 @pytest.fixture(scope="session")

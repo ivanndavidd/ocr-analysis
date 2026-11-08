@@ -6,14 +6,16 @@ import os
 import shutil
 import zlib
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import cv2
 import numpy as np
 import pypdfium2 as pdfium
 
-from contract_extractor.layout import PageText
-from contract_extractor.models import Word
+from contract_extractor.extractor_method.llm.base import DateAnswer, ExtractionResult, TextAnswer
+from contract_extractor.common.layout import PageText
+from contract_extractor.common.models import Word
 
 PAGE_W, PAGE_H = 612.0, 792.0
 _CHAR_W, _GAP, _WORD_H = 5.5, 3.0, 11.0
@@ -154,6 +156,8 @@ def flow(lines: list[str], start_y: float = 60.0, x: float = 50.0, leading: floa
 # Lines stay under ~95 characters so rendered scans do not clip words at the right page edge.
 BODY_FILLER = "Pihak Pertama dan Pihak Kedua sepakat bahwa ketentuan ini wajib dipatuhi selama kontrak."
 
+# A valid NIK layout for a man born 1 January 1990, with regency and district 99, which no real NIK uses.
+EMPLOYEE_NIK = "3199990101900001"
 IDENTITY_LINES = [
     "PERJANJIAN KERJA WAKTU TERTENTU",
     "Nomor: 001/PKWT/I/2026",
@@ -162,7 +166,7 @@ IDENTITY_LINES = [
     "Jabatan : Direktur",
     "selanjutnya disebut PIHAK PERTAMA, bertindak untuk dan atas nama PT Contoh Sejahtera.",
     "Nama : Budi Santoso",
-    "NIK : 3171012345670001",
+    f"NIK : {EMPLOYEE_NIK}",
     "Tempat/Tanggal Lahir : Bandung, 1 Januari 1990",
     "Jenis Kelamin : Laki-laki",
     "selanjutnya disebut PIHAK KEDUA atau Tenaga Kerja yang bertindak untuk diri sendiri.",
@@ -327,3 +331,29 @@ def find_tesseract() -> Path | None:
         if candidate and Path(candidate).is_file():
             return Path(candidate)
     return None
+
+
+PERIOD_QUOTE = "mulai tanggal 1 Januari 2026 sampai dengan tanggal 31 Desember 2026"
+
+
+def llm_answer(
+    name: str | None = "Budi Santoso",
+    start: date | None = date(2026, 1, 1),
+    end: date | None = date(2026, 12, 31),
+    *,
+    name_quote: str = "Nama : Budi Santoso",
+    period_quote: str = PERIOD_QUOTE,
+    confidence: float = 0.95,
+    position: str | None = None,
+    position_quote: str | None = None,
+    vendor: str | None = None,
+    vendor_quote: str | None = None,
+) -> ExtractionResult:
+    """An extractor answer in the output schema, every field quoted from the fictional test contract."""
+    return ExtractionResult(
+        nama_karyawan=TextAnswer(kutipan=name_quote if name else None, nilai=name, confidence=confidence),
+        posisi=TextAnswer(kutipan=position_quote, nilai=position, confidence=confidence if position else 0.0),
+        tanggal_mulai=DateAnswer(kutipan=period_quote if start else None, nilai=start, confidence=confidence),
+        tanggal_selesai=DateAnswer(kutipan=period_quote if end else None, nilai=end, confidence=confidence),
+        vendor=TextAnswer(kutipan=vendor_quote, nilai=vendor, confidence=confidence if vendor else 0.0),
+    )

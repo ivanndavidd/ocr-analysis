@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 from helpers import PAGE_H, PAGE_W, WORD_FOOTER, WORD_MARGIN, PageExtras, make_pdf
 
-from contract_extractor.models import PageKind
-from contract_extractor.pdf.reader import read_document
-from contract_extractor.stages.page_classify import (
+from contract_extractor.common.models import PageKind
+from contract_extractor.document.pdf.reader import read_document
+from contract_extractor.document.pages.page_classify import (
     ISSUE_IMAGE_WITHOUT_TEXT,
     ISSUE_PHOTO_IN_DOCUMENT,
     ISSUE_SCAN_WITH_WORD_TEXT,

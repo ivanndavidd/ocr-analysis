@@ -1,5 +1,5 @@
-from contract_extractor.layout import group_lines
-from contract_extractor.models import Word
+from contract_extractor.common.layout import PageText, group_lines
+from contract_extractor.common.models import Word
 
 
 def _w(text, x, y, h=11.0):
@@ -24,3 +24,16 @@ def test_two_columns_on_the_same_row_merge_into_one_line():
 
 def test_empty_input():
     assert group_lines([]) == []
+
+
+def test_lines_of_border_scraps_stay_in_the_layout_but_not_in_the_text():
+    page = PageText(
+        number=1,
+        width=600.0,
+        height=800.0,
+        words=(_w("sampai", 50, 100), _w("|", 52, 115), _w("|", 90, 115), _w("dengan", 50, 130), _w("|", 40, 145)),
+        source="ocr:tesseract",
+    )
+    assert [line.text for line in page.lines] == ["sampai", "| |", "dengan", "|"]
+    assert [line.is_debris for line in page.lines] == [False, True, False, True]
+    assert page.text == "sampai\ndengan"

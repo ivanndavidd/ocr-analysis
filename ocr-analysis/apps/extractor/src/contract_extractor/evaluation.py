@@ -2,13 +2,17 @@
 
 File label memuat nama karyawan asli, jadi hanya disimpan di folder `data/` (di-gitignore) di lingkungan yang
 disetujui untuk data asli. Laporan hanya berisi angka agregat, jenis PDF, dan nama vendor; nama karyawan, tanggal,
-dan nama file tidak pernah dicetak. Hanya file detail opsional (`--detail`) yang memuat nama file.
+dan nama file tidak pernah dicetak; NIK juga tidak. Hanya file detail opsional (`--detail`) yang memuat nama file.
+
+Kolom `nik` di label opsional: kosong berarti kontraknya tidak mencetak NIK. Tanpa kolom itu NIK tidak diukur, dan
+mengukurnya butuh `run` dengan `output.nik: full`, karena NIK ter-mask tidak bisa dibandingkan.
 """
 
 from __future__ import annotations
 
 import csv
 import json
+import re
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -18,10 +22,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from contract_extractor.export import neutralize_formula
-from contract_extractor.models import Decision, FileResult, SignatureStatus
+from contract_extractor.output.export import neutralize_formula
+from contract_extractor.common.models import Decision, FileResult, SignatureStatus
 from contract_extractor.pipeline import FLAG_AUTO_DISABLED
-from contract_extractor.stages.filename import normalize_name
+from contract_extractor.extractor_method.pattern.filename import normalize_name
 
 LABEL_COLUMNS = (
     "file",
@@ -37,6 +41,8 @@ LABEL_COLUMNS = (
     "halaman_ttd",
     "kasus",
 )
+NIK_COLUMN = "nik"  # optional; see the module docstring
+_MASKED_NIK = re.compile(r"^\*+\d{4}$")
 # Components that run on this machine. Anything else on a page counts as leaving it, so a new provider whose
 # component name is not listed here shows up as a leak instead of hiding one.
 LOCAL_COMPONENTS = ("text_layer", "tesseract@", "signature@")
@@ -95,11 +101,18 @@ class Label(BaseModel):
     halaman_periode: int = Field(ge=1)
     halaman_ttd: int = Field(ge=1)
     kasus: frozenset[LabelCase] = frozenset()
+    nik: str | None = Field(None, pattern=r"^\d{16}$")  # None: not printed in the contract, or not labelled
+    nik_dilabel: bool = False  # the label file has a `nik` column
 
     @field_validator("file", "vendor", "nama_karyawan", mode="before")
     @classmethod
     def _strip(cls, value: object) -> object:
         return value.strip().replace("\\", "/") if isinstance(value, str) else value
+
+    @field_validator("nik", mode="before")
+    @classmethod
+    def _empty_nik(cls, value: object) -> object:
+        return (value.strip() or None) if isinstance(value, str) else value
 
     @field_validator("kasus", mode="before")
     @classmethod
@@ -113,11 +126,15 @@ def load_labels(path: Path) -> list[Label]:
         missing = [column for column in LABEL_COLUMNS if column not in (reader.fieldnames or [])]
         if missing:
             raise EvaluationError(f"kolom label tidak ada: {', '.join(missing)}")
+        has_nik = NIK_COLUMN in (reader.fieldnames or [])
         labels: list[Label] = []
         seen: set[str] = set()
         for row_number, row in enumerate(reader, start=2):  # row 1 is the header
+            values: dict[str, object] = {column: row[column] for column in LABEL_COLUMNS}
+            if has_nik:
+                values.update({NIK_COLUMN: row[NIK_COLUMN], "nik_dilabel": True})
             try:
-                label = Label.model_validate({column: row[column] for column in LABEL_COLUMNS})
+                label = Label.model_validate(values)
             except ValidationError as exc:
                 columns = sorted({str(error["loc"][0]) for error in exc.errors() if error["loc"]})
                 raise EvaluationError(f"baris {row_number}: kolom {', '.join(columns)} tidak valid") from None
@@ -165,6 +182,16 @@ class FileCheck:
         return r is not None and (r.tanggal_mulai, r.tanggal_selesai) == (self.label.tanggal_mulai, self.label.tanggal_selesai)
 
     @property
+    def nik_ok(self) -> bool:
+        """The printed NIK, or no NIK when the contract prints none."""
+        return self.result is not None and self.result.nik == self.label.nik
+
+    @property
+    def nik_wrong(self) -> bool:
+        """A NIK was reported that is not the printed one: worse than none, so it is counted on its own."""
+        return self.result is not None and self.result.nik is not None and self.result.nik != self.label.nik
+
+    @property
     def predicted_signature(self) -> str | None:
         return self.result.status_ttd.value if self.result and self.result.status_ttd else None
 
@@ -177,6 +204,8 @@ class FileCheck:
     @property
     def auto_wrong(self) -> bool:
         correct = self.name_ok and self.period_ok and self.predicted_signature == self.label.status_ttd.value
+        if self.label.nik_dilabel:
+            correct = correct and self.nik_ok
         return self.auto_candidate and not correct
 
 
@@ -220,6 +249,7 @@ class GroupRow:
     period: tuple[int, int]
     recall_unsigned: tuple[int, int]
     ocr_conf: float | None  # mean confidence over the pages that went through OCR
+    nik: tuple[int, int] | None = None  # only when NIK is labelled and measurable
 
 
 @dataclass(frozen=True)
@@ -239,6 +269,7 @@ class Report:
     by_kind: list[GroupRow]
     by_vendor: list[GroupRow]
     composition: list[CompositionCheck]
+    nik_masked: bool = False  # NIK is labelled but results.json holds masked NIKs, so it cannot be measured
 
 
 def _count(checks: Iterable[FileCheck], test: Callable[[FileCheck], bool]) -> int:
@@ -261,6 +292,27 @@ def leak_counts(results: Iterable[FileResult]) -> tuple[int, int]:
             if outside and not allowed:
                 leaked += 1
     return leaked, pages
+
+
+def _nik_labelled(checks: list[FileCheck]) -> bool:
+    return bool(checks) and all(c.label.nik_dilabel for c in checks)
+
+
+def _nik_masked(checks: list[FileCheck]) -> bool:
+    return any(c.result is not None and c.result.nik is not None and _MASKED_NIK.match(c.result.nik) for c in checks)
+
+
+def _nik_metrics(checks: list[FileCheck]) -> list[Metric]:
+    """No PRD target yet: the owner sets one when NIK enters the gate."""
+    if not _nik_labelled(checks):
+        return []
+    if _nik_masked(checks):
+        return [Metric("nik", "Akurasi NIK", 0, 0, ()), Metric("nik_salah", "NIK salah dari NIK yang keluar", 0, 0, ())]
+    reported = [c for c in checks if c.result is not None and c.result.nik is not None]
+    return [
+        Metric("nik", "Akurasi NIK", _count(checks, lambda c: c.nik_ok), len(checks), ()),
+        Metric("nik_salah", "NIK salah dari NIK yang keluar", _count(reported, lambda c: c.nik_wrong), len(reported), ()),
+    ]
 
 
 def _metrics(checks: list[FileCheck], results: list[FileResult]) -> list[Metric]:
@@ -307,6 +359,7 @@ def _metrics(checks: list[FileCheck], results: list[FileResult]) -> list[Metric]
         Metric("auto_pass", "Auto-pass rate (auto + auto_disabled)", len(auto), len(checks), (Target("Bagian 5", ">=", 0.80),)),
         Metric("auto_error", "Kesalahan pada auto-pass", _count(auto, lambda c: c.auto_wrong), len(auto), (Target("Bagian 5", "<=", 0.01),)),
         Metric("leak", "Kebocoran halaman", leaked, pages, (Target("Bagian 5", "<=", 0.0),), unit="halaman"),
+        *_nik_metrics(checks),
     ]
 
 
@@ -321,6 +374,7 @@ def _group_row(name: str, checks: list[FileCheck]) -> GroupRow:
         period=(_count(checks, lambda c: c.period_ok), len(checks)),
         recall_unsigned=(_count(unsigned, _not_signed), len(unsigned)),
         ocr_conf=sum(confidences) / len(confidences) if confidences else None,
+        nik=(_count(checks, lambda c: c.nik_ok), len(checks)) if _nik_labelled(checks) and not _nik_masked(checks) else None,
     )
 
 
@@ -371,6 +425,7 @@ def evaluate(results_path: Path, labels_path: Path, kelompok: KelompokFilter = K
         by_kind=_groups(checks, lambda c: c.label.jenis_pdf.value),
         by_vendor=_groups(checks, lambda c: c.label.vendor),
         composition=_composition(chosen),
+        nik_masked=_nik_labelled(checks) and _nik_masked(checks),
     )
 
 
@@ -402,16 +457,19 @@ def format_report(report: Report) -> str:
     ]
     for metric in report.metrics:
         targets = "; ".join(_target_text(target, metric.value) for target in metric.targets)
-        lines.append(f"- {metric.label}: {_ratio(metric.hit, metric.total, metric.unit)}. {targets}")
+        lines.append(f"- {metric.label}: {_ratio(metric.hit, metric.total, metric.unit)}." + (f" {targets}" if targets else ""))
+    if report.nik_masked:
+        lines.append("- NIK tidak diukur: NIK di results.json ter-mask. Jalankan `run` dengan `output.nik: full`.")
     lines.append("- Waktu per file: tidak diukur, karena results.json tidak mencatat waktu proses (Bagian 5: median <= 30 detik).")
 
     for title, rows in (("Per jenis PDF", report.by_kind), ("Per vendor", report.by_vendor)):
         lines += ["", f"{title}:"]
         for row in rows:
             conf = f", confidence OCR rata-rata {row.ocr_conf:.2f}".replace(".", ",") if row.ocr_conf is not None else ""
+            nik = f", NIK {_ratio(*row.nik)}" if row.nik is not None else ""
             lines.append(
                 f"- {row.name} ({row.files} file): page selection {_ratio(*row.page)}, nama {_ratio(*row.name_acc)}, "
-                f"periode {_ratio(*row.period)}, recall unsigned {_ratio(*row.recall_unsigned)}{conf}"
+                f"periode {_ratio(*row.period)}{nik}, recall unsigned {_ratio(*row.recall_unsigned)}{conf}"
             )
 
     lines += ["", "Komposisi test set (Bagian 14):"]
@@ -431,6 +489,7 @@ def report_json(report: Report) -> dict:
             "periode": list(row.period),
             "recall_unsigned": list(row.recall_unsigned),
             "confidence_ocr": row.ocr_conf,
+            "nik": list(row.nik) if row.nik is not None else None,
         }
 
     return {
@@ -438,6 +497,7 @@ def report_json(report: Report) -> dict:
         "file_berlabel": len(report.checks),
         "tanpa_hasil": report.n_missing,
         "hasil_tanpa_label": report.n_unlabeled,
+        "nik_ter_mask": report.nik_masked,
         "metrik": [
             {
                 "kunci": m.key,
@@ -464,6 +524,7 @@ DETAIL_COLUMNS = (
     "page_selection",
     "nama",
     "periode",
+    "nik",
     "ttd_label",
     "ttd_prediksi",
     "keputusan",
@@ -490,6 +551,7 @@ def write_detail(report: Report, path: Path) -> None:
                 "page_selection": yes(c.page_ok),
                 "nama": yes(c.name_ok),
                 "periode": yes(c.period_ok),
+                "nik": yes(c.nik_ok) if c.label.nik_dilabel and not report.nik_masked else "",
                 "ttd_label": c.label.status_ttd.value,
                 "ttd_prediksi": c.predicted_signature or "",
                 "keputusan": c.result.keputusan.value if c.result else "",

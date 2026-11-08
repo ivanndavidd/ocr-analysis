@@ -1,12 +1,11 @@
 import pytest
 
-from contract_extractor.models import Decision, Level, SignatureStatus
-from contract_extractor.stages.filename import FLAG_NONSTANDARD, FLAG_UNPARSED, Match
-from contract_extractor.stages.scoring import (
+from contract_extractor.common.models import Decision, Level, SignatureStatus
+from contract_extractor.extractor_method.pattern.filename import FLAG_NONSTANDARD, FLAG_UNPARSED, Match
+from contract_extractor.scoring import (
     COMPONENT_FILENAME,
     FLAG_FILENAME_MISMATCH,
     decide,
-    extraction_level,
     filename_level,
     ocr_level,
     page_selection_level,
@@ -57,14 +56,6 @@ def test_filename_level(name, period, flags, level):
 @pytest.mark.parametrize(("conf", "level"), [(0.85, G), (0.84, Y), (0.70, Y), (0.69, R)])
 def test_ocr_level(conf, level):
     assert ocr_level(conf) is level
-
-
-def test_extraction_level():
-    assert extraction_level(0.95, True, True, False) is G
-    assert extraction_level(0.95, True, False, False) is Y
-    assert extraction_level(0.95, False, True, False) is R
-    assert extraction_level(0.95, True, True, True) is R
-    assert extraction_level(None, True, True, False) is R
 
 
 def test_signature_level():

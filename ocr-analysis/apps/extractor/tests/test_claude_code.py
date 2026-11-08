@@ -6,22 +6,23 @@ from pathlib import Path
 
 import pytest
 
-from contract_extractor.config import ExtractorProvider, ExtractorSettings, Settings
-from contract_extractor.extractors import claude_code as claude_code_module
-from contract_extractor.extractors.base import ExtractorError, ExtractorUnavailable
-from contract_extractor.extractors.claude import DEFAULT_MODEL
-from contract_extractor.extractors.claude_code import ClaudeCodeExtractor, resolve_cli
-from contract_extractor.extractors.factory import build_extractor
-from contract_extractor.extractors.prompt import SYSTEM_PROMPT, user_message
+from contract_extractor.common.config import ExtractorProvider, ExtractorSettings, Settings
+from contract_extractor.common.models import TokenUsage
+from contract_extractor.extractor_method.llm import claude_code as claude_code_module
+from contract_extractor.extractor_method.llm.base import ExtractorError, ExtractorUnavailable, ImageTask
+from contract_extractor.extractor_method.llm.claude import DEFAULT_MODEL
+from contract_extractor.extractor_method.llm.claude_code import ClaudeCodeExtractor, resolve_cli
+from contract_extractor.extractor_method.llm.factory import build_extractor
+from contract_extractor.extractor_method.llm.prompt import IMAGE_PROMPTS, IMAGE_SCHEMAS, SYSTEM_PROMPT, user_message
 
 PAYLOAD = "Nama : Budi Santoso\nNIK : [REDACTED-ID]\nberlaku mulai 1 Januari 2026 s/d 31 Desember 2026"
+PERIOD = "mulai 1 Januari 2026 s/d 31 Desember 2026"
 ANSWER = {
-    "nama_karyawan": "Budi Santoso",
-    "tanggal_mulai": "2026-01-01",
-    "tanggal_selesai": "2026-12-31",
-    "durasi_bulan": None,
-    "bukti": {"nama": "Nama : Budi Santoso", "periode": "mulai 1 Januari 2026 s/d 31 Desember 2026"},
-    "confidence": 0.93,
+    "nama_karyawan": {"kutipan": "Nama : Budi Santoso", "nilai": "Budi Santoso", "confidence": 0.93},
+    "posisi": {"kutipan": None, "nilai": None, "confidence": 0.0},
+    "tanggal_mulai": {"kutipan": PERIOD, "nilai": "2026-01-01", "confidence": 0.95},
+    "tanggal_selesai": {"kutipan": PERIOD, "nilai": "2026-12-31", "confidence": 0.95},
+    "durasi_bulan": {"kutipan": None, "nilai": None, "confidence": 0.0},
 }
 CLI = Path("claude.exe")
 
@@ -54,7 +55,7 @@ def test_payload_goes_through_stdin_into_a_tool_less_session():
     cli = FakeCli()
     result = ClaudeCodeExtractor(CLI, run=cli).extract(PAYLOAD)
 
-    assert (result.nama_karyawan, str(result.tanggal_selesai)) == ("Budi Santoso", "2026-12-31")
+    assert (result.nama_karyawan.nilai, str(result.tanggal_selesai.nilai)) == ("Budi Santoso", "2026-12-31")
     [call] = cli.calls
     argv = call["argv"]
     assert call["stdin"] == user_message(PAYLOAD)
@@ -65,7 +66,7 @@ def test_payload_goes_through_stdin_into_a_tool_less_session():
     for flag in ("-p", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"):
         assert flag in argv
     assert argv[argv.index("--setting-sources") + 1] == "project"
-    assert (argv[argv.index("--model") + 1], argv[argv.index("--effort") + 1]) == (DEFAULT_MODEL, "high")
+    assert (argv[argv.index("--model") + 1], argv[argv.index("--effort") + 1]) == (DEFAULT_MODEL, "max")
     schema = json.loads(argv[argv.index("--json-schema") + 1])
     assert "\n" not in argv[argv.index("--json-schema") + 1] and schema["required"][0] == "nama_karyawan"
 
@@ -86,7 +87,7 @@ def test_prompt_file_is_removed_after_the_call(tmp_path, monkeypatch):
         (FakeCli(stdout=""), "cli:invalid_json"),
         (FakeCli(stdout="[]"), "cli:invalid_json"),
         (FakeCli(stdout=json.dumps({"subtype": "success", "is_error": False, "result": "ok"})), "no_output"),
-        (FakeCli(stdout=json.dumps({"subtype": "success", "is_error": False, "structured_output": {"confidence": 7}})), "invalid_output"),
+        (FakeCli(stdout=json.dumps({"subtype": "success", "is_error": False, "structured_output": {"nama_karyawan": "Budi"}})), "invalid_output"),
         (FakeCli(error=subprocess.TimeoutExpired("claude", 60)), "timeout"),
         (FakeCli(error=FileNotFoundError()), "cli:FileNotFoundError"),
     ],
@@ -96,6 +97,77 @@ def test_cli_failures_become_extractor_errors_without_document_text(cli, kind):
         ClaudeCodeExtractor(CLI, run=cli).extract(PAYLOAD)
     assert caught.value.kind == kind
     assert "Budi" not in str(caught.value)
+
+
+MODEL_USAGE = {
+    "claude-haiku-5-5": {"inputTokens": 30, "cacheCreationInputTokens": 2000, "cacheReadInputTokens": 0, "outputTokens": 700},
+    "claude-other": {"inputTokens": 5, "cacheCreationInputTokens": 0, "cacheReadInputTokens": 100, "outputTokens": 20},
+}
+TOP_USAGE = {"input_tokens": 30, "cache_creation_input_tokens": 2000, "cache_read_input_tokens": 0, "output_tokens": 700}
+
+
+@pytest.mark.parametrize(
+    ("report", "usage"),
+    [
+        # Summed over every model Claude Code used, when it says per model.
+        ({"modelUsage": MODEL_USAGE, "usage": TOP_USAGE}, TokenUsage(masuk=35, cache_tulis=2000, cache_baca=100, keluar=720)),
+        ({"usage": TOP_USAGE}, TokenUsage(masuk=30, cache_tulis=2000, cache_baca=0, keluar=700)),
+        ({"usage": {"input_tokens": True, "output_tokens": -3}}, TokenUsage()),  # nonsense counts as nothing
+        ({}, None),
+    ],
+)
+def test_cli_reports_the_tokens_it_used(report, usage):
+    stdout = json.dumps({"subtype": "success", "is_error": False, "structured_output": ANSWER, **report})
+    assert ClaudeCodeExtractor(CLI, run=FakeCli(stdout=stdout)).extract(PAYLOAD).usage == usage
+
+
+def test_a_failed_cli_run_still_reports_its_tokens():
+    stdout = json.dumps({"subtype": "error_max_turns", "is_error": True, "usage": TOP_USAGE})
+    with pytest.raises(ExtractorError) as caught:
+        ClaudeCodeExtractor(CLI, run=FakeCli(stdout=stdout)).extract(PAYLOAD)
+    assert caught.value.usage == TokenUsage(masuk=30, cache_tulis=2000, keluar=700)
+
+
+PNG = b"fake png crop"
+
+
+def _stream(*events):
+    return "\n".join(json.dumps(event) for event in events) + "\n"
+
+
+def test_a_crop_goes_in_as_one_stream_json_message_through_stdin():
+    result = {"type": "result", "subtype": "success", "is_error": False, "structured_output": {"status": "unsigned", "confidence": 0.85},
+              "usage": TOP_USAGE}
+    cli = FakeCli(stdout=_stream({"type": "system", "subtype": "init"}, {"type": "assistant"}, result))
+    answer = ClaudeCodeExtractor(CLI, run=cli).read_image(ImageTask.SIGNATURE, PNG)
+
+    assert (answer.status, answer.confidence, answer.nik) == ("unsigned", 0.85, None)
+    assert answer.usage == TokenUsage(masuk=30, cache_tulis=2000, keluar=700)
+    [call] = cli.calls
+    argv = call["argv"]
+    message = json.loads(call["stdin"])
+    [image, text] = message["message"]["content"]
+    assert message["type"] == "user" and image["source"]["data"] == "ZmFrZSBwbmcgY3JvcA==" and text["type"] == "text"
+    assert "ZmFrZSBwbmcgY3JvcA==" not in " ".join(argv)  # the crop never goes on the command line
+    assert call["prompt"] == IMAGE_PROMPTS[ImageTask.SIGNATURE] and call["cwd_files"] == []
+    assert (argv[argv.index("--input-format") + 1], argv[argv.index("--output-format") + 1]) == ("stream-json", "stream-json")
+    assert "--verbose" in argv and argv[argv.index("--effort") + 1] == "low"
+    assert json.loads(argv[argv.index("--json-schema") + 1]) == IMAGE_SCHEMAS[ImageTask.SIGNATURE]
+    assert argv[argv.index("--tools") + 1] == "" and "--strict-mcp-config" in argv and argv.count("--output-format") == 1
+
+
+@pytest.mark.parametrize(
+    ("stdout", "kind"),
+    [
+        (_stream({"type": "system"}), "cli:invalid_json"),  # the run ended without a result
+        ("not json\n", "cli:invalid_json"),
+        (_stream({"type": "result", "subtype": "error_max_turns", "is_error": True}), "cli:error_max_turns"),
+    ],
+)
+def test_a_crop_run_without_an_answer_is_an_extractor_error(stdout, kind):
+    with pytest.raises(ExtractorError) as caught:
+        ClaudeCodeExtractor(CLI, run=FakeCli(stdout=stdout)).read_image(ImageTask.NIK, PNG)
+    assert caught.value.kind == kind
 
 
 @pytest.mark.parametrize(

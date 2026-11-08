@@ -6,11 +6,11 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from helpers import signed_contract_pdf
+from helpers import llm_answer, signed_contract_pdf
 from typer.testing import CliRunner
 
 from contract_extractor.cli import app
-from contract_extractor.config import Settings
+from contract_extractor.common.config import Settings
 from contract_extractor.evaluation import (
     LABEL_COLUMNS,
     EvaluationError,
@@ -18,10 +18,11 @@ from contract_extractor.evaluation import (
     evaluate,
     format_report,
     leak_counts,
+    write_detail,
 )
-from contract_extractor.export import write_json
-from contract_extractor.extractors.base import Evidence, ExtractionResult
-from contract_extractor.models import Decision, FileLog, FileResult, SignatureStatus
+from contract_extractor.output.export import write_json
+from contract_extractor.extractor_method.llm.base import ExtractionResult
+from contract_extractor.common.models import Decision, FileLog, FileResult, SignatureStatus
 from contract_extractor.pipeline import FLAG_AUTO_DISABLED, process_path
 
 TEMPLATE = Path(__file__).resolve().parents[1] / "label-template.csv"
@@ -182,6 +183,70 @@ def test_missing_label_column_is_reported(tmp_path):
         evaluate(tmp_path / "results.json", tmp_path / "labels.csv")
 
 
+# Fictitious NIKs: regency and district 99 exist nowhere.
+NIK_A, NIK_B = "3199990101900001", "3299995504090002"
+
+
+def run_nik_eval(tmp_path: Path, labels: list[dict[str, str]], results: list[FileResult], full_nik: bool = True):
+    write_json(results, tmp_path / "results.json", full_nik)
+    with (tmp_path / "labels.csv").open("w", newline="", encoding="utf-8-sig") as fh:
+        writer = csv.DictWriter(fh, fieldnames=[*LABEL_COLUMNS, "nik"])
+        writer.writeheader()
+        writer.writerows({"nik": "", **row} for row in labels)
+    return evaluate(tmp_path / "results.json", tmp_path / "labels.csv")
+
+
+def with_nik(r: FileResult, nik: str | None) -> FileResult:
+    return r.model_copy(update={"nik": nik})
+
+
+def test_without_a_nik_column_nik_is_not_measured(tmp_path):
+    report = run_eval(tmp_path, [label("a.pdf")], [with_nik(result("a.pdf"), NIK_A)])
+    assert not [m for m in report.metrics if m.key.startswith("nik")]
+    assert report.by_kind[0].nik is None and "NIK" not in format_report(report)
+
+
+def test_nik_accuracy_counts_a_wrong_nik_apart_from_a_missing_one(tmp_path):
+    labels = [
+        label("a.pdf", nik=NIK_A),
+        label("b.pdf", nik=NIK_A),
+        label("c.pdf", nik=NIK_A),
+        label("d.pdf"),  # the contract prints no NIK
+        label("e.pdf"),
+    ]
+    results = [
+        with_nik(result("a.pdf"), NIK_A),
+        with_nik(result("b.pdf"), NIK_B),  # wrong: worse than none
+        with_nik(result("c.pdf"), None),
+        with_nik(result("d.pdf"), None),  # correctly none
+        with_nik(result("e.pdf"), NIK_B),  # a NIK the contract does not have
+    ]
+    report = run_nik_eval(tmp_path, labels, results)
+
+    assert (metric(report, "nik").hit, metric(report, "nik").total) == (2, 5)  # a and d
+    assert (metric(report, "nik_salah").hit, metric(report, "nik_salah").total) == (2, 3)  # b and e, of a, b, e
+    assert report.by_kind[0].nik == (2, 5)
+    # Auto-pass with a wrong NIK is an auto-pass error once NIK is labelled.
+    assert metric(report, "auto_error").hit == 3  # b, c and e
+    text = format_report(report)
+    assert NIK_A not in text and NIK_B not in text and "NIK 2/5" in text
+
+
+def test_masked_niks_are_not_measured_and_the_report_says_why(tmp_path):
+    report = run_nik_eval(tmp_path, [label("a.pdf", nik=NIK_A)], [with_nik(result("a.pdf"), NIK_A)], full_nik=False)
+    assert report.nik_masked and metric(report, "nik").value is None
+    assert "output.nik: full" in format_report(report)
+    write_detail(report, tmp_path / "detail.csv")
+    with (tmp_path / "detail.csv").open(encoding="utf-8-sig", newline="") as fh:
+        assert next(csv.DictReader(fh))["nik"] == ""
+
+
+def test_a_nik_label_that_is_not_16_digits_is_refused_without_echoing_it(tmp_path):
+    with pytest.raises(EvaluationError) as caught:
+        run_nik_eval(tmp_path, [label("a.pdf", nik=NIK_A[:15])], [])
+    assert str(caught.value) == "baris 2: kolom nik tidak valid"
+
+
 def test_results_that_are_not_pipeline_output_are_refused(tmp_path):
     (tmp_path / "results.json").write_text('{"file": "a.pdf"}', encoding="utf-8")
     with pytest.raises(EvaluationError, match="results.json tidak valid"):
@@ -192,16 +257,7 @@ class FakeExtractor:
     name = "fake-llm"
 
     def extract(self, masked_text: str) -> ExtractionResult:
-        return ExtractionResult(
-            nama_karyawan="Budi Santoso",
-            tanggal_mulai=START,
-            tanggal_selesai=END,
-            bukti=Evidence(
-                nama="Nama : Budi Santoso",
-                periode="mulai tanggal 1 Januari 2026 sampai dengan tanggal 31 Desember 2026",
-            ),
-            confidence=0.95,
-        )
+        return llm_answer(start=START, end=END)
 
 
 def test_cli_evaluates_a_real_pipeline_run_and_prints_no_names(tmp_path):

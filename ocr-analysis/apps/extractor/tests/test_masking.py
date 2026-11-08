@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from contract_extractor.stages.masking import (
+from contract_extractor.extractor_method.llm.masking import (
     PAGE_SEPARATOR,
     REDACTED_LINE,
     MaskLeakError,
@@ -148,3 +148,34 @@ def test_id_value_rule_counts_only_values_the_digit_rule_missed():
 def test_words_that_merely_start_like_an_id_label_are_kept():
     assert mask_text("Status nikah : belum").text == "Status nikah : belum"
     assert mask_text("Nikah : belum").text == "Nikah : belum"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "No. Induk Kependudukan : 3171O1234567OOO1",
+        "Nomor Induk Kependudukan 3171 0123 456 7 0001",
+    ],
+)
+def test_long_form_nik_label_loses_its_whole_value(line):
+    masked = mask_text(line).text
+    assert masked.endswith("[REDACTED-ID]")
+    assert not re.search(r"\d{3,}", masked)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Budi, laki-laki, pemegang NIK 3171O1234567OOO1, bertempat tinggal di Bandung",
+        "Budi, pemegang No. KTP : 3171 0123 456 7 0001; bertempat tinggal di Bandung",
+        "Budi, pemegang Nomor Induk Kependudukan 3171O12345 67OOO1, bertempat tinggal di Bandung",
+    ],
+)
+def test_nik_inside_a_sentence_loses_its_value_even_when_ocr_broke_the_digits(sentence):
+    masked = mask_text(sentence).text
+    assert "[REDACTED-ID]" in masked and "bertempat tinggal di Bandung" in masked
+    assert not re.search(r"\d{3,}", masked)
+
+
+def test_nik_mentioned_without_a_number_is_kept():
+    assert mask_text("menyerahkan fotokopi NIK dan KTP, serta").text == "menyerahkan fotokopi NIK dan KTP, serta"

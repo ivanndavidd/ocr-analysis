@@ -11,23 +11,17 @@ import re
 from datetime import date
 
 import pytest
-from helpers import scan_pdf_from, signed_contract_pdf
+from helpers import llm_answer, scan_pdf_from, signed_contract_pdf
 from openpyxl import load_workbook
 from typer.testing import CliRunner
 
 from contract_extractor import cli
-from contract_extractor.extractors.base import Evidence, ExtractionResult
+from contract_extractor.extractor_method.llm.base import ExtractionResult
 
 pytestmark = pytest.mark.tesseract
 
 FILENAME = "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf"
-ANSWER = ExtractionResult(
-    nama_karyawan="Budi Santoso",
-    tanggal_mulai=date(2026, 1, 1),
-    tanggal_selesai=date(2026, 12, 31),
-    bukti=Evidence(nama="Nama : Budi Santoso", periode="mulai tanggal 1 Januari 2026 sampai dengan"),
-    confidence=0.95,
-)
+ANSWER = llm_answer(period_quote="mulai tanggal 1 Januari 2026 sampai dengan")
 
 
 class RecordingExtractor:
