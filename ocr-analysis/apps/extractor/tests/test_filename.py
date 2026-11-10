@@ -10,8 +10,10 @@ from contract_extractor.extractor_method.pattern.filename import (
     ParsedFilename,
     compare_name,
     compare_period,
+    name_printed,
     normalize_name,
     parse_filename,
+    same_name,
 )
 
 
@@ -140,3 +142,53 @@ def test_compare_period_without_filename_period_is_none():
 )
 def test_months_between(start, end, months):
     assert months_between(start, end) == months
+
+
+# Names are fictional. Each line is one OCR line of an identity page.
+@pytest.mark.parametrize(
+    ("name", "line"),
+    [
+        ("Ian", "Nama : Ian"),
+        ("Budi Santoso", "Nama : BUDI SANTOSO"),
+        ("Budi Santoso", "BUDI SANTOSO, S.Kom"),
+        ("Budi Santoso", "Nama : BUDI SANT0SO"),  # OCR read a digit and split the word
+        ("Abd Karim", "Nama : ABDKARIM"),  # OCR joined the words
+        ("Yani Qori Putri", "Nama : Yani Oori Putri"),  # one letter read as another
+        ("Slamet Bakiono", "Nama Slamet Bakiono"),  # OCR lost the colon after the label
+        ("Galur Dipa", "Nama Lengkap B Galur Dipa"),  # a stray letter before the name
+        ("Kurnia", "Kurnia Tg :"),  # two letters of noise after it
+    ],
+)
+def test_name_printed_finds_the_name(name, line):
+    assert name_printed(normalize_name(name), line)
+
+
+@pytest.mark.parametrize(
+    ("name", "line"),
+    [
+        ("Ian", "PERJANJIAN KERJA WAKTU TERTENTU"),  # inside a word
+        ("Rika", "warga negara Amerika Serikat"),
+        ("Kasim", "Nama : Kasim Garang"),  # the first name of another person
+        ("Rahmi Utami", "Nama : Rahmi Utami Syahrini"),
+        ("Kasim", "Nama : Kasir"),
+        ("Winda", "Nama : Ida Hariyah"),
+        ("Dasa Jaiman", "Nama : Diana Jaiman"),
+        ("Budi Santoso", "Nama : Budi Hartono"),
+        ("Budi Santoso", "Nama : Budi"),
+    ],
+)
+def test_name_printed_rejects_another_name(name, line):
+    assert not name_printed(normalize_name(name), line)
+
+
+def test_same_name_needs_every_word():
+    tokens = ["budi", "santoso"]
+    assert same_name(["budi", "santosa"], tokens)  # one slip in a long word
+    assert not same_name(["budi"], tokens)
+    assert not same_name(["budi", "hartono"], tokens)
+    # One letter read as another in a short word passes only while the whole name stays at NAME_WHOLE_MIN: OCR's
+    # `Oori` for `Qori`. The cost is that `Rudi Santoso` passes for `Budi Santoso`; `Rini Sari` for `Rina Sari` does not.
+    assert same_name(["rudi", "santoso"], tokens)
+    assert not same_name(["rini", "sari"], ["rina", "sari"])
+    assert same_name(["budisantoso"], tokens)
+    assert not same_name([], tokens)

@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 import pytest
 from helpers import make_pdf
@@ -15,7 +14,6 @@ from contract_extractor.document.ocr.engine import (
     mean_confidence,
 )
 from contract_extractor.document.pdf.render import PageRenderer
-from contract_extractor.document.ocr.preprocess import estimate_skew
 
 
 class FakeRenderer:
@@ -110,38 +108,10 @@ def test_every_provider_erroring_returns_no_page():
     assert (outcome.page, outcome.engine, outcome.passed) == (None, None, False)
 
 
-def test_rough_pass_uses_scoring_dpi_and_full_read_uses_read_dpi():
+def test_full_read_uses_read_dpi():
     renderer = FakeRenderer()
-    runner = OcrRunner([FakeProvider("a", GOOD)], scoring_dpi=150, read_dpi=300)
-    runner.rough_text(renderer, 2)
-    runner.read(renderer, 5, "")
-    assert renderer.calls == [(2, 150), (5, 300)]
-
-
-def test_rough_pass_straightens_a_tilted_photo():
-    page = np.full((900, 700), 255, np.uint8)
-    for i in range(8):
-        cv2.putText(page, "PERJANJIAN KERJA PIHAK KEDUA", (40, 100 + i * 90), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 0, 2)
-    h, w = page.shape
-    tilted = cv2.warpAffine(page, cv2.getRotationMatrix2D((w / 2, h / 2), 4.0, 1.0), (w, h), borderValue=255)
-
-    class TiltedRenderer:
-        def render_gray(self, page_number: int, dpi: int) -> np.ndarray:
-            return tilted
-
-    class Recorder(FakeProvider):
-        def read(self, image: np.ndarray) -> list[Word]:
-            self.image = image
-            return super().read(image)
-
-    engine = Recorder("a", GOOD)
-    OcrRunner([engine]).rough_text(TiltedRenderer(), 1)
-    assert abs(estimate_skew(engine.image)) < 0.5
-    assert len(np.unique(engine.image)) > 2  # grayscale: the engine thresholds it itself
-
-    level = Recorder("b", GOOD)
-    OcrRunner([level]).rough_text(FakeRenderer(), 1)
-    assert (level.image == 255).all()  # a level page goes in as rendered, without shadow removal
+    OcrRunner([FakeProvider("a", GOOD)], scoring_dpi=150, read_dpi=300).read(renderer, 5, "")
+    assert renderer.calls == [(5, 300)]
 
 
 def test_cloud_fallback_is_refused_until_implemented():

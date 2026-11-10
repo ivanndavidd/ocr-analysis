@@ -28,7 +28,7 @@ from typer.testing import CliRunner
 from contract_extractor import pipeline
 from contract_extractor.cli import app
 from contract_extractor.common.layout import PageText
-from contract_extractor.document.ocr.engine import OcrOutcome
+from contract_extractor.document.ocr.engine import OcrOutcome, OcrRunner
 from contract_extractor.common.config import (
     DecisionSettings,
     ExtractorSettings,
@@ -128,23 +128,53 @@ def test_all_green_file_stays_in_review_until_auto_is_allowed(tmp_path):
     assert (allowed.keputusan, allowed.flags) == (Decision.AUTO, [])
 
 
-def test_non_standard_page_is_read_noted_for_the_vendor_and_never_auto_passes(tmp_path):
+def test_non_standard_page_is_noted_for_the_vendor_and_never_auto_passes(tmp_path):
     photo = np.full((640, 460), 200, np.uint8)
     pasted = (("layout", [(WORD_MARGIN, 760.0, WORD_FOOTER)]), PageExtras(images=[(photo, (72.0, 72.0, 468.0, 605.0))]))
     pdf = signed_contract_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", appendix=pasted)
     result = process_file(pdf, Settings(decision=DecisionSettings(allow_auto=True)), extractor=FakeExtractor())
 
-    assert result.log.jenis_halaman[6] is PageKind.UNCLASSIFIED
-    assert result.log.format_halaman == {6: ISSUE_PHOTO_IN_DOCUMENT}
-    assert result.catatan_vendor == "Halaman 6: foto atau scan ditempel ke dokumen Word, tidak satu halaman penuh. " + VENDOR_REQUEST
-    assert REASON_OCR_UNAVAILABLE in result.log.alasan  # the page goes to OCR instead of being skipped
-    assert (result.log.p_id, result.log.p_ttd) == ([1], 5)
+    assert result.log.jenis_halaman[5] is PageKind.UNCLASSIFIED
+    assert result.log.format_halaman == {5: ISSUE_PHOTO_IN_DOCUMENT}
+    assert result.catatan_vendor == "Halaman 5: foto atau scan ditempel ke dokumen Word, tidak satu halaman penuh. " + VENDOR_REQUEST
+    assert REASON_OCR_UNAVAILABLE not in result.log.alasan  # a middle page is noted for the vendor, never read
+    assert (result.log.p_id, result.log.p_ttd) == ([1], 6)
     # Every other component is green (see the all-green test above); the format alone sends it to review.
     assert (result.keputusan, result.flags) == (Decision.REVIEW, [FLAG_FORMAT_NONSTANDARD])
 
     write_csv([result], tmp_path / "r.csv")
     with (tmp_path / "r.csv").open(encoding="utf-8-sig", newline="") as fh:
         assert next(csv.DictReader(fh))["catatan_vendor"] == result.catatan_vendor
+
+
+def test_a_first_page_photographed_sideways_is_turned_and_read_again(tmp_path):
+    photo = np.full((792, 612), 255, np.uint8)
+    photo[300:500, :40] = 0  # a dark strip on the left edge: the top of the page once it is turned clockwise
+    last = np.full((792, 612), 255, np.uint8)
+    last[390:400, 300:310] = 0  # a dot in the middle: no turn brings anything to the top
+    pdf = make_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", [("image", photo), ("image", last)])
+    identity = page_text(1, flow(IDENTITY_LINES + PERIOD_LINES)).words
+
+    class ReadsOnlyUpright:
+        name = "fake"
+
+        def read(self, image: np.ndarray) -> list:
+            return list(identity) if (image[: image.shape[0] // 8] < 128).any() else []
+
+    result = process_file(pdf, Settings(), OcrRunner([ReadsOnlyUpright()]))
+    assert result.log.putaran_halaman == {1: 90}  # the blank last page reads nothing in any turn and is never turned
+    assert result.log.komponen_halaman[1] == ["fake@300dpi", "fake@300dpi"]  # upright, then turned
+    assert (result.log.p_id, result.nik) == ([1], EMPLOYEE_NIK)
+
+
+def test_a_pasted_photo_as_the_last_page_goes_to_ocr(tmp_path):
+    photo = np.full((640, 460), 200, np.uint8)
+    pages = [("text", "\n".join(IDENTITY_LINES + PERIOD_LINES)), ("layout", [(WORD_MARGIN, 760.0, WORD_FOOTER)])]
+    extras = {1: PageExtras(images=[(photo, (72.0, 72.0, 468.0, 605.0))])}
+    pdf = make_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", pages, extras)
+    result = process_file(pdf, Settings())
+    assert result.log.jenis_halaman[2] is PageKind.UNCLASSIFIED
+    assert REASON_OCR_UNAVAILABLE in result.log.alasan  # read by OCR instead of skipped; no OCR is configured here
 
 
 def test_native_pdf_selects_identity_and_signature_pages(tmp_path):
@@ -155,8 +185,8 @@ def test_native_pdf_selects_identity_and_signature_pages(tmp_path):
     assert result.log.p_ttd == 5
     assert REASON_IDENTITY_PAGE_NOT_FOUND not in result.log.alasan
     assert REASON_SIGNATURE_PAGE_NOT_FOUND not in result.log.alasan
-    assert 2 in result.log.halaman_sensitif
-    assert sorted(result.log.skor_halaman) == [1, 2, 3, 4, 5]
+    assert result.log.halaman_sensitif == [1]  # the salary page 2 is never read
+    assert sorted(result.log.skor_halaman) == sorted(result.log.komponen_halaman) == [1, 5]  # nor any middle page
     # Extractor off: the filename's name and period are confirmed by the document text, so every component is green
     # and only `allow_auto: false` holds the file back.
     assert (result.keputusan, result.flags) == (Decision.REVIEW, [FLAG_AUTO_DISABLED])
@@ -185,7 +215,17 @@ def test_economy_mode_never_opens_middle_pages(tmp_path):
     pdf = make_pdf(tmp_path / "Budi Santoso - 12 bulan.pdf", [("text", BODY_FILLER)] * 10)
     result = process_file(pdf, Settings(page_selection=PageSelectionSettings(economy_mode=True)))
     assert result.log.n_halaman == 10
-    assert sorted(result.log.jenis_halaman) == [1, 2, 3, 6, 7, 8, 9, 10]
+    assert sorted(result.log.jenis_halaman) == [1, 10]
+
+
+@pytest.mark.parametrize("economy_mode", [False, True])
+def test_an_empty_last_page_is_skipped(tmp_path, economy_mode):
+    # A Word export can end on an empty page; the signature page is the last page with something on it.
+    pages = [("text", "\n".join(IDENTITY_LINES + PERIOD_LINES)), ("text", BODY_FILLER), ("blank", ""), ("blank", "")]
+    pdf = make_pdf(tmp_path / "Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf", pages)
+    result = process_file(pdf, Settings(page_selection=PageSelectionSettings(economy_mode=economy_mode)))
+    assert (result.log.p_id, result.log.p_ttd) == ([1], 2)
+    assert result.log.jenis_halaman[4] is PageKind.BLANK
 
 
 def test_rejects_oversized_and_fake_pdfs(tmp_path):
@@ -379,7 +419,7 @@ def test_extractor_answer_is_verified_and_fills_the_result(tmp_path):
     assert result.log.extractor == "fake-llm"
     assert result.log.teks_keluar_karakter == len(payload)
     assert result.log.komponen_halaman[1] == ["text_layer", "fake-llm:masked"]
-    assert all("fake-llm:masked" not in result.log.komponen_halaman[n] for n in (2, 3, 4, 5))
+    assert all("fake-llm:masked" not in result.log.komponen_halaman.get(n, []) for n in (2, 3, 4, 5))
 
     assert REASON_EXTRACTOR_DISABLED not in result.log.alasan
     # Every component is green (a clearly unsigned contract), so only the calibration gate keeps it from auto.
@@ -418,9 +458,10 @@ def test_extractor_error_is_isolated_to_the_file(tmp_path):
 def test_only_a_missing_identity_page_keeps_the_text_from_being_read(contracts_dir):
     extractor = FakeExtractor()
     results = _by_file(process_path(contracts_dir, Settings(), extractor=extractor))
-    # Neither readable file has a signature page; only Budi's has an identity page with text.
+    # Neither readable file has a signature page; only Budi's has an identity page with text. Budi's last page is
+    # empty, so the page before it is checked as a guess.
     budi, rina = results["Budi Santoso - 1 Januari 2026 - 31 Desember 2026.pdf"], results["Rina Wulandari - 12 bulan.pdf"]
-    assert REASON_SIGNATURE_PAGE_NOT_FOUND in budi.log.alasan and budi.log.p_id == [1]
+    assert REASON_SIGNATURE_PAGE_GUESSED in budi.log.alasan and (budi.log.p_id, budi.log.p_ttd) == ([1], 2)
     assert REASON_IDENTITY_PAGE_NOT_FOUND in rina.log.alasan
     assert len(extractor.payloads) == 1 and "Budi Santoso" in extractor.payloads[0]  # masked, like any identity page
     assert (budi.nama_karyawan, rina.nama_karyawan) == ("Budi Santoso", None)
@@ -532,6 +573,16 @@ def test_pattern_mode_passes_when_the_document_confirms_the_filename():
     )
     assert result.log.alasan == [] and result.flags == []
     assert result.log.validasi_nama_file == {"nama": "cocok", "periode": "cocok"}  # the website shows both
+
+
+def test_pattern_mode_does_not_find_a_short_name_inside_a_word():
+    # `name_in_text` found `Ian` in `PERJANJIAN` and passed the name green.
+    level, result = _pattern_check(
+        "Ian - 1 Januari 2026 - 31 Desember 2026.pdf", ["PERJANJIAN KERJA WAKTU TERTENTU", "Nama : Andi Wijaya"], YEAR_2026
+    )
+    assert level is Level.YELLOW
+    assert result.log.validasi_nama_file["nama"] == "tidak_cocok"
+    assert result.nama_karyawan is None
 
 
 @pytest.mark.parametrize(

@@ -81,6 +81,9 @@ class NikLog(BaseModel):
     # What the extractor read from a crop of the NIK line, when one was sent: the same NIK as the local reading
     # ("sama"), used in its place ("dipakai"), a different one that was not used ("beda"), or none ("tidak_terbaca").
     llm: Literal["sama", "dipakai", "beda", "tidak_terbaca"] | None = None
+    # What the second local OCR (RapidOCR) read from the same page, when the reading above was unsure: the same NIK
+    # ("sama"), other digits ("beda"), or none ("tidak_terbaca"). It never replaces the reading; it only confirms it.
+    pembaca_kedua: Literal["sama", "beda", "tidak_terbaca"] | None = None
 
 
 class PositionStatus(str, Enum):
@@ -102,6 +105,9 @@ class PositionLog(BaseModel):
     sumber: PositionSource | None = None
     # With the extractor: whether its verified title is the one the local reading found; null when either is missing.
     cocok_llm: bool | None = None
+    # A title read from a scan with low confidence, read again by the second local OCR (RapidOCR): the same title
+    # ("sama"), another one ("beda"), or none ("tidak_terbaca").
+    pembaca_kedua: Literal["sama", "beda", "tidak_terbaca"] | None = None
 
 
 class Reader(str, Enum):
@@ -170,6 +176,8 @@ class FileLog(BaseModel):
     ocr_cloud_dipakai: bool = False
     putaran_halaman: dict[int, int] = Field(default_factory=dict)  # page -> clockwise turn applied to a turned photo
     periode_regex: RegexPeriod | None = None
+    # The same regex on the second OCR's reading of the identity pages, when Tesseract's reading missed a date.
+    periode_pembaca_kedua: RegexPeriod | None = None
     pembaca: Reader | None = None
     # Pattern mode asked the extractor because the patterns could not confirm the name or the period.
     llm_cadangan: bool = False

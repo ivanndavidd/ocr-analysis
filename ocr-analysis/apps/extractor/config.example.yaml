@@ -5,20 +5,26 @@ input:
   max_pages: 200         # dokumen dengan halaman lebih banyak ditolak
 
 page_selection:
-  economy_mode: false    # true: hanya 3 halaman pertama dan 5 terakhir yang dibuka
+  economy_mode: false    # true: halaman tengah tidak dibuka sama sekali (yang dibaca selalu halaman pertama dan terakhir)
 
 ocr:
   primary: tesseract
   fallback: null         # paddle belum tersedia
   tesseract_cmd: null    # path tesseract bila tidak ada di PATH; bisa juga lewat env TESSERACT_CMD
   lang: ind+eng
-  scoring_dpi: 150       # OCR kasar untuk page selection
+  scoring_dpi: 150       # OCR kasar untuk memeriksa halaman foto yang terputar 90/180/270 derajat
   read_dpi: 300          # OCR penuh untuk P_id dan P_ttd
   timeout_s: 60
   min_mean_conf: 0.70    # di bawah ini file masuk review (ocr_low_confidence)
   # OCR cloud mengirim gambar P_id mentah SEBELUM masking (termasuk NIK dan alamat).
   # Hanya boleh true dengan persetujuan tertulis terpisah dari client.
   cloud_fallback: false
+  # Pembaca kedua lokal: RapidOCR (PP-OCRv6 small dari Baidu) membaca ulang halaman identitas hasil scan bila NIK
+  # atau posisi dari Tesseract masih ragu; nilai yang sama dari dua mesin menjadi hijau. Tidak ada yang keluar.
+  second_reader:
+    enabled: false
+    model_dir: null      # folder PP-OCRv6_det_small.onnx dan PP-OCRv6_rec_small.onnx; atau env RAPIDOCR_MODEL_DIR
+    threads: 2
 
 extractor:
   # true mengirim teks P_id yang SUDAH di-mask ke LLM cloud. Butuh persetujuan kebijakan cloud dari client

@@ -14,6 +14,9 @@ dependencies = [
     "numpy==2.4.6",
     "opencv-python-headless==4.14.0.94",
     "pytesseract==0.3.13",
+    # The second local reader (ocr.second_reader): Baidu's PP-OCRv6 models through onnxruntime, CPU only.
+    "rapidocr==3.10.0",
+    "onnxruntime==1.31.0",
     "pydantic==2.14.1",
     "typer==0.27.3",
     "PyYAML==6.0.3",

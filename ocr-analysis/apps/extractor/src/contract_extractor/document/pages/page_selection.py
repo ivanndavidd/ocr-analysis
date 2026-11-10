@@ -1,12 +1,16 @@
-"""Tahap 1: memilih P_id dan P_ttd secara lokal dari skor kata kunci dan zona penutup (Bagian 8 PRD).
+"""Tahap 1: P_id dan P_ttd (Bagian 8 PRD).
 
-Skor memakai kehadiran kata kunci, bukan frekuensinya, karena `Pihak Pertama`/`Pihak Kedua` muncul
-berulang di isi pasal. Bobot dan ambang di bawah adalah nilai awal yang dikalibrasi di test set Fase 0.
+Halaman pertama PDF selalu halaman identitas dan halaman terakhir selalu halaman tanda tangan (keputusan owner
+2026-11-10), jadi hanya dua halaman itu yang dibaca. Skor kata kunci dan zona penutup tidak lagi memilih halaman,
+hanya memeriksa bahwa kedua halaman itu memang terlihat seperti yang seharusnya. Skor memakai kehadiran kata kunci,
+bukan frekuensinya, karena `Pihak Pertama`/`Pihak Kedua` muncul berulang di isi pasal. Bobot dan ambang di bawah adalah
+nilai awal yang dikalibrasi di test set Fase 0.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 from contract_extractor.common.dates import MONTH_PATTERN
@@ -16,11 +20,7 @@ from contract_extractor.extractor_method.pattern.filename import name_in_text, n
 from contract_extractor.extractor_method.llm.masking import has_long_digit_run
 from contract_extractor.scoring import page_selection_level, worst
 
-ID_CANDIDATES = 3  # P_id is searched in the first pages only
-TTD_CANDIDATES = 5  # P_ttd is searched in the last pages only
-
 IDENTITY_THRESHOLD = 6.0  # a body page with party names scores ~3-5; the identity page ~10+
-PERIOD_THRESHOLD = 3.0
 SIGNATURE_THRESHOLD = 5.0  # a signature page without a name match still reaches 6
 LEVEL_MARGIN = 3.0
 
@@ -114,11 +114,11 @@ class PageSelection:
     p_id: list[int]
     p_ttd: int | None
     level: Level
-    sensitive_pages: list[int] = field(default_factory=list)
+    sensitive_pages: list[int] = field(default_factory=list)  # among the two pages read
     scores: dict[int, PageScores] = field(default_factory=dict)
-    # Without P_ttd: the best-scoring candidate all the same, latest on a tie, when it scored anything at all. A phone
-    # photo can lose the employee's column to OCR, and with it the party label and the name, so its signature page
-    # scores under the threshold (4, 2 and 1 in three of 93 synthetic photos, each the right page).
+    # Without P_ttd: the last page, which is checked as the signature page all the same. A phone photo can lose the
+    # employee's column to OCR, and with it the party label and the name, so its signature page scores under the
+    # threshold (4, 2 and 1 in three of 93 synthetic photos, each the right page).
     ttd_guess: int | None = None
 
     @property
@@ -126,11 +126,12 @@ class PageSelection:
         return not self.p_id or self.p_ttd is None
 
 
-def candidate_pages(n_pages: int) -> list[int]:
-    """Pages that can ever become P_id or P_ttd; economy mode reads only these."""
-    first = range(1, min(ID_CANDIDATES, n_pages) + 1)
-    last = range(max(1, n_pages - TTD_CANDIDATES + 1), n_pages + 1)
-    return sorted(set(first) | set(last))
+def candidate_pages(n_pages: int, blank: Collection[int] = ()) -> list[int]:
+    """The only pages ever read: the first (identity) and the last (signature), skipping empty pages at either end (a
+    Word export can end on one); a one-page contract gives one page for both."""
+    first = next((n for n in range(1, n_pages + 1) if n not in blank), None)
+    last = next((n for n in range(n_pages, 0, -1) if n not in blank), None)
+    return [] if first is None or last is None else sorted({first, last})
 
 
 def _presence(patterns: list[tuple[re.Pattern[str], float]], text: str) -> float:
@@ -255,47 +256,33 @@ def score_page(page: PageText, name_norm: str) -> PageScores:
     )
 
 
-def select_pages(pages: list[PageText], n_pages: int, employee_name: str | None) -> PageSelection:
-    """`pages` holds the pages with text (native now, OCR later); missing pages simply cannot win."""
+def select_pages(
+    pages: list[PageText], n_pages: int, employee_name: str | None, blank: Collection[int] = ()
+) -> PageSelection:
+    """Check the first page as the identity page and the last as the signature page (see `candidate_pages`); `pages`
+    may hold others, which are never scored. A first page that does not score as an identity page is not read
+    (nothing is sent either); a last page that does not score as a signature page is still checked, as a guess a
+    person confirms."""
+    candidates = candidate_pages(n_pages, blank)
+    if not candidates:
+        return PageSelection(p_id=[], p_ttd=None, level=Level.RED)
+    first, last = candidates[0], candidates[-1]
     name_norm = normalize_name(employee_name) if employee_name else ""
-    scores = {p.number: score_page(p, name_norm) for p in pages}
+    scores = {p.number: score_page(p, name_norm) for p in pages if p.number in candidates}
 
-    id_candidates = [n for n in sorted(scores) if n <= ID_CANDIDATES]
-
-    # Ties: earliest page for identity and period, latest page for the signature.
-    best_id = max(id_candidates, key=lambda n: (scores[n].identity, -n), default=None)
-    best_period = max(id_candidates, key=lambda n: (scores[n].period, -n), default=None)
-    id_score = scores[best_id].identity if best_id is not None else 0.0
-
-    p_id: list[int] = []
-    if best_id is not None and id_score >= IDENTITY_THRESHOLD:
-        p_id.append(best_id)
-        if (
-            best_period is not None
-            and best_period != best_id
-            and scores[best_period].period >= PERIOD_THRESHOLD
-            and scores[best_period].period > scores[best_id].period
-        ):
-            p_id.append(best_period)
-
-    # The identity page carries both party labels and the employee name, so on a short page its closing
-    # zone can look like a signature block. It may only be P_ttd in a one-page contract.
-    ttd_candidates = [
-        n for n in sorted(scores) if n > n_pages - TTD_CANDIDATES and (n_pages == 1 or not p_id or n != p_id[0])
-    ]
-    best_ttd = max(ttd_candidates, key=lambda n: (scores[n].signature, n), default=None)
-    ttd_score = scores[best_ttd].signature if best_ttd is not None else 0.0
-    p_ttd = best_ttd if best_ttd is not None and ttd_score >= SIGNATURE_THRESHOLD else None
+    id_score = scores[first].identity if first in scores else 0.0
+    ttd_score = scores[last].signature if last in scores else 0.0
+    p_ttd = last if ttd_score >= SIGNATURE_THRESHOLD else None
 
     level = worst(
         page_selection_level(id_score, IDENTITY_THRESHOLD, LEVEL_MARGIN),
         page_selection_level(ttd_score, SIGNATURE_THRESHOLD, LEVEL_MARGIN),
     )
     return PageSelection(
-        p_id=sorted(p_id),
+        p_id=[first] if id_score >= IDENTITY_THRESHOLD else [],
         p_ttd=p_ttd,
         level=level,
         sensitive_pages=[n for n in sorted(scores) if scores[n].sensitive > 0],
         scores=scores,
-        ttd_guess=best_ttd if p_ttd is None and ttd_score > 0 else None,
+        ttd_guess=last if p_ttd is None else None,
     )

@@ -10,11 +10,12 @@ from helpers import (
 )
 
 from contract_extractor.common.models import Level
-from contract_extractor.extractor_method.pattern.filename import name_in_text
+from contract_extractor.extractor_method.pattern.filename import name_in_text, normalize_name
 from contract_extractor.document.pages.page_selection import (
     SIGNATURE_THRESHOLD,
     candidate_pages,
     closing_zone,
+    score_page,
     select_pages,
     signature_block,
 )
@@ -54,10 +55,20 @@ def test_lower_signature_block_like_vendor_b():
     assert select_pages(five_page_contract(block_top=510.0), 5, EMPLOYEE).p_ttd == 5
 
 
-def test_party_labels_repeated_in_body_pages_do_not_win_signature():
-    selection = select_pages(five_page_contract(), 5, EMPLOYEE)
-    for page in (1, 2, 3, 4):
-        assert selection.scores[page].signature < SIGNATURE_THRESHOLD
+def test_party_labels_repeated_in_body_pages_do_not_score_as_a_signature_page():
+    for page in five_page_contract()[:4]:
+        assert score_page(page, normalize_name(EMPLOYEE)).signature < SIGNATURE_THRESHOLD
+
+
+def test_the_middle_pages_are_never_scored():
+    assert sorted(select_pages(five_page_contract(), 5, EMPLOYEE).scores) == [1, 5]
+
+
+def test_a_last_page_that_is_not_a_signature_page_is_checked_as_a_guess():
+    # An attachment after the signature page breaks the owner's rule (2026-11-10): a person confirms the last page.
+    pages = [identity_page(), body_page(2), signature_page(3, 350.0), body_page(4, SALARY_LINES)]
+    selection = select_pages(pages, 4, EMPLOYEE)
+    assert (selection.p_id, selection.p_ttd, selection.ttd_guess, selection.level) == ([1], None, 4, Level.RED)
 
 
 def test_opening_dibuat_dan_ditandatangani_does_not_open_a_closing_zone_on_page_one():
@@ -133,9 +144,14 @@ def test_signing_word_in_the_middle_of_a_body_page_opens_no_zone():
     assert all(line.top > 600 for line in closing_zone(page))
 
 
-def test_period_continuing_on_page_two_becomes_second_p_id():
+def test_only_the_first_page_is_the_identity_page():
+    # A period continuing on page 2 is not read there (the filename's period is then marked for a check).
     pages = [identity_page(with_period=False), body_page(2, PERIOD_LINES), body_page(3), signature_page(4, 350.0)]
-    assert select_pages(pages, 4, EMPLOYEE).p_id == [1, 2]
+    assert select_pages(pages, 4, EMPLOYEE).p_id == [1]
+    # A cover letter on page 1 hides the identity page on page 2: nothing is read, and a person looks at the file.
+    covered = [body_page(1), body_page(2, IDENTITY_LINES + PERIOD_LINES), signature_page(3, 350.0)]
+    selection = select_pages(covered, 3, EMPLOYEE)
+    assert (selection.p_id, selection.p_ttd, selection.level) == ([], 3, Level.RED)
 
 
 def test_signature_found_without_filename_name():
@@ -161,7 +177,7 @@ def test_short_identity_page_is_not_taken_as_signature_page():
     assert selection.p_id == [1]
     assert selection.p_ttd is None
     assert selection.ambiguous
-    assert selection.ttd_guess is None  # the identity page is never the guess in a contract of several pages
+    assert selection.ttd_guess == 2  # the last page; the identity page is never the guess in a contract of several pages
 
 
 def test_signature_page_that_lost_the_employee_column_is_only_a_guess():
@@ -187,19 +203,24 @@ def test_no_text_at_all_is_ambiguous_and_red():
     assert (selection.p_id, selection.p_ttd, selection.level) == ([], None, Level.RED)
 
 
-def test_sensitive_pages_are_flagged():
+def test_sensitive_pages_are_flagged_among_the_pages_read():
     selection = select_pages(five_page_contract(), 5, EMPLOYEE)
-    assert 2 in selection.sensitive_pages  # gaji, tunjangan, Rp
-    assert 1 in selection.sensitive_pages  # NIK digit run
-    assert 3 not in selection.sensitive_pages
+    assert selection.sensitive_pages == [1]  # the NIK digit run; the salary page 2 is never read
 
 
 @pytest.mark.parametrize(
     ("n_pages", "pages"),
-    [(1, [1]), (4, [1, 2, 3, 4]), (8, [1, 2, 3, 4, 5, 6, 7, 8]), (12, [1, 2, 3, 8, 9, 10, 11, 12])],
+    [(0, []), (1, [1]), (2, [1, 2]), (4, [1, 4]), (12, [1, 12])],
 )
 def test_candidate_pages(n_pages, pages):
     assert candidate_pages(n_pages) == pages
+
+
+@pytest.mark.parametrize(
+    ("blank", "pages"), [({6}, [1, 5]), ({1, 5, 6}, [2, 4]), ({2, 3, 4, 5, 6}, [1]), ({1, 2, 3, 4, 5, 6}, [])]
+)
+def test_empty_pages_at_either_end_are_skipped(blank, pages):
+    assert candidate_pages(6, blank) == pages
 
 
 def test_name_match_rejects_a_bare_first_name_and_other_people():

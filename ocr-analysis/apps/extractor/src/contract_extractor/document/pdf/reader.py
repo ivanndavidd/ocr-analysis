@@ -31,7 +31,17 @@ class DocumentRead:
     n_pages: int
     kinds: dict[int, PageKind] = field(default_factory=dict)
     issues: dict[int, str] = field(default_factory=dict)  # format issue per non-standard page, for the vendor note
-    texts: list[PageText] = field(default_factory=list)  # native pages only; the other kinds need OCR
+    # The pages read (see `read_pages`) when native; the other kinds need OCR, and the middle pages are never read.
+    texts: list[PageText] = field(default_factory=list)
+
+    @property
+    def blank(self) -> set[int]:
+        return {n for n, kind in self.kinds.items() if kind is PageKind.BLANK}
+
+    @property
+    def read_pages(self) -> list[int]:
+        """The first and last page that are not empty: the identity and signature pages, the only pages read."""
+        return candidate_pages(self.n_pages, self.blank)
 
 
 def validate_pdf_file(path: Path, max_bytes: int) -> None:
@@ -81,21 +91,37 @@ def _native_text(page: pdfplumber.page.Page, number: int) -> PageText:
 
 
 def read_document(source: PdfSource, max_pages: int, economy_mode: bool = False) -> DocumentRead:
-    """Classify pages and read native text layers. Economy mode never opens middle pages."""
+    """Classify pages (their kind and format issues go to the vendor note) and read the native text layer of the pages
+    read (`DocumentRead.read_pages`). Economy mode classifies only from each end inward to the first page that is not
+    empty, so it never opens the middle pages at all."""
     with open_pdf(source) as pdf:
         n_pages = len(pdf.pages)
         if n_pages > max_pages:
             raise InputRejected("too_many_pages")
-        numbers = candidate_pages(n_pages) if economy_mode else list(range(1, n_pages + 1))
+        kinds: dict[int, PageKind] = {}
+        issues: dict[int, str] = {}
 
-        doc = DocumentRead(n_pages=n_pages)
-        for number in numbers:
+        def classify(number: int) -> PageKind:
             page = pdf.pages[number - 1]
             page_class = classify_page(_page_stats(page, number))
-            doc.kinds[number] = page_class.kind
-            if page_class.issue:
-                doc.issues[number] = page_class.issue
-            if page_class.kind is PageKind.NATIVE:
-                doc.texts.append(_native_text(page, number))
             page.close()
+            kinds[number] = page_class.kind
+            if page_class.issue:
+                issues[number] = page_class.issue
+            return page_class.kind
+
+        if economy_mode:
+            first = next((n for n in range(1, n_pages + 1) if classify(n) is not PageKind.BLANK), None)
+            if first is not None:
+                next((n for n in range(n_pages, first, -1) if classify(n) is not PageKind.BLANK), None)
+        else:
+            for number in range(1, n_pages + 1):
+                classify(number)
+
+        doc = DocumentRead(n_pages=n_pages, kinds=dict(sorted(kinds.items())), issues=dict(sorted(issues.items())))
+        for number in doc.read_pages:
+            if doc.kinds[number] is PageKind.NATIVE:
+                page = pdf.pages[number - 1]
+                doc.texts.append(_native_text(page, number))
+                page.close()
         return doc

@@ -262,7 +262,8 @@ def signed_contract_pdf(
     """Five-page native contract: identity on page 1, salary on page 2, mid-page signature block on page 5.
 
     Without marks nobody has signed; `marks` (see signature_extras) adds signatures to the closing page.
-    `appendix` adds a sixth page (make_pdf page spec and its extras) after the closing page.
+    `appendix` adds a page (make_pdf page spec and its extras) before the closing page, which becomes page 6: extra
+    pages sit between the clauses and the signature page, so the last page stays the signature page.
     """
     closing_page = flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0, employee)
     pages: list[tuple[str, object]] = [
@@ -270,12 +271,13 @@ def signed_contract_pdf(
         ("text", "\n".join(SALARY_LINES + [BODY_FILLER] * 40)),
         ("text", "\n".join([BODY_FILLER] * 45)),
         ("text", "\n".join([BODY_FILLER] * 45)),
-        ("layout", [(x, y, text) for y, x, text in closing_page]),
     ]
-    extras = {4: signature_extras(*marks)}
+    extras: dict[int, PageExtras] = {}
     if appendix:
         pages.append(appendix[0])
         extras[len(pages) - 1] = appendix[1]
+    pages.append(("layout", [(x, y, text) for y, x, text in closing_page]))
+    extras[len(pages) - 1] = signature_extras(*marks)
     return make_pdf(path, pages, extras)
 
 

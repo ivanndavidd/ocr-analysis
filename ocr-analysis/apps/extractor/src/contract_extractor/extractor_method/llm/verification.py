@@ -16,7 +16,7 @@ from rapidfuzz import fuzz
 from contract_extractor.common.dates import end_from_duration, months_between
 from contract_extractor.extractor_method.llm.base import ExtractionResult
 from contract_extractor.common.models import Level, RegexPeriod
-from contract_extractor.extractor_method.pattern.filename import Match, name_in_text, normalize_name
+from contract_extractor.extractor_method.pattern.filename import Match, name_printed, normalize_name
 from contract_extractor.extractor_method.pattern.period_regex import dates_in_text, durations_in_text
 
 EVIDENCE_MIN = 90  # a quote must be found in the source text at least this fuzzily
@@ -56,7 +56,7 @@ def _quote_found(quote: str | None, source: str) -> bool:
 
 def _name_found(name: str, source: str) -> bool:
     name_norm = normalize_name(name)
-    return any(name_in_text(name_norm, line) for line in source.splitlines())
+    return any(name_printed(name_norm, line) for line in source.splitlines())
 
 
 def _text_found(value: str, quote: str | None, source: str) -> bool:

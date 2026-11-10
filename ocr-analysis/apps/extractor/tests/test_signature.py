@@ -23,9 +23,13 @@ from contract_extractor.document.pdf.objects import Box, read_page_objects
 from contract_extractor.document.pdf.reader import read_document
 from contract_extractor.document.pdf.render import PageRenderer
 from contract_extractor.signature.ink import (
+    SIGNED_STROKES,
+    STROKE_CONTRAST,
+    UNSIGNED_INK,
     find_meterai,
     ink_verdict,
     measure_ink,
+    measure_strokes,
     meterai_boxes,
     meterai_boxes_gray,
     meterai_pixels,
@@ -264,6 +268,56 @@ def test_round_stamp_is_dropped():
     assert ink_verdict(measure_ink(image, OTSU, WORD_H, []))[0] is UNSIGNED
 
 
+# Stroke check on the same crops. The printed name's row in _blank(): text drawn with its baseline at y 215.
+NAME_ROW = (185.0, 222.0)
+
+
+def _strokes(image, boxes=(), row=NAME_ROW, meterai=(), contrast=STROKE_CONTRAST):
+    return measure_strokes(image, WORD_H, list(boxes), row, list(meterai), contrast)
+
+
+def test_blank_roi_has_no_strokes():
+    assert _strokes(_blank()).length == 0.0
+
+
+@pytest.mark.parametrize(("grey", "thickness"), [(0, 6), (200, 3)])
+def test_a_scribble_is_a_long_stroke_dark_or_faint(grey, thickness):
+    image = _blank()
+    xs = np.linspace(60, 520, 200)
+    ys = 110 + 70 * np.sin(xs / 15) * np.cos(xs / 41)
+    cv2.polylines(image, [np.stack([xs, ys], axis=1).astype(np.int32)], False, grey, thickness=thickness)
+    assert _strokes(image).length >= SIGNED_STROKES
+
+
+def test_bold_print_spilling_past_its_word_box_is_no_stroke():
+    # The ink share counts the spill (a blank scan read uncertain); the stroke check drops letter-high marks touching
+    # a word box, and anything in the printed name's own row.
+    image = _blank()
+    cv2.putText(image, "BUDI SANTOSO", (150, 215), cv2.FONT_HERSHEY_SIMPLEX, 1.2, 0, 6)  # bold: letters run together
+    tight = [(160, 191, 300, 214), (310, 191, 415, 214)]  # OCR boxes a little inside the bold letters
+    assert measure_ink(image, OTSU, WORD_H, tight).ink_ratio >= UNSIGNED_INK
+    no_row = (0.0, 0.0)
+    assert _strokes(image, (), row=no_row).length >= SIGNED_STROKES  # unexplained, the joined letters pass for a pen
+    assert _strokes(image, tight, row=no_row).length == 0.0
+    assert _strokes(image, (), row=NAME_ROW).length == 0.0  # no box at all, but in the name's row
+
+
+def test_dotted_line_shaded_paper_and_a_page_edge_are_no_strokes():
+    image = _blank()
+    for x in range(20, 620, 10):
+        cv2.rectangle(image, (x, 170), (x + 3, 173), 0, -1)  # dotted signing line
+    image = (image.astype(np.float32) * np.linspace(1.0, 0.65, image.shape[1])[None, :]).astype(np.uint8)  # shade
+    image[:, 560:] = 60  # the dark table past the page's edge in a photo
+    assert _strokes(image).length == 0.0
+
+
+def test_a_mark_inside_a_meterai_box_is_counted_apart():
+    image = _blank()
+    cv2.polylines(image, [np.array([[220, 60], [250, 140], [280, 70], [310, 150]], np.int32)], False, 0, 4)
+    features = _strokes(image, meterai=[(200, 40, 340, 170)])
+    assert features.length == 0.0 and features.meterai_length > 0.0
+
+
 # Meterai: a pink-magenta stamp drawn here, never a real one. RGB page of 1000 px height.
 METERAI_PINK, METERAI_LIGHT = (220, 60, 160), (240, 150, 200)
 BLUE_PEN, BLACK_PEN, PURPLE_PEN = (30, 60, 200), (0, 0, 0), (150, 50, 170)
@@ -427,13 +481,27 @@ def test_thin_signature_in_a_roi_stretched_to_the_heading_is_signed(tmp_path):
     assert (result.status, result.source) == (SIGNED, "pixels")
 
 
-@pytest.mark.parametrize(("native", "status"), [(False, UNCERTAIN), (True, UNSIGNED)])
-def test_meterai_where_the_employee_signs_without_ink(native, status):
-    # On a scan a faint pen over the meterai is whitened with the stamp's colours, so no ink there proves nothing.
+@pytest.mark.parametrize("native", [False, True])
+def test_meterai_where_the_employee_signs_without_ink(native):
+    # Stamp rule (owner 2026-11-10): a signature on a meterai crosses its edge onto the paper, so no pen outside the
+    # stamp reads unsigned, even on a grey scan whose whole box was whitened; on a scan never with a clear margin.
     page = page_text(5, flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0))
     meterai = [Box(400.0 / 612.0, 385.0 / 792.0, 450.0 / 612.0, 425.0 / 792.0)]
-    result = detect_signature(page, native, np.full((1100, 850), 255, np.uint8), None, "Budi Santoso", meterai=meterai)
-    assert (result.status, result.meterai) == (status, 1)
+    image = np.full((1100, 850), 255, np.uint8)
+    result = detect_signature(page, native, image, None, "Budi Santoso", meterai=meterai)
+    assert (result.status, result.meterai) == (UNSIGNED, 1)
+    assert result.clear_margin is native
+
+
+def test_a_pen_crossing_the_meterai_edge_is_never_read_unsigned():
+    # The whitened stamp leaves only the part of the signature on the paper beside it.
+    page = page_text(5, flow(["Pasal 10 Penutup"] + [BODY_FILLER] * 6) + signature_rows(350.0))
+    meterai = [Box(400.0 / 612.0, 385.0 / 792.0, 450.0 / 612.0, 425.0 / 792.0)]
+    image = np.full((1100, 850), 255, np.uint8)
+    xs = np.linspace(626, 700, 60)
+    cv2.polylines(image, [np.stack([xs, 560 + 18 * np.sin(xs / 7)], axis=1).astype(np.int32)], False, 40, 2)
+    result = detect_signature(page, False, image, None, "Budi Santoso", meterai=meterai)
+    assert result.status is not UNSIGNED and result.meterai == 1
 
 
 def test_light_grey_native_signature_counts_as_ink(tmp_path):
@@ -596,16 +664,57 @@ def test_a_short_names_underline_is_no_signature_in_the_wide_second_try():
     assert result.status is UNSIGNED
 
 
-@pytest.mark.parametrize(("grey", "status"), [(200, UNCERTAIN), (255, UNSIGNED)])
-def test_a_faint_pen_on_a_scan_is_uncertain_not_unsigned(grey, status):
-    # Light grey strokes sit above the page's Otsu threshold and read as no ink; seen at a lighter one, they leave
-    # the ROI uncertain (for a person or the extractor's crop), never signed.
-    page = page_text(1, _closing_page_with_heading())
+SX, SY = 850 / 612.0, 1100 / 792.0  # page points to the pixels of the 850 x 1100 test scans
+
+
+def _scan_with_text(rows) -> np.ndarray:
     image = np.full((1100, 850), 255, np.uint8)
-    for y, x, text in _closing_page_with_heading():
-        cv2.putText(image, text, (int(x * 850 / 612), int((y + 10) * 1100 / 792)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, 0, 1)
+    for y, x, text in rows:
+        cv2.putText(image, text, (int(x * SX), int((y + 10) * SY)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, 0, 1)
+    return image
+
+
+def _faint_pen(image, y_mid: float, grey: int = 200) -> None:
     xs = np.linspace(390.0, 460.0, 200)
-    ys = 350.0 + 18.0 * np.sin(xs / 4.0)
-    cv2.polylines(image, [np.stack([xs * 850 / 612, ys * 1100 / 792], axis=1).astype(np.int32)], False, grey, 2)
+    ys = y_mid + 18.0 * np.sin(xs / 4.0)
+    cv2.polylines(image, [np.stack([xs * SX, ys * SY], axis=1).astype(np.int32)], False, grey, 2)
+
+
+@pytest.mark.parametrize(("grey", "status"), [(200, SIGNED), (255, UNSIGNED)])
+def test_a_faint_pen_on_a_scan_is_read_by_its_strokes(grey, status):
+    # Light grey strokes sit above the page's Otsu threshold and read as no ink; seen at a lighter one, the ink check
+    # leaves the ROI uncertain. Measured against the paper around them they are a long pen path: signed, not clear.
+    # (Before the stroke check this stayed uncertain; 21 signed synthetic scans and photos with a faint pen did.)
+    page = page_text(1, _closing_page_with_heading())
+    image = _scan_with_text(_closing_page_with_heading())
+    _faint_pen(image, 350.0, grey)
     result = detect_signature(page, False, image, None, "Budi Santoso")
     assert (result.status, result.anchor) == (status, ANCHOR_NAME)
+    if status is SIGNED:
+        assert (result.source, result.clear_margin) == ("pixels", False)
+
+
+def test_strokes_under_the_name_never_read_signed():
+    # The ROI under the name holds the printed title in most layouts; unboxed, its letters measured up to 21 stroke
+    # lengths on unsigned synthetic contracts. A faint pen there stays uncertain.
+    page = page_text(1, _closing_page_with_heading())
+    image = _scan_with_text(_closing_page_with_heading())
+    _faint_pen(image, 420.0)
+    assert detect_signature(page, False, image, None, "Budi Santoso").status is UNCERTAIN
+
+
+@pytest.mark.parametrize(("script_word", "status"), [(False, UNSIGNED), (True, UNCERTAIN)])
+def test_bold_name_spill_reads_unsigned_unless_the_roi_sits_under_a_signature(script_word, status):
+    # The bold printed name spills past its OCR boxes: ink the ink check cannot place, so uncertain; no strokes, so
+    # unsigned. But when OCR read a script signature as the word `Budi` and took it for the heading, the ROI starts
+    # under the signature, and an empty ROI proves nothing.
+    rows = _closing_page_with_heading()
+    page = page_text(1, rows)
+    if script_word:
+        script = Word(text="Budi", bbox=(390.0, 330.0, 412.0, 340.0), conf=0.9)
+        page = PageText(number=1, width=page.width, height=page.height, words=(*page.words, script), source="ocr")
+    image = _scan_with_text([row for row in rows if row[2] != "Budi Santoso"])
+    cv2.putText(image, "Budi Santoso", (int(376 * SX), int(401 * SY)), cv2.FONT_HERSHEY_SIMPLEX, 0.62, 0, 2)
+    result = detect_signature(page, False, image, None, "Budi Santoso")
+    assert result.features is not None and result.features.ink_ratio >= UNSIGNED_INK  # the ink check alone: uncertain
+    assert (result.status, result.clear_margin) == (status, False)

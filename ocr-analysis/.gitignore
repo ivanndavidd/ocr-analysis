@@ -40,3 +40,6 @@ Thumbs.db
 # Local run configs (machine paths, extractor choices); only the example is shared
 apps/extractor/config*.yaml
 !apps/extractor/config.example.yaml
+
+# RapidOCR model files for the second reader (30 MB, checked by SHA-256 on start); see AGENTS.md
+apps/extractor/models/

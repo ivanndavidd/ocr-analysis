@@ -58,7 +58,7 @@ from contract_extractor.extractor_method.pattern.filename import (
     ParsedFilename,
     compare_name,
     compare_period,
-    name_in_text,
+    name_printed,
     normalize_name,
     parse_filename,
 )
@@ -67,7 +67,7 @@ from contract_extractor.extractor_method.llm.masking import PAGE_SEPARATOR, Mask
 from contract_extractor.extractor_method.pattern.nik import check_nik, find_nik, nik_spot
 from contract_extractor.extractor_method.pattern.position import SAME_POSITION, find_position
 from contract_extractor.document.pages.page_classify import vendor_note
-from contract_extractor.document.pages.page_selection import candidate_pages, select_pages
+from contract_extractor.document.pages.page_selection import select_pages
 from contract_extractor.extractor_method.pattern.period_regex import dates_in_text, find_period
 from contract_extractor.extractor_method.pattern.vendor import vendor_in_text
 from contract_extractor.scoring import (
@@ -79,7 +79,12 @@ from contract_extractor.scoring import (
     ocr_level,
     signature_level,
 )
-from contract_extractor.signature.signature import ANCHOR_NAME, detect_signature, employee_labels
+from contract_extractor.signature.signature import (
+    ANCHOR_NAME,
+    detect_signature,
+    employee_labels,
+    employee_name_printed,
+)
 
 log = logging.getLogger(__name__)
 
@@ -138,6 +143,10 @@ COMPONENT_NIK = "nik"
 COMPONENT_VENDOR = "vendor"
 REASON_VENDOR_NOT_IN_SOURCE = "vendor_not_in_source"  # the vendor folder's name is not printed on the read pages
 REASON_VENDOR_MISMATCH = "vendor_mismatch"  # the extractor read another employer company than the vendor folder
+# `validasi_nama_file` key set when the filename's name was confirmed in the signature block, not on the identity page.
+NAME_PAGE_KEY, NAME_PAGE_SIGNATURE = "nama_halaman", "tanda_tangan"
+# Set when the second OCR's reading completed a period Tesseract's text left a date of unread.
+PERIOD_FROM_KEY, PERIOD_FROM_SECOND = "periode_dari", "pembaca_kedua"
 # The patterns' own reasons for a yellow file; the fallback extractor's verification decides them afresh.
 _PATTERN_REASONS = (REASON_NAME_NOT_IN_SOURCE, REASON_PERIOD_NOT_IN_SOURCE)
 _NIK_STATUS_REASONS = {
@@ -155,6 +164,9 @@ SIGNATURE_DPI = 300  # native pages; scans reuse the OCR read resolution so word
 LLM_SIGNED_CONF = 0.8
 LLM_UNSIGNED_CONF = 0.85
 CROP_MAX_SIDE = 1568  # pixels; an image costs about width x height / 750 tokens, and this is plenty to read ink
+# A title read below this confidence is coloured on the website (LOW_CONFIDENCE in apps/backend jobs/fields.ts), so
+# the second reader reads it again.
+POSITION_SURE = 0.8
 _LEVEL_ORDER = (Level.GREEN, Level.YELLOW, Level.RED)
 
 # Unclassified pages carry content in a non-standard form (a pasted photo, outlined text): read them rather than skip.
@@ -168,6 +180,9 @@ class _PagesRead:
     p_id_trusted: bool = False  # every P_id page came from a text layer or from OCR that passed quality
     p_ttd_page: PageText | None = None  # full-resolution text of the signature page
     turns: dict[int, int] = field(default_factory=dict)  # page -> clockwise turn that made a turned photo upright
+    # The identity pages as the second OCR reads them, read at most once per file (see `_second_pages`).
+    second: list[PageText] | None = None
+    second_tried: bool = False
 
 
 def file_id(filename: str) -> str:
@@ -183,30 +198,66 @@ def _add_reason(result: FileResult, reason: str) -> None:
 def _select_and_read(
     data: bytes, doc: DocumentRead, result: FileResult, employee_name: str, quality_name: str, ocr: OcrRunner | None
 ) -> _PagesRead:
-    """Tahap 1 (page selection with rough OCR for scan/hybrid) and Tahap 2 (full OCR of P_id and P_ttd)."""
+    """Tahap 1 and 2. The first page is the identity page and the last the signature page (owner 2026-11-10), so only
+    those two are read, in full, and then scored to check that each looks like one; the middle pages are never read.
+    Choosing the pages from a rough read of the first 3 and last 5 made a scan of 7 pages or more take about 27-29 s
+    against 16 s for one of 2 pages (800 synthetic contracts, 2026-11-10)."""
     components = result.log.komponen_halaman
     for page in doc.texts:
         components.setdefault(page.number, []).append("text_layer")
 
-    to_ocr = [n for n in candidate_pages(doc.n_pages) if doc.kinds.get(n) in _NEEDS_OCR]
+    numbers = doc.read_pages
+    to_ocr = [n for n in numbers if doc.kinds.get(n) in _NEEDS_OCR]
     if to_ocr and ocr is None:
         _add_reason(result, REASON_OCR_UNAVAILABLE)
     renderer = PageRenderer(data) if to_ocr and ocr is not None else None
     try:
-        texts: list[PageText] = list(doc.texts)
-        rough_pages: dict[int, PageText] = {}
-        if renderer is not None and ocr is not None:
-            for number in to_ocr:
-                components.setdefault(number, []).append(f"{ocr.primary.name}@{ocr.scoring_dpi}dpi")
-                rough = ocr.rough_text(renderer, number)
-                if rough is not None:
-                    texts.append(rough)
-                    rough_pages[number] = rough
+        native = {page.number: page for page in doc.texts}
+        read_pages: dict[int, PageText] = {}
+        passed: set[int] = set()
+        engines: dict[int, str] = {}
+        confidences: dict[int, float] = {}
 
-        selection = select_pages(texts, doc.n_pages, employee_name)
-        if selection.ambiguous and renderer is not None and ocr is not None and to_ocr:
-            texts = _read_again(renderer, ocr, doc, to_ocr, rough_pages, result)
-            selection = select_pages(texts, doc.n_pages, employee_name)
+        def read(number: int) -> None:
+            passed.discard(number)
+            read_pages.pop(number, None)
+            if doc.kinds[number] is PageKind.NATIVE:
+                engines[number], confidences[number] = "text_layer", 1.0
+                read_pages[number] = native[number]
+                passed.add(number)
+            elif renderer is None or ocr is None:
+                engines[number], confidences[number] = "none", 0.0
+            else:
+                # Only the identity page is reread with table borders erased when it fails the quality check. The
+                # signature check was calibrated on the signature page's plain read; erasing there turned one unsigned
+                # synthetic contract signed.
+                identity = number == numbers[0]
+                erase = identity and number != numbers[-1]
+                outcome = ocr.read(renderer, number, quality_name if identity else "", erase)
+                engines[number] = outcome.engine or "none"
+                confidences[number] = outcome.mean_conf
+                components.setdefault(number, []).append(f"{engines[number]}@{ocr.read_dpi}dpi")
+                result.log.ocr_conf[number] = round(outcome.mean_conf, 3)
+                if outcome.page is not None:
+                    read_pages[number] = outcome.page
+                if outcome.passed:
+                    passed.add(number)
+
+        for number in numbers:
+            read(number)
+        selection = select_pages(list(read_pages.values()), doc.n_pages, employee_name, doc.blank)
+        if selection.ambiguous and renderer is not None and ocr is not None:
+            # A photo taken sideways or upside down reads as noise; only a page that failed its role is turned.
+            failed = ([numbers[0]] if not selection.p_id else []) + ([numbers[-1]] if selection.p_ttd is None else [])
+            turned = [
+                n for n in dict.fromkeys(failed) if n in to_ocr and _turn_upright(renderer, ocr, n, read_pages, result)
+            ]
+            for number in turned:
+                read(number)
+            if turned:
+                selection = select_pages(list(read_pages.values()), doc.n_pages, employee_name, doc.blank)
+        if renderer is not None and any(n not in passed for n in to_ocr):
+            _add_reason(result, REASON_OCR_LOW_CONFIDENCE)
         result.log.p_id = selection.p_id
         result.log.p_ttd = selection.p_ttd
         result.log.halaman_sensitif = selection.sensitive_pages
@@ -220,41 +271,11 @@ def _select_and_read(
         p_ttd = selection.p_ttd
         if p_ttd is None:
             # The identity page is still read: stopping here lost every value of 3 synthetic photos whose signature page
-            # scored low. The best candidate is checked as the signature page; the red page selection keeps the file
-            # in review, and the website marks its signature for a person to look at.
+            # scored low. The last page is checked as the signature page all the same; the red page selection keeps
+            # the file in review, and the website marks its signature for a person to look at.
             p_ttd = selection.ttd_guess
             _add_reason(result, REASON_SIGNATURE_PAGE_NOT_FOUND if p_ttd is None else REASON_SIGNATURE_PAGE_GUESSED)
             result.log.p_ttd = p_ttd
-
-        native = {page.number: page for page in doc.texts}
-        read_pages: dict[int, PageText] = {}
-        passed: set[int] = set()
-        engines: dict[int, str] = {}
-        confidences: dict[int, float] = {}
-        for number in sorted({*selection.p_id, *([] if p_ttd is None else [p_ttd])}):
-            if doc.kinds[number] is PageKind.NATIVE:
-                engines[number], confidences[number] = "text_layer", 1.0
-                read_pages[number] = native[number]
-                passed.add(number)
-            elif renderer is None or ocr is None:
-                engines[number], confidences[number] = "none", 0.0
-            else:
-                # Only an identity page that fails the quality check is reread with table borders erased. The
-                # signature check was calibrated on the signature page's plain read; erasing there turned one
-                # unsigned synthetic contract signed.
-                identity = number in selection.p_id
-                erase = identity and number != p_ttd
-                outcome = ocr.read(renderer, number, quality_name if identity else "", erase)
-                engines[number] = outcome.engine or "none"
-                confidences[number] = outcome.mean_conf
-                components.setdefault(number, []).append(f"{engines[number]}@{ocr.read_dpi}dpi")
-                result.log.ocr_conf[number] = round(outcome.mean_conf, 3)
-                if outcome.page is not None:
-                    read_pages[number] = outcome.page
-                if outcome.passed:
-                    passed.add(number)
-                else:
-                    _add_reason(result, REASON_OCR_LOW_CONFIDENCE)
 
         # Identity pages read by OCR that passed; a failed one was already read once with the borders erased.
         reread = [n for n in selection.p_id if n in passed and n != p_ttd and doc.kinds[n] is not PageKind.NATIVE]
@@ -337,29 +358,17 @@ def _reveals_more(before: list[PageText], after: list[PageText], nik_b: NikStatu
     )
 
 
-def _read_again(
-    renderer: PageRenderer,
-    ocr: OcrRunner,
-    doc: DocumentRead,
-    to_ocr: list[int],
-    rough_pages: dict[int, PageText],
-    result: FileResult,
-) -> list[PageText]:
-    """No page could be chosen from the rough pass. A phone photo's text is often too small for it, or the photo was
-    taken sideways or upside down, so every image page is read again at the full resolution, turned the way that
-    reads best. Only a file that failed pays for this. On 100 synthetic photos, the reread and the turn together
-    found the identity page in 21 more and doubled the confirmed name-and-period pairs (12 to 24)."""
-    texts: list[PageText] = list(doc.texts)
-    for number in to_ocr:
-        turn = ocr.best_turn(renderer, number, rough_pages.get(number))
-        if turn:
-            renderer.turns[number] = turn
-            result.log.putaran_halaman[number] = turn
-        result.log.komponen_halaman.setdefault(number, []).append(f"{ocr.primary.name}@{ocr.read_dpi}dpi")
-        page = ocr.rough_text(renderer, number, ocr.read_dpi)
-        if page is not None:
-            texts.append(page)
-    return texts
+def _turn_upright(
+    renderer: PageRenderer, ocr: OcrRunner, number: int, read_pages: dict[int, PageText], result: FileResult
+) -> bool:
+    """Turn a page photographed sideways or upside down, so it can be read again; a page that reads upright is never
+    turned (see `OcrRunner.best_turn`). Only a page that failed its role pays for this."""
+    turn = ocr.best_turn(renderer, number, read_pages.get(number))
+    if not turn:
+        return False
+    renderer.turns[number] = turn
+    result.log.putaran_halaman[number] = turn
+    return True
 
 
 def _prepare_extraction(result: FileResult, p_id_pages: list[PageText], max_chars_per_page: int) -> str | None:
@@ -445,6 +454,121 @@ def _needs_nik_crop(log: NikLog, from_text_layer: bool) -> bool:
     return not from_text_layer and checks != (NikCheck.MATCH, NikCheck.MATCH)
 
 
+def _needs_second_nik(result: FileResult) -> bool:
+    """A NIK the website colours only because OCR may have misread a digit: read from a scan without the printed birth
+    date and gender both confirming it, or picked from a longer run of digits. A missing, invalid, contradicted or
+    conflicting NIK is not a reading the second reader can confirm."""
+    log = result.log.nik
+    if log is None or result.nik is None or log.status is not NikStatus.FOUND:
+        return False
+    checks = (log.tanggal_lahir, log.jenis_kelamin)
+    if NikCheck.MISMATCH in checks:
+        return False
+    unconfirmed = REASON_NIK_FROM_OCR in result.log.alasan and checks != (NikCheck.MATCH, NikCheck.MATCH)
+    return unconfirmed or log.deret_panjang
+
+
+def _needs_second_position(result: FileResult) -> bool:
+    """A title the patterns read from a scan with low confidence, which the website colours; never the extractor's."""
+    log, confidence = result.log.posisi, result.confidence.get("posisi")
+    if result.posisi is None or log is None or log.sumber is PositionSource.LLM or log.cocok_llm is not None:
+        return False
+    return confidence is not None and confidence < POSITION_SURE
+
+
+def _same_title(a: str | None, b: str | None) -> bool:
+    return a is not None and b is not None and " ".join(a.split()) == " ".join(b.split())
+
+
+def _second_pages(data: bytes, result: FileResult, pages: _PagesRead, ocr: OcrRunner | None) -> list[PageText] | None:
+    """The identity pages as the second OCR (RapidOCR) reads them: each scanned page read again, a text-layer page as
+    it is. Read at most once per file, whichever field asks first. None without a second reader or a scanned identity
+    page, or when a read failed, since a failed read confirms nothing."""
+    if pages.second_tried:
+        return pages.second
+    pages.second_tried = True
+    if ocr is None or ocr.second is None or not pages.p_id_pages:
+        return None
+    scanned = [page.number for page in pages.p_id_pages if page.source.startswith("ocr:")]
+    if not scanned:
+        return None
+    with PageRenderer(data, pages.turns) as renderer:  # a turned photo is read upright, as Tesseract read it
+        again = {number: ocr.second_read(renderer, number) for number in scanned}
+    for number in scanned:
+        result.log.komponen_halaman.setdefault(number, []).append(f"{ocr.second.name}@{ocr.read_dpi}dpi:pembaca_kedua")
+    if any(page is None for page in again.values()):
+        return None
+    pages.second = [again.get(page.number) or page for page in pages.p_id_pages]
+    return pages.second
+
+
+def _second_period(data: bytes, result: FileResult, parsed: ParsedFilename, pages: _PagesRead, ocr: OcrRunner | None) -> None:
+    """Tahap 3, second local reader for the period: when Tesseract's text gave the regex no clear period (a date
+    missing, nothing contradicting the filename) and the filename's dates are not printed in it either, the regex runs
+    on the second OCR's reading too (`log.periode_pembaca_kedua`); `_check_without_extractor` decides with it.
+
+    Only a missing date: a different date is the document disagreeing with the filename, which a second reading cannot
+    settle, and several periods are a contradiction. On the 473 synthetic scans and photos (2026-11-09) Tesseract's
+    text missed 22 start and 27 end dates, mostly a date broken over a line with OCR noise in between (`s.d 30` /
+    `Novemb vember 2044`); in the 2026-11-07 benchmark RapidOCR read 14 of 18 and 19 of 25 such yellow dates right,
+    and none wrong."""
+    regex = result.log.periode_regex
+    if regex is None or regex.ambigu or not (parsed.start and parsed.end) or parsed.flags:
+        return
+    start, end = regex.tanggal_mulai, regex.tanggal_selesai
+    if (start and end) or start not in (None, parsed.start) or end not in (None, parsed.end):
+        return
+    if _filename_dates_printed(parsed, pages.p_id_pages):
+        return  # Tesseract's text confirms it already
+    second = _second_pages(data, result, pages, ocr)
+    if second is not None:
+        result.log.periode_pembaca_kedua = find_period(PAGE_SEPARATOR.join(page.text for page in second))
+
+
+def _second_confirms_period(
+    result: FileResult, parsed: ParsedFilename, start: object, end: object, second_pages: list[PageText] | None
+) -> bool:
+    """The second OCR's reading fills the dates Tesseract's text missed with the filename's own, and contradicts
+    nothing: its regex reads no other date and no second period, and either completes the period or, where it read no
+    clear period either, prints both of the filename's dates (the same lookup as on Tesseract's text)."""
+    second = result.log.periode_pembaca_kedua
+    if second is None or second.ambigu:
+        return False
+    s_start, s_end = second.tanggal_mulai, second.tanggal_selesai
+    if s_start not in (None, parsed.start) or s_end not in (None, parsed.end):
+        return False
+    if (start or s_start, end or s_end) == (parsed.start, parsed.end):
+        return True
+    return second_pages is not None and _filename_dates_printed(parsed, second_pages)
+
+
+def _second_read(data: bytes, result: FileResult, pages: _PagesRead, ocr: OcrRunner | None, level: Level) -> Level:
+    """Tahap 3, second local reader: when the NIK or the position Tesseract read from a scan is unsure, the second OCR
+    (RapidOCR) reads the identity pages again and the same patterns run on its text. The same value from both engines
+    makes it green; anything else leaves it as it was, for the NIK crop or a person. Returns the NIK's level.
+
+    On 800 synthetic contracts (benchmark, 2026-11-07) the two engines read the same value in 269 of the 317 text cells
+    Tesseract left yellow, all 269 right; where they differed, RapidOCR was right in 46 of 48 and Tesseract in none,
+    so a difference is never settled locally: two of those 48 had both wrong."""
+    nik, position = _needs_second_nik(result), _needs_second_position(result)
+    if not (nik or position):
+        return level
+    second = _second_pages(data, result, pages, ocr)
+    if second is None:
+        return level
+    if nik and result.log.nik is not None:
+        other = find_nik(second).nik
+        result.log.nik.pembaca_kedua = "tidak_terbaca" if other is None else "sama" if other == result.nik else "beda"
+        if other == result.nik:
+            result.log.alasan = [r for r in result.log.alasan if r not in (REASON_NIK_FROM_OCR, REASON_NIK_DIGITS_REPAIRED)]
+            level = nik_level(result.log.nik, True)  # two engines agree on every digit
+    if position and result.log.posisi is not None:
+        other_title = find_position(second).posisi
+        same = _same_title(other_title, result.posisi)
+        result.log.posisi.pembaca_kedua = "tidak_terbaca" if other_title is None else "sama" if same else "beda"
+    return level
+
+
 def _read_nik_crop(
     data: bytes, result: FileResult, pages: _PagesRead, extractor: Extractor | None, ocr: OcrRunner | None, level: Level
 ) -> Level:
@@ -453,8 +577,8 @@ def _read_nik_crop(
     contradicted local reading, and green only when the printed birth date and gender both confirm it. The same
     digits as the local reading count as a text layer's; other digits that cannot replace it make the NIK yellow."""
     local, p_id_pages = result.log.nik, pages.p_id_pages
-    if extractor is None or local is None or not p_id_pages:
-        return level
+    if extractor is None or local is None or not p_id_pages or local.pembaca_kedua == "sama":
+        return level  # two local engines already agree on every digit: nothing is sent
     if not _needs_nik_crop(local, all(page.source == "text_layer" for page in p_id_pages)):
         return level
     spot = nik_spot(p_id_pages)
@@ -524,9 +648,25 @@ def _name_on_page(result: FileResult, parsed: ParsedFilename, p_id_pages: list[P
     if FLAG_NONSTANDARD in parsed.flags or FLAG_UNPARSED in parsed.flags or not parsed.name:
         return None
     name_norm = normalize_name(parsed.name)
-    found = any(name_in_text(name_norm, line.text) for page in p_id_pages for line in page.lines)
+    found = any(name_printed(name_norm, line.text) for page in p_id_pages for line in page.lines)
     result.log.validasi_nama_file["nama"] = (Match.COCOK if found else Match.TIDAK_COCOK).value
     return found
+
+
+def _name_on_signature_page(
+    result: FileResult, parsed: ParsedFilename, p_id_pages: list[PageText], p_ttd_page: PageText | None
+) -> bool:
+    """A standard filename's name the identity page does not show, looked for in the employee's column of the
+    signature block (`employee_name_printed`). Only on a signature page apart from the identity pages, which were
+    searched already."""
+    if p_ttd_page is None or result.log.p_ttd is None or result.log.p_ttd in result.log.p_id:
+        return False
+    labels = employee_labels(PAGE_SEPARATOR.join(page.text for page in p_id_pages))
+    if not employee_name_printed(p_ttd_page, parsed.name, labels):
+        return False
+    result.log.validasi_nama_file["nama"] = Match.COCOK.value
+    result.log.validasi_nama_file[NAME_PAGE_KEY] = NAME_PAGE_SIGNATURE
+    return True
 
 
 def _filename_dates_printed(parsed: ParsedFilename, p_id_pages: list[PageText]) -> bool:
@@ -537,7 +677,13 @@ def _filename_dates_printed(parsed: ParsedFilename, p_id_pages: list[PageText]) 
     return parsed.start in printed and parsed.end in printed
 
 
-def _check_without_extractor(result: FileResult, parsed: ParsedFilename, p_id_pages: list[PageText]) -> Level:
+def _check_without_extractor(
+    result: FileResult,
+    parsed: ParsedFilename,
+    p_id_pages: list[PageText],
+    p_ttd_page: PageText | None = None,
+    second_pages: list[PageText] | None = None,
+) -> Level:
     """Pattern mode: the filename's name and period count once the document text confirms them on its own.
 
     Checking a known value is safer than reading one: the name from a standard filename must be printed on the
@@ -547,6 +693,11 @@ def _check_without_extractor(result: FileResult, parsed: ParsedFilename, p_id_pa
     extraction is green; a missing piece is yellow, a contradiction red. On 300 synthetic contracts the date lookup
     confirmed 5 more periods than the regex alone and confirmed no wrong period: not another contract's, and not one
     a month off.
+
+    Where Tesseract's text left a date unread, the second OCR's reading of the identity pages may complete the period
+    (`_second_confirms_period`), never change it. A name the identity page does not show may still be confirmed in the employee's column of the signature page, but
+    only once the identity page confirmed the period: a name missing there with no period either may mean the wrong
+    page was taken for the identity page.
     """
     result.log.pembaca = Reader.PATTERN
     name_found = _name_on_page(result, parsed, p_id_pages)
@@ -557,9 +708,14 @@ def _check_without_extractor(result: FileResult, parsed: ParsedFilename, p_id_pa
     regex_agrees_so_far = not (regex and regex.ambigu) and start in (None, parsed.start) and end in (None, parsed.end)
     if not (start and end) and regex_agrees_so_far and _filename_dates_printed(parsed, p_id_pages):
         start, end = parsed.start, parsed.end  # the regex missed the clause; the dates are printed all the same
+    elif not (start and end) and regex_agrees_so_far and _second_confirms_period(result, parsed, start, end, second_pages):
+        start, end = parsed.start, parsed.end
+        result.log.validasi_nama_file[PERIOD_FROM_KEY] = PERIOD_FROM_SECOND
     period = compare_period(parsed, start, end, regex.durasi_bulan if regex else None)
     if period is not None and (period is not Match.TIDAK_COCOK or (start and end)):
         result.log.validasi_nama_file["periode"] = period.value  # the website shows it next to the dates
+    if not name_found and period is Match.COCOK and not (regex and regex.ambigu):
+        name_found = _name_on_signature_page(result, parsed, p_id_pages, p_ttd_page)
 
     level = Level.GREEN
     if not name_found:
@@ -600,6 +756,8 @@ def _extract(
     extractor: Extractor | None,
     p_id_pages: list[PageText],
     assist: bool = False,
+    p_ttd_page: PageText | None = None,
+    second_pages: list[PageText] | None = None,
 ) -> dict[str, Level]:
     """Tahap 3, cloud part: send the masked payload and verify the answer locally. Whenever nothing is sent or the
     call fails, the file is read the local way (pattern mode), so the extractor never leaves a file worse off.
@@ -611,12 +769,12 @@ def _extract(
         return {"extraction": Level.RED}
     if extractor is None:
         _add_reason(result, REASON_EXTRACTOR_DISABLED)
-        return {"extraction": _check_without_extractor(result, parsed, p_id_pages)}
+        return {"extraction": _check_without_extractor(result, parsed, p_id_pages, p_ttd_page, second_pages)}
     if not trusted:
         # Low-quality OCR can split a NIK into short digit runs that masking misses, so the text stays local.
         _add_reason(result, REASON_EXTRACTOR_NOT_SENT)
-        return {"extraction": _check_without_extractor(result, parsed, p_id_pages)}
-    pattern_level = _check_without_extractor(result, parsed, p_id_pages) if assist else None
+        return {"extraction": _check_without_extractor(result, parsed, p_id_pages, p_ttd_page, second_pages)}
+    pattern_level = _check_without_extractor(result, parsed, p_id_pages, p_ttd_page, second_pages) if assist else None
 
     result.log.teks_keluar_karakter = len(payload)  # counted on send: a failed call may still have delivered it
     for number in result.log.p_id:
@@ -626,7 +784,7 @@ def _extract(
     except ExtractorError as exc:
         _count_call(result, extractor, "teks", exc.usage)
         _add_reason(result, f"{REASON_EXTRACTOR_ERROR}:{exc.kind}")
-        level = pattern_level or _check_without_extractor(result, parsed, p_id_pages)
+        level = pattern_level or _check_without_extractor(result, parsed, p_id_pages, p_ttd_page, second_pages)
         return {"extraction": level}
     _count_call(result, extractor, "teks", extraction.usage)
     verified = verify_extraction(extraction, payload, result.log.periode_regex)
@@ -909,10 +1067,17 @@ def _process(
         if doc.issues:
             levels[COMPONENT_FORMAT] = Level.YELLOW  # read by OCR, but a person checks every non-standard file
         payload =_prepare_extraction(result, pages.p_id_pages, settings.extractor.max_chars_per_page)
+        _second_period(data, result, parsed, pages, ocr)
         levels[COMPONENT_NIK] = _read_nik(result, pages.p_id_pages)
         _read_position(result, pages.p_id_pages)
         assist = settings.extractor.assist
-        levels.update(_extract(result, payload, pages.p_id_trusted, parsed, extractor, pages.p_id_pages, assist))
+        levels.update(
+            _extract(
+                result, payload, pages.p_id_trusted, parsed, extractor, pages.p_id_pages, assist, pages.p_ttd_page,
+                pages.second,
+            )
+        )
+        levels[COMPONENT_NIK] = _second_read(data, result, pages, ocr, levels[COMPONENT_NIK])
         if assist:  # crops go to the extractor in the website's flow only; the CLI's extractor mode sends text alone
             levels[COMPONENT_NIK] = _read_nik_crop(data, result, pages, extractor, ocr, levels[COMPONENT_NIK])
         vendor_level = _check_vendor(result, pages)

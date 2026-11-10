@@ -114,4 +114,5 @@ def test_read_document_reports_every_non_standard_page(tmp_path):
         7: ISSUE_VECTOR_TEXT,
         8: ISSUE_SPLIT_IMAGES,
     }
-    assert [page.number for page in doc.texts] == [4]  # only native pages are read from the text layer
+    # Only the first and last page are read, and neither is native here; the native page 4 is never read.
+    assert doc.read_pages == [1, 8] and doc.texts == []

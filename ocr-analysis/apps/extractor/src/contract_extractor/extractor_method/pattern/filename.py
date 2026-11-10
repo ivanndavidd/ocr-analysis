@@ -139,6 +139,70 @@ def name_in_text(name_norm: str, text: str) -> bool:
     return fuzz.partial_ratio(name_norm, norm) >= NAME_IN_TEXT_MIN
 
 
+# Matching a name that decides green (`name_printed`, and the signature block's `employee_name_printed`): each word at
+# NAME_WORD_MIN, i.e. one OCR slip in a word of five letters or more and none in a shorter one; a one-word name, or a
+# word OCR split or joined, by its letters together at NAME_WHOLE_MIN; a word with one letter read as another (same
+# length, `Oori` for `Qori`) at NAME_SWAP_MIN once the whole name reaches NAME_WHOLE_MIN.
+NAME_WORD_MIN = 80
+NAME_WHOLE_MIN = 90
+NAME_SWAP_MIN = 70
+# A word just before a name that still leaves the name standing alone (`Nama Slamet Bakiono`, OCR lost the colon).
+_NAME_LABEL_WORDS = frozenset({"nama", "lengkap", "karyawan", "pekerja", "kerja"})
+
+
+def same_name(words: list[str], tokens: list[str]) -> bool:
+    """Normalized words that spell the filename's normalized name, whole: `Diana Jaiman` is not `Dasa Jaiman`, `Kasir`
+    is not `Kasim`, and a first name alone is not the name."""
+    if not words or not tokens:
+        return False
+    whole = fuzz.ratio("".join(words), "".join(tokens))
+    if len(words) != len(tokens) or len(tokens) == 1:
+        return whole >= NAME_WHOLE_MIN
+    ratios = [fuzz.ratio(word, token) for word, token in zip(words, tokens)]
+    if all(r >= NAME_WORD_MIN for r in ratios):
+        return True
+    swapped = all(r >= NAME_WORD_MIN or (r >= NAME_SWAP_MIN and len(w) == len(t)) for r, w, t in zip(ratios, words, tokens))
+    return swapped and whole >= NAME_WHOLE_MIN
+
+
+def name_printed(name_norm: str, text: str) -> bool:
+    """Whether a line prints the normalized name standing alone: its words match (`same_name`), and nothing that could
+    be more of a name touches it. A neighbouring word must be a label (`Nama`), a title, punctuation, a number, or OCR
+    noise of two letters or fewer; else the line holds another name that merely contains this one (`Kasim` in
+    `Kasim Garang`, `Rahmi Utami` in `Rahmi Utami Syahrini`).
+
+    Stricter than `name_in_text`, which finds `Ian` inside `PERJANJIAN`: on the 800 synthetic contracts (2026-11-09)
+    `name_in_text` took another employee's name for this one 25 times in 4,000 and a name with one of its two words
+    swapped 76 times in 1,354; this took none, and found 799 of the 800 true names on the identity page (the one missed
+    was garbled by OCR)."""
+    tokens = name_norm.split()
+    if not tokens:
+        return False
+    raw = text.split()
+    words = [(word, i) for i, piece in enumerate(raw) for word in normalize_name(piece).split()]
+
+    def alone(i: int, side: int) -> bool:
+        j = i + side
+        if j < 0 or j >= len(raw):
+            return True
+        if (side > 0 and raw[i][-1] in ",.;:)") or (side < 0 and raw[j][-1] in ":.(,"):
+            return True
+        there = normalize_name(raw[j]).replace(" ", "")
+        return len(there) <= 2 or (side < 0 and there in _NAME_LABEL_WORDS)
+
+    n = len(tokens)
+    for size in range(max(1, n - 1), n + 2):  # OCR can split or join a word
+        for k in range(len(words) - size + 1):
+            if not same_name([word for word, _ in words[k : k + size]], tokens):
+                continue
+            first, last = words[k][1], words[k + size - 1][1]
+            if (k > 0 and words[k - 1][1] == first) or (k + size < len(words) and words[k + size][1] == last):
+                continue  # part of a longer word
+            if alone(first, -1) and alone(last, +1):
+                return True
+    return False
+
+
 def compare_name(from_file: str, extracted: str) -> Match:
     score = name_score(from_file, extracted)
     if score >= 90:

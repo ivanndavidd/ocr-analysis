@@ -1,4 +1,4 @@
-"""Tangga OCR lokal: skoring kasar untuk page selection dan baca penuh untuk halaman terpilih (Bagian 8–9 PRD)."""
+"""Tangga OCR lokal: baca penuh halaman pertama dan terakhir, dan cek putaran foto (Bagian 8–9 PRD)."""
 
 from __future__ import annotations
 
@@ -15,14 +15,11 @@ from contract_extractor.common.layout import PageText
 from contract_extractor.common.models import Word
 from contract_extractor.document.ocr.base import OcrEngineError, OCRProvider
 from contract_extractor.document.ocr.preprocess import preprocess, straighten
+from contract_extractor.document.ocr.rapid import RapidOcrUnavailable, RapidOCRReader, resolve_model_dir
 from contract_extractor.document.ocr.tesseract import TesseractOCR, TesseractUnavailable
 from contract_extractor.document.pdf.render import PageRenderer
 from contract_extractor.extractor_method.pattern.filename import name_in_text
 
-
-# Degrees. On 200 synthetic contracts, straightening every page found a missed page in 10 contracts and lost one in 3
-# level ones; straightening only pages tilted at least this much found 9 and lost none.
-ROUGH_TILT_DEG = 0.5
 
 # Page turn: below this many confident words upright, the other three turns are read; one wins with at least half
 # this many and TURN_MARGIN times the upright count. On 300 synthetic files this turned all 7 turned photos the right
@@ -56,29 +53,28 @@ def confident_words(words: list[Word] | tuple[Word, ...]) -> int:
 
 @dataclass
 class OcrRunner:
-    providers: list[OCRProvider]  # ladder order; the first one also does the rough scoring pass
+    providers: list[OCRProvider]  # ladder order; the first one also does the page turn check
     scoring_dpi: int = 150
     read_dpi: int = 300
     min_mean_conf: float = 0.70
+    second: OCRProvider | None = None  # reads an identity page again when a value is unsure (see `second_read`)
 
     @property
     def primary(self) -> OCRProvider:
         return self.providers[0]
 
-    def rough_text(self, renderer: PageRenderer, number: int, dpi: int | None = None) -> PageText | None:
-        """Text only for page selection, at `scoring_dpi` unless `dpi` is given; primary engine only. A tilted page
-        is straightened like the full read (not thresholded): a phone photo a few degrees off read as noise, so its
-        identity page went unseen. A level page is read as rendered, since shadow removal alone cost as many pages
-        as it found."""
-        rendered = renderer.render_gray(number, dpi or self.scoring_dpi)
-        straight, angle = straighten(rendered)
-        image = straight if abs(angle) >= ROUGH_TILT_DEG else rendered
+    def second_read(self, renderer: PageRenderer, number: int) -> PageText | None:
+        """The page read by the second reader, from the same render and preprocessing as the full read; None without
+        a second reader or when its call fails."""
+        if self.second is None:
+            return None
+        image, _angle = preprocess(renderer.render_gray(number, self.read_dpi))
         try:
-            words = self.primary.read(image)
+            words = self.second.read(image)
         except OcrEngineError:
             return None
         h, w = image.shape
-        return PageText(number=number, width=w, height=h, words=tuple(words), source=f"ocr:{self.primary.name}")
+        return PageText(number=number, width=w, height=h, words=tuple(words), source=f"ocr:{self.second.name}")
 
     def best_turn(self, renderer: PageRenderer, number: int, upright: PageText | None) -> int:
         """The clockwise turn (0, 90, 180, 270) that reads best, for a photo taken sideways or upside down. Tesseract's
@@ -158,9 +154,16 @@ def build_runner(settings: Settings) -> OcrRunner:
         tesseract.check()
     except TesseractUnavailable as exc:
         raise OcrUnavailable(str(exc)) from exc
+    second = None
+    if ocr.second_reader.enabled:
+        try:
+            second = RapidOCRReader(resolve_model_dir(ocr.second_reader.model_dir), ocr.second_reader.threads)
+        except RapidOcrUnavailable as exc:
+            raise OcrUnavailable(str(exc)) from exc
     return OcrRunner(
         providers=[tesseract],
         scoring_dpi=ocr.scoring_dpi,
         read_dpi=ocr.read_dpi,
         min_mean_conf=ocr.min_mean_conf,
+        second=second,
     )

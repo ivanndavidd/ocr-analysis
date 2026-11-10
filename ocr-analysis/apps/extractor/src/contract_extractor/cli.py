@@ -131,6 +131,13 @@ def serve_stdio(
     effort: Annotated[
         Optional[str], typer.Option("--effort", help="Timpa extractor.effort (website: env CLAUDE_EFFORT)")
     ] = None,
+    second_reader: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--second-reader/--no-second-reader",
+            help="Timpa ocr.second_reader.enabled: RapidOCR lokal memastikan NIK/posisi yang ragu (website: env SECOND_READER)",
+        ),
+    ] = None,
 ) -> None:
     """Worker untuk backend website: PDF masuk lewat stdin, hasil JSON keluar lewat stdout (protokol di worker.py)."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s", stream=sys.stderr)
@@ -139,6 +146,8 @@ def serve_stdio(
     settings = load_settings(config)
     if allow_auto is not None:
         settings.decision.allow_auto = allow_auto
+    if second_reader is not None:
+        settings.ocr.second_reader.enabled = second_reader
     try:
         _override_extractor(settings, claude, model, effort)
     except (ValidationError, ValueError) as exc:

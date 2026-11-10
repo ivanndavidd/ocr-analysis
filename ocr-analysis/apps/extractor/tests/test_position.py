@@ -18,6 +18,10 @@ def pages(*lines: str) -> list[PageText]:
     return [page_text(1, flow(list(lines)))]
 
 
+def ocr_pages(*lines: str) -> list[PageText]:
+    return [dataclasses.replace(page, source="ocr:tesseract") for page in pages(*lines)]
+
+
 def test_jabatan_row_in_the_employee_block_is_the_position():
     read = find_position(pages(*COMPANY_LINES, *EMPLOYEE_LINES[:2], "Jabatan : Staff Gudang", *EMPLOYEE_LINES[2:]))
     assert read.posisi == "Staff Gudang"
@@ -39,6 +43,8 @@ def test_the_company_signatory_title_is_never_the_position():
         ["Andi Wijaya, selaku Direktur, dalam hal ini bertindak untuk dan atas nama PT Contoh Sejahtera."],
         ["diperjanjikan antara Andi Wijaya sebagai Direktur yang bertindak untuk dan atas nama PT Contoh Sejahtera"],
         ["Para Pihak sepakat dengan ketentuan sebagai berikut:", "PIHAK KEDUA wajib melaksanakan tugas sebagai berikut:"],
+        ["Andi Wijaya, dalam jabatannya sebagai Direktur, bertindak untuk dan atas nama PT Contoh Sejahtera."],
+        ["PIHAK KEDUA wajib menyelesaikan pekerjaan sebagai berikut:"],
     ],
 )
 def test_lines_that_only_look_like_a_position_give_none(lines):
@@ -52,12 +58,79 @@ def test_lines_that_only_look_like_a_position_give_none(lines):
         "PERUSAHAAN memberikan pekerjaan kepada TENAGA KERJA sebagai Kasir, dimulai sejak tanggal 1 Januari 2026",
         "KARYAWAN wajib melaksanakan tugas sebagai Kasir dengan penuh tanggung jawab.",
         "PIHAK PERTAMA menerima PIHAK KEDUA sebagai karyawan kontrak dengan jabatan Kasir.",
+        "Dalam jabatannya sebagai Kasir, PEKERJA wajib melaksanakan seluruh tugas yang diberikan atasan.",
+        "PEKERJA bertanggung jawab penuh atas pelaksanaan pekerjaan sebagai Kasir sesuai uraian tugas yang ditetapkan.",
+        "PERUSAHAAN mempekerjakan PEKERJA sebagai Kasir ditempatkan pada PT Klien Makmur.",  # OCR dropped `yang`
+        "KARYAWAN wajib melaksanakan tugas sebagai Kasir-dengan penuh tanggung jawab.",  # OCR glued the next word
     ],
 )
 def test_placement_sentence_gives_the_position(line):
     read = find_position(pages(line))
     assert read.posisi == "Kasir"
     assert read.log.sumber is PositionSource.SENTENCE
+
+
+@pytest.mark.parametrize("label", ["Jabatan", "Posisi", "Jabatan/Posisi", "Jabatan / Posisi", "Posisi Kerja"])
+def test_every_position_label_of_the_employee_block_is_read(label):
+    read = find_position(pages("Nama : Budi Santoso", f"NIK : {EMPLOYEE_NIK}", f"{label} : Staff Gudang"))
+    assert read.posisi == "Staff Gudang" and read.log.sumber is PositionSource.LABEL
+
+
+def test_ocr_debris_before_the_rows_keeps_the_employee_block_together():
+    read = find_position(
+        ocr_pages(
+            "Nama Lengkap : Budi Santoso . 7",
+            "Tempat, Tanggal Lahir : Bandung, 1 Januari 1990",
+            f"Nomor KTP > {EMPLOYEE_NIK}",  # the colon read as `>`
+            ": Jenis Kelamin �: Pria",
+            ": No.HP - : 081234567890",
+            "0",
+            "| Posisi Kerja : Visual Merchandiser",
+        )
+    )
+    assert read.posisi == "Visual Merchandiser" and read.log.sumber is PositionSource.LABEL
+
+
+def test_an_nik_line_whose_colon_ocr_misread_still_marks_the_employee_block():
+    read = find_position(
+        ocr_pages(
+            "Nama Karyawan : Budi Santoso",
+            "Alamat : Jl. Mawar No. 2, Bandung",
+            "ph Posisi : Pengemudi Truk",  # debris before the label
+            f"No. KTP/NIK 1 {EMPLOYEE_NIK} |",
+            '(selanjutnya disebut "PIHAK II").',
+        )
+    )
+    assert read.posisi == "Pengemudi Truk" and read.log.sumber is PositionSource.LABEL
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("Staff OC/Packing", "Staff QC/Packing"),  # OCR reads Q as O
+        ("Ouality Control", "Quality Control"),
+        ("Kurir Motor Ta", "Kurir Motor"),  # letters from the page after the title
+        ("Live Chat ' | Agent", "Live Chat Agent"),
+        ("Staff IT", "Staff IT"),
+        ("Admin HR", "Admin HR"),
+        ("Store Crew - Kasir", "Store Crew - Kasir"),
+    ],
+)
+def test_ocr_slips_in_a_title_are_cleaned(value, expected):
+    assert find_position(ocr_pages("Nama : Budi Santoso", f"NIK : {EMPLOYEE_NIK}", f"Jabatan : {value}")).posisi == expected
+
+
+def test_a_text_layer_title_is_kept_as_written():
+    read = find_position(pages("Nama : Budi Santoso", f"NIK : {EMPLOYEE_NIK}", "Jabatan : Admin OC Ta"))
+    assert read.posisi == "Admin OC Ta"
+
+
+def test_the_row_and_an_ocr_slipped_sentence_agree_after_cleaning():
+    read = find_position(
+        ocr_pages("Nama : Budi Santoso", f"NIK : {EMPLOYEE_NIK}", "Jabatan : Admin QC Return",
+                  "PIHAK PERTAMA memberikan pekerjaan kepada PIHAK KEDUA sebagai Admin OC Return, dimulai sejak")
+    )
+    assert read.posisi == "Admin QC Return" and read.log.status is PositionStatus.FOUND
 
 
 def test_sentence_wrapped_over_two_lines_is_read():

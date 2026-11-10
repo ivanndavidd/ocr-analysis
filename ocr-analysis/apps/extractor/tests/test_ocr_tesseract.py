@@ -65,10 +65,8 @@ def test_scanned_contract_end_to_end(ocr_runner, scanned_contract):
     assert result.log.ocr_p_id == "tesseract"
     assert result.log.ocr_conf[1] >= 0.8
 
-    # Data-minimization proof: every page was read locally, and only P_id/P_ttd were read at full resolution.
-    assert result.log.komponen_halaman[1] == ["tesseract@150dpi", "tesseract@300dpi"]
-    assert result.log.komponen_halaman[3] == ["tesseract@150dpi"]
-    assert result.log.komponen_halaman[5] == ["tesseract@150dpi", "tesseract@300dpi", "signature@300dpi"]
+    # Data-minimization proof: only P_id and P_ttd were read; the middle pages never were.
+    assert result.log.komponen_halaman == {1: ["tesseract@300dpi"], 5: ["tesseract@300dpi", "signature@300dpi"]}
 
     # Tahap 4 on the scan: nobody signed this synthetic contract.
     assert result.status_ttd is SignatureStatus.UNSIGNED

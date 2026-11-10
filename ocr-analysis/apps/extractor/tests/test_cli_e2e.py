@@ -126,7 +126,7 @@ def test_full_resolution_reads_touch_only_identity_and_signature_pages(run):
             if any("300dpi" in c or c.endswith(":masked") for c in components)
         }
         assert deep <= selected, (name, deep, selected)
-        assert "2" not in log["komponen_halaman"] or all("150dpi" in c or c == "text_layer" for c in log["komponen_halaman"]["2"])
+        assert "2" not in log["komponen_halaman"]  # the salary page is never read, not even its text layer
 
 
 def test_logs_carry_no_names_or_identity_numbers(run):

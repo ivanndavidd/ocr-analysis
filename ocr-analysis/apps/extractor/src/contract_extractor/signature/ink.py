@@ -46,6 +46,24 @@ METERAI_WHOLE = (0.11, 0.075)  # the largest a grown core may become
 METERAI_JOIN = 0.0015  # closes breaks in the wave lines, not the gap to the printed name under the stamp
 METERAI_RULE = 0.1  # straight runs this long (the signing line touching the stamp) are not part of it
 
+# Stroke check, for scans and photos the ink amount leaves uncertain (see `measure_strokes`). On the 473 synthetic
+# scans and photos (2026-11-08) the ink share left 152 uncertain: blank boxes held 0.3-1.5% "ink" from a bold printed
+# name spilling past its OCR box, dotted signing lines and shaded paper, and thin, faint or script signatures as little.
+# All lengths and sizes are in printed-word heights.
+STROKE_CONTRAST = 30  # grey levels darker than the paper around it
+FAINT_STROKE_CONTRAST = 20
+STROKE_PAPER = 1.5  # the closing that estimates the paper is wider than any pen stroke
+TEXT_SPILL = 0.3  # how far a bold printed letter reaches past its OCR box
+TEXT_SPILL_HEIGHT = 1.3  # a taller mark touching a word box is a pen stroke over the print
+LINE_PIECE = 0.2  # a mark this thin one way is a straight piece: a rule's end, a page edge
+MAX_STROKE_WIDTH = 0.35  # a pen stroke is thinner; a page edge or shadow against the paper is not
+DOT_GAP = 0.5  # the gap a dotted signing line's dots are joined across
+DOT_HEIGHT = 0.35  # a dotted line is no taller than this; handwriting is
+# Pen path above the name that reads signed. Every unsigned ROI above the name on the 800 synthetic contracts that
+# reached the stroke check measured 0; the signatures it decided measured 5 to 60.
+SIGNED_STROKES = 5.0
+UNSIGNED_STROKES = 0.5  # at the faint contrast, no more than this reads unsigned
+
 
 @dataclass(frozen=True)
 class InkFeatures:
@@ -54,6 +72,12 @@ class InkFeatures:
     large_components: int
     stroke_ratio: float
     looks_like_text: bool
+
+
+@dataclass(frozen=True)
+class StrokeFeatures:
+    length: float  # pen-like path outside any meterai, in printed-word heights
+    meterai_length: float  # marks lying mostly inside a meterai box, in printed-word heights
 
 
 def _remove_rules(ink: np.ndarray, rule_px: int | None = None) -> np.ndarray:
@@ -135,6 +159,81 @@ def measure_ink(
         stroke_ratio=(perimeter / dark) if dark else 0.0,
         looks_like_text=looks_like_text,
     )
+
+
+def _odd(value: float) -> int:
+    return max(3, int(value)) | 1
+
+
+def _remove_dotted(ink: np.ndarray, word_h: float, min_length: int) -> np.ndarray:
+    """A dotted or dashed signing line: small marks in a row, joined across their gaps into a thin rule."""
+    def rect(w: int, h: int) -> np.ndarray:
+        return cv2.getStructuringElement(cv2.MORPH_RECT, (w, h))
+
+    joined = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, rect(_odd(DOT_GAP * word_h), 1))
+    line = cv2.morphologyEx(joined, cv2.MORPH_OPEN, rect(min_length, 1))
+    tall = cv2.morphologyEx(line, cv2.MORPH_OPEN, rect(1, _odd(DOT_HEIGHT * word_h)))
+    line = cv2.dilate(cv2.subtract(line, tall), np.ones((3, 3), np.uint8))  # a band of handwriting is too tall
+    return cv2.subtract(ink, line)
+
+
+def _touches(x: int, y: int, w: int, h: int, boxes: list[tuple[float, float, float, float]]) -> bool:
+    return any(x < bx1 and x + w > bx0 and y < by1 and y + h > by0 for bx0, by0, bx1, by1 in boxes)
+
+
+def measure_strokes(
+    roi: np.ndarray,
+    word_height_px: float,
+    text_boxes: list[tuple[int, int, int, int]],
+    name_row: tuple[float, float],
+    meterai_boxes: list[tuple[int, int, int, int]],
+    contrast: float,
+    rule_px: int | None = None,
+) -> StrokeFeatures:
+    """How much pen-like path the ROI holds: the shape of its marks, not the amount of ink.
+
+    Ink is what lies `contrast` grey levels under the paper around it, so shading and tinted paper go while a faint
+    pen stays. Dropped: long rules, dotted lines, specks, single glyphs, round stamps, marks inside a word box,
+    letter-high marks touching one (bold print spilling past its OCR box), marks inside the printed name's own row
+    (`name_row`, ROI pixel rows, that OCR may have read with too little confidence to box), straight pieces, marks
+    thicker than a pen, and marks lying mostly in a meterai (counted apart). What is left is summed as path length,
+    half each mark's contour. `text_boxes` and `meterai_boxes` are (x0, y0, x1, y1) in ROI pixels.
+    """
+    word_h = max(word_height_px, 1.0)
+    k = _odd(STROKE_PAPER * word_h)
+    paper = cv2.morphologyEx(roi, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    ink = np.where(cv2.subtract(paper, roi) > contrast, 255, 0).astype(np.uint8)
+    ink = _remove_rules(ink, rule_px)
+    ink = _remove_dotted(ink, word_h, max(MIN_LINE_PX, (rule_px or roi.shape[1] // 3) // 2))
+
+    pad = TEXT_SPILL * word_h
+    spill = [(x0 - pad, y0 - pad, x1 + pad, y1 + pad) for x0, y0, x1, y1 in text_boxes]
+    row_top, row_bottom = name_row[0] - pad, name_row[1] + pad
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
+    length = meterai_length = 0.0
+    for i in range(1, count):
+        x, y, w, h, pixels = (int(v) for v in stats[i])
+        if pixels < max(4, int((0.05 * word_h) ** 2)) or _inside_any(x, y, w, h, text_boxes):
+            continue
+        mask = np.where(labels[y : y + h, x : x + w] == i, 255, 0).astype(np.uint8)
+        contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        perimeter = sum(cv2.arcLength(c, True) for c in contours)
+        on_stamp = sum(
+            int(np.count_nonzero(mask[max(0, my0 - y) : max(0, my1 - y), max(0, mx0 - x) : max(0, mx1 - x)]))
+            for mx0, my0, mx1, my1 in meterai_boxes
+        )
+        if on_stamp >= 0.5 * pixels:
+            meterai_length += perimeter / 2
+            continue
+        glyph = h <= word_h and w <= word_h
+        stamp = h > 2 * word_h and _circularity(mask) > STAMP_CIRCULARITY
+        spilled = h <= TEXT_SPILL_HEIGHT * word_h and _touches(x, y, w, h, spill)
+        printed = spilled or (y >= row_top and y + h <= row_bottom)
+        straight = min(w, h) <= LINE_PIECE * word_h
+        thick = perimeter == 0 or 2 * pixels / perimeter > MAX_STROKE_WIDTH * word_h
+        if not (glyph or stamp or printed or straight or thick):
+            length += perimeter / 2
+    return StrokeFeatures(length=length / word_h, meterai_length=meterai_length / word_h)
 
 
 def _meterai_colour(hsv: np.ndarray) -> np.ndarray:

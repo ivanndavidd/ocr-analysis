@@ -38,8 +38,16 @@ class InputSettings(_Strict):
 
 
 class PageSelectionSettings(_Strict):
-    # Read only the first 3 and last 5 pages; middle pages are never opened.
+    # Only the first and last pages are ever read; economy mode also skips classifying the middle pages.
     economy_mode: bool = False
+
+
+class SecondReaderSettings(_Strict):
+    # RapidOCR (Baidu PP-OCRv6 small) reads a scanned identity page again when the NIK or position Tesseract read is
+    # unsure; the same value from both makes it green, anything else stays as it was. Local only.
+    enabled: bool = False
+    model_dir: Path | None = None  # falls back to RAPIDOCR_MODEL_DIR, then apps/extractor/models/rapidocr
+    threads: int = Field(2, ge=1, le=16)
 
 
 class OcrSettings(_Strict):
@@ -53,6 +61,7 @@ class OcrSettings(_Strict):
     min_mean_conf: float = Field(0.70, ge=0.0, le=1.0)
     # Sends the raw P_id image before masking; off unless the client approved it in writing.
     cloud_fallback: bool = False
+    second_reader: SecondReaderSettings = Field(default_factory=SecondReaderSettings)
 
 
 class ExtractorSettings(_Strict):

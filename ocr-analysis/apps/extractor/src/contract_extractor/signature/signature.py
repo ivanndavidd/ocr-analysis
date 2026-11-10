@@ -18,8 +18,19 @@ from rapidfuzz import fuzz
 from contract_extractor.common.layout import Line, PageText
 from contract_extractor.common.models import SignatureStatus, Word
 from contract_extractor.document.pdf.objects import Box, PageObjects
-from contract_extractor.extractor_method.pattern.filename import normalize_name
-from contract_extractor.signature.ink import TEXT_BOX_MIN_CONF, InkFeatures, ink_verdict, measure_ink
+from contract_extractor.extractor_method.pattern.filename import normalize_name, same_name
+from contract_extractor.signature.ink import (
+    FAINT_STROKE_CONTRAST,
+    SIGNED_STROKES,
+    STROKE_CONTRAST,
+    TEXT_BOX_MIN_CONF,
+    UNSIGNED_STROKES,
+    InkFeatures,
+    StrokeFeatures,
+    ink_verdict,
+    measure_ink,
+    measure_strokes,
+)
 from contract_extractor.document.pages.page_selection import signature_block
 
 EMPLOYEE_LABELS = ("pihak kedua", "tenaga kerja", "karyawan", "pekerja")
@@ -69,6 +80,14 @@ FAINT_INK_THRESHOLD = 220.0
 # An image whose box and a meterai's box mostly coincide (intersection over union) is the stamp, not a signature. A
 # signature image laid half over the meterai scores 0.30-0.46 on the synthetic set, the meterai's own image about 1.
 METERAI_IMAGE_IOU = 0.6
+# A word this close over the ROI's top (in median word heights) that spells part of the employee's name is the
+# signature itself, a script font or e-signature OCR read as text and took for the heading that bounds the ROI: the
+# ROI sits under the signature, so finding nothing in it proves nothing. Three signed synthetic scans and photos read
+# unsigned by the stroke check without this.
+NAME_OVER_ROI_REACH = 2.0
+NAME_OVER_ROI_MATCH = 85  # fuzz.ratio of one word against one name token of three letters or more
+# The fewest letters a filename's name needs before the signature block may confirm it (see `employee_name_printed`).
+NAME_CHECK_MIN_LETTERS = 5
 
 SOURCE_DIGITAL, SOURCE_ANNOTATION, SOURCE_IMAGE, SOURCE_VECTOR, SOURCE_PIXELS = (
     "digital",
@@ -145,6 +164,53 @@ def name_anchors(zone: list[Line], name: str) -> list[Box]:
         if best:
             found.append(_box(best[1]))
     return found
+
+
+def _party(name: Box, employee: list[Box], company: list[Box]) -> str | None:
+    """`employee` or `company`: whose party label is nearest the printed name in its column, a heading up to
+    LABEL_REACH name heights above it or a title right under it; None with no label in reach."""
+    cx = (name.x0 + name.x1) / 2
+    best: tuple[float, str] | None = None
+    for party, boxes in (("employee", employee), ("company", company)):
+        for label in boxes:
+            if abs((label.x0 + label.x1) / 2 - cx) >= max(label.width, name.width):
+                continue  # another column
+            if label.bottom <= name.top:
+                gap, reach = name.top - label.bottom, LABEL_REACH
+            elif label.top >= name.bottom:
+                gap, reach = label.top - name.bottom, TITLE_GAP
+            else:
+                continue  # on the name's own line
+            if gap <= reach * name.height and (best is None or gap < best[0]):
+                best = (gap, party)
+    return best[1] if best else None
+
+
+def employee_name_printed(page: PageText, name: str, labels: tuple[str, ...] = EMPLOYEE_LABELS) -> bool:
+    """Whether `name` is printed in the employee's column of the signature block: a second place to confirm a
+    filename's name that the identity page does not show (pipeline `_check_without_extractor`).
+
+    The block also prints the company signer's name, so this is stricter than a signature anchor. A column of a block
+    line must hold the whole name (`same_name`, word by word: as one string, `Diana Jaiman` passed for
+    `Dasa Jaiman` on the 800 synthetic contracts), and the party label nearest it in its column (a heading above, or a
+    title right under it) must be the employee's. A name with an initial or under NAME_CHECK_MIN_LETTERS letters is
+    never confirmed here, and neither is one that also matches in the company's column: on a stress test the shortened
+    filename name `Gara N.` matched the company signer `Kasim Garang` as an anchor. On the 800 synthetic contracts
+    (2026-11-09) no company signer's name was ever taken for the employee's."""
+    norm = normalize_name(name)
+    tokens = norm.split()
+    if not tokens or any(len(token) == 1 for token in tokens) or len(norm.replace(" ", "")) < NAME_CHECK_MIN_LETTERS:
+        return False
+    zone = signature_block(page)
+    employee = _phrase_boxes(zone, tuple(dict.fromkeys(labels + EMPLOYEE_HEADINGS)))
+    company = _phrase_boxes(zone, _COMPANY_LABEL)
+    parties = [
+        _party(_box(group), employee, company)
+        for line in zone
+        for group in _columns(list(line.words))
+        if same_name(normalize_name(" ".join(word.text for word in group)).split(), tokens)
+    ]
+    return "employee" in parties and "company" not in parties
 
 
 def _label_score(text: str, accept: re.Pattern[str] | tuple[str, ...]) -> float:
@@ -369,26 +435,80 @@ def _pixels(page: PageText, image: np.ndarray, native: bool) -> _Pixels:
     return _Pixels(image, threshold, median_h * sy, boxes)
 
 
-def _ink(
-    roi: Box, page: PageText, pixels: _Pixels, band: Box | None = None, rule_width: float | None = None
-) -> InkFeatures:
-    """`band`: the signing band (see `signing_band`), whose printed-looking words are measured as ink. `rule_width`:
-    the ROI width, in page units, that line removal is scaled to, when the ROI was widened past its usual width."""
+def _crop(
+    roi: Box, page: PageText, pixels: _Pixels, band: Box | None
+) -> tuple[np.ndarray, list[tuple[int, int, int, int]], tuple[int, int]]:
+    """The ROI's pixels, the printed-word boxes in them (ROI pixels) outside the signing band, and its top-left."""
     h, w = pixels.image.shape
     fx0, ft, fx1, fb = _fractions(roi, page.width, page.height)
     x0, y0, x1, y1 = int(fx0 * w), int(ft * h), int(fx1 * w), int(fb * h)
-    crop = pixels.image[y0:y1, x0:x1]
     band_top, band_bottom = (band.top / page.height * h, band.bottom / page.height * h) if band else (0.0, -1.0)
     local = [
         (bx0 - x0, by0 - y0, bx1 - x0, by1 - y0)
         for bx0, by0, bx1, by1 in pixels.text_boxes
         if bx1 > x0 and bx0 < x1 and by1 > y0 and by0 < y1 and not band_top <= (by0 + by1) / 2 <= band_bottom
     ]
+    return pixels.image[y0:y1, x0:x1], local, (x0, y0)
+
+
+def _rule_px(rule_width: float | None, page: PageText, pixels: _Pixels) -> int | None:
+    return int(rule_width / page.width * pixels.image.shape[1] / 3) if rule_width else None
+
+
+def _ink(
+    roi: Box, page: PageText, pixels: _Pixels, band: Box | None = None, rule_width: float | None = None
+) -> InkFeatures:
+    """`band`: the signing band (see `signing_band`), whose printed-looking words are measured as ink. `rule_width`:
+    the ROI width, in page units, that line removal is scaled to, when the ROI was widened past its usual width."""
+    crop, local, _ = _crop(roi, page, pixels, band)
     # The ink thresholds hold for a ROI of the default height. One stretched up to a heading has more blank paper, and
     # a thin signature in it fell under SIGNED_INK, so its ink share counts against the default height at most.
     area = crop.shape[1] * min(crop.shape[0], ROI_HEIGHT * pixels.word_height)
-    rule_px = int(rule_width / page.width * w / 3) if rule_width else None
-    return measure_ink(crop, pixels.threshold, pixels.word_height, local, area, rule_px)
+    return measure_ink(crop, pixels.threshold, pixels.word_height, local, area, _rule_px(rule_width, page, pixels))
+
+
+@dataclass(frozen=True)
+class _Anchor:
+    """The printed name a ROI hangs from, for the stroke check."""
+
+    name: Box  # its line is print, whatever OCR's confidence in it
+    under: bool  # the ROI lies under the name, where a printed title can pass for strokes: it never reads signed
+    employee_name: str | None  # to tell a signature OCR read as text right over the ROI
+
+
+def _strokes(
+    roi: Box,
+    page: PageText,
+    pixels: _Pixels,
+    meterai: list[Box],
+    anchor: _Anchor,
+    band: Box | None,
+    rule_width: float | None,
+    contrast: float,
+) -> StrokeFeatures:
+    crop, local, (x0, y0) = _crop(roi, page, pixels, band)
+    h, w = pixels.image.shape
+    sy = h / page.height
+    name_row = (anchor.name.top * sy - y0, anchor.name.bottom * sy - y0)
+    stamps = [(int(m.x0 * w) - x0, int(m.top * h) - y0, int(m.x1 * w) - x0, int(m.bottom * h) - y0) for m in meterai]
+    rule_px = _rule_px(rule_width, page, pixels)
+    return measure_strokes(crop, pixels.word_height, local, name_row, stamps, contrast, rule_px)
+
+
+def _name_over_roi(roi: Box, page: PageText, employee_name: str | None) -> bool:
+    """A word right over the ROI's top that spells part of the employee's name (see NAME_OVER_ROI_REACH)."""
+    tokens = [token for token in normalize_name(employee_name or "").split() if len(token) >= 3]
+    if not tokens:
+        return False
+    reach = NAME_OVER_ROI_REACH * _median_word_height(page)
+    for word in page.words:
+        x0, _, x1, bottom = word.bbox
+        if x1 <= roi.x0 or x0 >= roi.x1 or not roi.top - reach <= bottom <= roi.top + reach / 2:
+            continue
+        text = normalize_name(word.text).replace(" ", "")
+        if len(text) >= 3 and any(fuzz.ratio(text, token) >= NAME_OVER_ROI_MATCH for token in tokens):
+            return True
+    return False
 
 
 def _overlap(a: Box, b: Box) -> float:
@@ -451,6 +571,37 @@ def _judge(
     meterai: list[Box],
     band: Box | None = None,
     rule_width: float | None = None,
+    anchor: _Anchor | None = None,
+) -> _Verdict:
+    """The ink verdict; on a scan or photo it leaves uncertain without a signing object, the stroke check decides when
+    it is sure. Its decisions are never a clear margin, so they stay yellow."""
+    verdict = _judge_ink(roi, page, pixels, objects, native, meterai, band, rule_width)
+    if native or anchor is None or verdict.status is not SignatureStatus.UNCERTAIN or verdict.object_found:
+        return verdict
+    strokes = _strokes(roi, page, pixels, meterai, anchor, band, rule_width, STROKE_CONTRAST)
+    if strokes.length >= SIGNED_STROKES and not anchor.under:
+        return replace(verdict, status=SignatureStatus.SIGNED, source=SOURCE_PIXELS, clear=False)
+    faint = _strokes(roi, page, pixels, meterai, anchor, band, rule_width, FAINT_STROKE_CONTRAST)
+    if faint.length > UNSIGNED_STROKES:
+        return verdict
+    # A meterai in the ROI no longer keeps it uncertain (stamp rule, owner 2026-11-10): a signature on a meterai crosses
+    # its edge onto the paper, so no pen anywhere outside the stamp reads unsigned, whatever is left inside its box. On
+    # the 251 synthetic scans and photos with a meterai this gave 50 of 77 blank signatures a value, 45 right; the 5
+    # wrong were signed grey scans whose pen sat on the stamp, read unsigned (yellow, the safe way).
+    if not anchor.under and _name_over_roi(roi, page, anchor.employee_name):
+        return verdict
+    return replace(verdict, status=SignatureStatus.UNSIGNED, source=None, clear=False)
+
+
+def _judge_ink(
+    roi: Box,
+    page: PageText,
+    pixels: _Pixels,
+    objects: PageObjects | None,
+    native: bool,
+    meterai: list[Box],
+    band: Box | None = None,
+    rule_width: float | None = None,
 ) -> _Verdict:
     """Objects and pixels must agree: an object without ink, or ink without an object on a native page, is uncertain.
     The meterai's own colours are already gone from the pixels, and a meterai image is no signing object."""
@@ -476,7 +627,7 @@ def _judge(
     roi_frac = _frac_box(roi, page.width, page.height)
     if not native and ink_status is unsigned and any(m.intersects(roi_frac) for m in meterai):
         # On a scan a faint pen over the meterai blends into its colours and is whitened with it; a meterai stuck
-        # where the employee signs means the contract went out for signing.
+        # where the employee signs means the contract went out for signing. The stroke check looks outside it.
         return _Verdict(uncertain, None, False, roi, features, False)
     return _Verdict(ink_status, SOURCE_PIXELS if ink_status is signed else None, ink_clear, roi, features, False)
 
@@ -500,7 +651,8 @@ def detect_signature(
     meterai: list[Box] | None = None,
 ) -> SignatureResult:
     """`image` is the P_ttd render whose pixels line up with `page` coordinates (straightened for scans), with any
-    meterai's own colours already turned white; `meterai` holds the stamps' boxes as page fractions."""
+    meterai's own colours already turned white (its whole box on a page without colour, a pen inside it too);
+    `meterai` holds the stamps' boxes as page fractions."""
     stamps = meterai or []
     zone = signature_block(page)
     company = _phrase_boxes(zone, _COMPANY_LABEL)
@@ -527,14 +679,19 @@ def detect_signature(
     if names:
         anchor = ANCHOR_NAME
         for name in names:
+            above, under = _Anchor(name, False, employee_name), _Anchor(name, True, employee_name)
             roi = roi_above(name, page, heads, company)
-            verdict = _judge(roi, page, pixels, objects, native, stamps, signing_band(name, roi, captions))
+            band = signing_band(name, roi, captions)
+            verdict = _judge(roi, page, pixels, objects, native, stamps, band, anchor=above)
             if verdict.status is SignatureStatus.UNSIGNED and not verdict.object_found:
                 # Nothing above the name: a short name's signature may lie beside the ROI, or one is written below.
                 wide = roi_above(name, page, heads, company, wide=True)
-                tries = [(wide, signing_band(name, wide, captions), roi.width)] if wide.width > roi.width else []
-                for other, band, rule_width in tries + [(roi_below(name, page, company, heads), None, None)]:
-                    second = _judge(other, page, pixels, objects, native, stamps, band, rule_width)
+                tries: list[tuple[Box, Box | None, float | None, _Anchor]] = []
+                if wide.width > roi.width:
+                    tries.append((wide, signing_band(name, wide, captions), roi.width, above))
+                tries.append((roi_below(name, page, company, heads), None, None, under))
+                for other, other_band, rule_width, side in tries:
+                    second = _judge(other, page, pixels, objects, native, stamps, other_band, rule_width, side)
                     if second.status is not SignatureStatus.UNSIGNED:
                         verdict = second
                         break
@@ -545,7 +702,8 @@ def detect_signature(
             anchor = ANCHOR_LABEL
             roi, printed = found
             band = signing_band(printed, roi, captions) if printed else None
-            verdicts.append(_judge(roi, page, pixels, objects, native, stamps, band))
+            printed_anchor = _Anchor(printed, False, employee_name) if printed else None
+            verdicts.append(_judge(roi, page, pixels, objects, native, stamps, band, anchor=printed_anchor))
 
     outside = 0
     if objects is not None and objects.width:

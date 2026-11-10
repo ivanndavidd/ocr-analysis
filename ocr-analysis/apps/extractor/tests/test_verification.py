@@ -101,6 +101,21 @@ def test_first_name_alone_does_not_verify_a_full_name():
     assert verified.name is None
 
 
+@pytest.mark.parametrize(
+    ("name", "quote", "source"),
+    [
+        ("Ian", "PERJANJIAN KERJA WAKTU TERTENTU", SOURCE),  # a short name inside a word
+        ("Andi", "Nama : Andi Wijaya", SOURCE),  # the first name of the company's signer
+    ],
+)
+def test_a_name_that_is_only_part_of_a_word_or_another_name_is_rejected(name, quote, source):
+    verified = verify_extraction(
+        answer(nama_karyawan=TextAnswer(kutipan=quote, nilai=name, confidence=0.9)), source, REGEX
+    )
+    assert verified.name is None
+    assert REASON_NAME_NOT_IN_SOURCE in verified.reasons
+
+
 def test_a_name_without_its_quote_is_rejected():
     verified = verify_extraction(
         answer(nama_karyawan=TextAnswer(kutipan=None, nilai="Budi Santoso", confidence=0.9)), SOURCE, REGEX
