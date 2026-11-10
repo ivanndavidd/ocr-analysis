@@ -31,6 +31,8 @@
    - docTR and EasyOCR each add about 800 MB, mostly PyTorch.
    - EasyOCR depends on python-bidi, which is LGPL (on our forbidden list), so it cannot be deployed as it is.
 
+**Built and measured (2026-11-08).** The second reader is now in the extractor (`ocr.second_reader`, website `SECOND_READER=true`), for the NIK and the position only. On all 800 (variant `tesseract_second`): scans and photos needing no check 135 -> 228 of 473; yellow NIKs 194 -> 8 and yellow positions 44 -> 27, every cell it turned green right; no wrong value went green. It ran on 200 contracts, 7.7 s each; the whole run took 48 instead of 40 minutes, and each worker needs about 750 MB instead of 230 MB.
+
 **Caveats**
 
 - The contracts are synthetic. Real scans may be harder, and the agreement result should be re-checked on a small set of real, approved samples before it is relied on.

@@ -39,6 +39,8 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
    - docTR and EasyOCR each add about 800 MB, mostly PyTorch.
    - EasyOCR depends on python-bidi, which is LGPL (on our forbidden list), so it cannot be deployed as it is.
 
+**Built and measured (2026-11-08).** The second reader is now in the extractor (`ocr.second_reader`, website `SECOND_READER=true`), for the NIK and the position only. On all 800 (variant `tesseract_second`): scans and photos needing no check 135 -> 228 of 473; yellow NIKs 194 -> 8 and yellow positions 44 -> 27, every cell it turned green right; no wrong value went green. It ran on 200 contracts, 7.7 s each; the whole run took 48 instead of 40 minutes, and each worker needs about 750 MB instead of 230 MB.
+
 **Caveats**
 
 - The contracts are synthetic. Real scans may be harder, and the agreement result should be re-checked on a small set of real, approved samples before it is relied on.
@@ -54,6 +56,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 622 / 800 (77.8%) | 97.2% | 1 | 441 (0 wrong) | 14.0 | 14.0 | 1,205 | 324 |
 | RapidOCR, PP-OCRv6 small | 623 / 800 (77.9%) | 97.3% | 6 | 462 (0 wrong) | 32.1 | 58.3 | 549 | 738 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 622 / 800 (77.8%) | 97.2% | 1 | 534 (0 wrong) | 17.2 | 20.2 | 996 | 843 |
 
 ## 2. Scans and photos only (473 contracts)
 
@@ -61,6 +64,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 296 / 473 (62.6%) | 95.2% | 1 | 135 (0 wrong) | 14.0 | 14.0 | 1,205 | 324 |
 | RapidOCR, PP-OCRv6 small | 297 / 473 (62.8%) | 95.5% | 6 | 156 (0 wrong) | 32.1 | 58.3 | 549 | 738 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 296 / 473 (62.6%) | 95.2% | 1 | 228 (0 wrong) | 17.2 | 20.2 | 996 | 843 |
 
 ### Per field, scans and photos: correct (wrong and not marked)
 
@@ -68,6 +72,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 473 (0) | 465 (0) | 447 (1) | 469 (0) | 467 (0) | 468 (0) | 319 (0) |
 | RapidOCR, PP-OCRv6 small | 473 (0) | 471 (0) | 466 (5) | 470 (0) | 470 (0) | 470 (0) | 300 (1) |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 473 (0) | 465 (0) | 447 (1) | 469 (0) | 467 (0) | 468 (0) | 319 (0) |
 
 #### Name (scans and photos)
 
@@ -75,6 +80,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 473 / 473 | 0 | 0 | 0 | 0 | 0 |
 | RapidOCR, PP-OCRv6 small | 473 / 473 | 0 | 0 | 0 | 1 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 473 / 473 | 0 | 0 | 0 | 0 | 0 |
 
 #### NIK (scans and photos)
 
@@ -82,6 +88,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 465 / 473 | 1 | 7 | 0 | 194 | 0 |
 | RapidOCR, PP-OCRv6 small | 471 / 473 | 2 | 0 | 0 | 172 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 465 / 473 | 1 | 7 | 0 | 8 | 0 |
 
 #### Position (scans and photos)
 
@@ -89,6 +96,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 447 / 473 | 8 | 18 | 0 | 44 | 1 |
 | RapidOCR, PP-OCRv6 small | 466 / 473 | 5 | 2 | 0 | 2 | 5 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 447 / 473 | 8 | 18 | 0 | 27 | 1 |
 
 #### Start (scans and photos)
 
@@ -96,6 +104,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 469 / 473 | 0 | 4 | 0 | 18 | 0 |
 | RapidOCR, PP-OCRv6 small | 470 / 473 | 0 | 3 | 0 | 13 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 469 / 473 | 0 | 4 | 0 | 18 | 0 |
 
 #### End (scans and photos)
 
@@ -103,6 +112,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 467 / 473 | 2 | 4 | 0 | 25 | 0 |
 | RapidOCR, PP-OCRv6 small | 470 / 473 | 0 | 3 | 0 | 10 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 467 / 473 | 2 | 4 | 0 | 25 | 0 |
 
 #### Months (scans and photos)
 
@@ -110,6 +120,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 468 / 473 | 2 | 3 | 0 | 36 | 0 |
 | RapidOCR, PP-OCRv6 small | 470 / 473 | 0 | 3 | 0 | 16 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 468 / 473 | 2 | 3 | 0 | 36 | 0 |
 
 #### Signature (scans and photos)
 
@@ -117,6 +128,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 319 / 473 | 2 | 0 | 152 | 216 | 0 |
 | RapidOCR, PP-OCRv6 small | 300 / 473 | 1 | 0 | 172 | 229 | 1 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 319 / 473 | 2 | 0 | 152 | 216 | 0 |
 
 ### Files fully correct by scan and photo type
 
@@ -124,6 +136,7 @@ Digital PDFs (327 of 800) are read from their text layer, so they come out the s
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 3 / 6 | 77 / 117 | 66 / 94 | 35 / 59 | 58 / 96 | 57 / 101 |
 | RapidOCR, PP-OCRv6 small | 2 / 6 | 73 / 117 | 64 / 94 | 38 / 59 | 60 / 96 | 60 / 101 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 3 / 6 | 77 / 117 | 66 / 94 | 35 / 59 | 58 / 96 | 57 / 101 |
 
 ## 3. A second local reader beside Tesseract
 
@@ -135,6 +148,10 @@ On the 473 scans and photos: how often the engine reads exactly the same value a
 | RapidOCR, PP-OCRv6 small | Position | 473 | 441 (93.2%) | 0 | 44 | 19 | 0 |
 | RapidOCR, PP-OCRv6 small | Start | 473 | 466 (98.5%) | 0 | 18 | 14 | 0 |
 | RapidOCR, PP-OCRv6 small | End | 473 | 464 (98.1%) | 0 | 25 | 19 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | NIK | 473 | 466 (98.5%) | 1 | 194 | 186 | 1 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | Position | 473 | 455 (96.2%) | 8 | 44 | 19 | 7 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | Start | 473 | 469 (99.2%) | 0 | 18 | 14 | 0 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | End | 473 | 469 (99.2%) | 2 | 25 | 19 | 2 |
 
 ## 4. Resources
 
@@ -142,6 +159,7 @@ On the 473 scans and photos: how often the engine reads exactly the same value a
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tesseract 5.4 (fast models, production today) | 40 min | 1,205 | 26 | 8.7 | 4.1 | 2.31 | 228 | 96 | 1,032 | 0.9 | 5.0 |
 | RapidOCR, PP-OCRv6 small | 87 min | 549 | 43 | 34.9 | 4.0 | 6.94 | 738 | - | 1,639 | 1.2 | 29.8 |
+| Tesseract 5.4 + RapidOCR second reader (proposed) | 48 min | 996 | 29 | 12.3 | 4.1 | 2.32 | 747 | 96 | 1,665 | 0.1 | 5.0 |
 
 ### Installation size beyond today's extractor
 

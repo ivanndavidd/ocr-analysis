@@ -28,7 +28,7 @@ from pathlib import Path
 import psutil
 
 from bench.engines import ENGINES, model_files
-from bench.paths import GENERATOR, GROUND_TRUTH, PDF_DIR, RUNS
+from bench.paths import DATASET, GENERATOR, GROUND_TRUTH, MODELS, PDF_DIR, RUNS
 
 sys.path.insert(0, str(GENERATOR))
 from copy_to_onedrive import safe_folder  # noqa: E402  (the vendor folder name, as the website sees it)
@@ -59,8 +59,15 @@ def _init(engine_key: str, threads: int, binarize: bool) -> None:
     settings = load_settings(None)
     settings.decision.allow_auto = True  # as the website runs (ALLOW_AUTO=true)
     _state["settings"] = settings
+    second = None
+    if ENGINES[engine_key].options.get("second_reader"):
+        from contract_extractor.document.ocr.rapid import RapidOCRReader
+
+        second = _Timed(RapidOCRReader(MODELS / "rapidocr", threads))  # the product's own reader and settings
+    _state["second"] = second
     _state["runner"] = OcrRunner(providers=[_state["engine"]], scoring_dpi=settings.ocr.scoring_dpi,
-                                 read_dpi=settings.ocr.read_dpi, min_mean_conf=settings.ocr.min_mean_conf)
+                                 read_dpi=settings.ocr.read_dpi, min_mean_conf=settings.ocr.min_mean_conf,
+                                 second=second)
     _state["first"] = True
 
 
@@ -154,6 +161,8 @@ def _one(item: tuple[str, str]) -> dict:
     engine: _Timed = _state["engine"]
     me = psutil.Process()
     calls, ocr_s, pixels = engine.calls, engine.seconds, engine.pixels
+    second: _Timed | None = _state.get("second")
+    second_calls, second_s = (second.calls, second.seconds) if second else (0, 0.0)
     cpu = me.cpu_times()
     child_cpu = _child["cpu_s"]
     _child["peak_mb"] = 0.0
@@ -180,6 +189,8 @@ def _one(item: tuple[str, str]) -> dict:
         "ocr_calls": engine.calls - calls,
         "ocr_s": round(engine.seconds - ocr_s, 3),
         "ocr_megapixels": round((engine.pixels - pixels) / 1e6, 2),
+        "second_calls": (second.calls - second_calls) if second else 0,  # RapidOCR reads as the second reader
+        "second_s": round(second.seconds - second_s, 3) if second else 0.0,
         "rss_mb": round(memory.rss / 2**20, 1),
         "peak_mb": round(getattr(memory, "peak_wset", memory.rss) / 2**20, 1),
         "pid": me.pid,
@@ -262,6 +273,11 @@ def main() -> None:
     out = RUNS / key
     out.mkdir(parents=True, exist_ok=True)
     files_path = out / "files.jsonl"
+    if (out / "run.json").exists() and not args.fresh:
+        before = json.loads((out / "run.json").read_text(encoding="utf-8"))
+        before = before if isinstance(before, list) else [before]
+        if {s.get("dataset", "output") for s in before} != {DATASET}:
+            raise SystemExit(f"{key} was read from another dataset than {DATASET}: use another --tag, or --fresh")
     if args.fresh and files_path.exists():
         files_path.unlink()
     done = set()
@@ -327,6 +343,7 @@ def main() -> None:
     run = {
         "engine": args.engine,
         "key": key,
+        "dataset": DATASET,
         "label": spec.label + (" (grayscale input)" if args.gray else ""),
         "family": spec.family,
         "gray_input": args.gray,

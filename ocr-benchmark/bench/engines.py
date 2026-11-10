@@ -37,6 +37,10 @@ ENGINES: dict[str, EngineSpec] = {
     for spec in [
         EngineSpec("tesseract_fast", "Tesseract 5.4 (fast models, production today)", "tesseract",
                    {"tessdata": str(TESSDATA_FAST), "lang": "ind+eng"}),
+        # The product's second reader (ocr.second_reader): Tesseract reads everything, and RapidOCR PP-OCRv6 small
+        # reads a scanned identity page again only when the NIK or position Tesseract read is unsure.
+        EngineSpec("tesseract_second", "Tesseract 5.4 + RapidOCR second reader (proposed)", "tesseract",
+                   {"tessdata": str(TESSDATA_FAST), "lang": "ind+eng", "second_reader": True}),
         EngineSpec("tesseract_best", "Tesseract 5.4 (best models)", "tesseract",
                    {"tessdata": str(TESSDATA_BEST), "lang": "ind+eng"}),
         EngineSpec("rapid_v6_small", "RapidOCR, PP-OCRv6 small", "rapidocr",
