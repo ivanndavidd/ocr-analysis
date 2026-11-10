@@ -124,6 +124,16 @@ describe('folder source settings', () => {
     expect(message).not.toContain('sk-ant-api03-quoted');
   });
 
+  test('SECOND_READER reaches the extractor workers as a flag, and only true or false is accepted', () => {
+    const flags = (value?: string) =>
+      loadConfig({ ...LOCAL, CLAUDE_MODE: 'off', ...(value === undefined ? {} : { SECOND_READER: value }) }).extractorCmd.slice(4);
+    expect(flags()).toEqual([]);
+    expect(flags('')).toEqual([]);
+    expect(flags('true')).toEqual(['--second-reader']);
+    expect(flags(' FALSE ')).toEqual(['--no-second-reader']);
+    expect(error({ ...LOCAL, SECOND_READER: 'on' })).toContain('SECOND_READER');
+  });
+
   test('ALLOW_AUTO reaches the extractor workers as a flag, and only true or false is accepted', () => {
     const flags = (value?: string) =>
       loadConfig({ ...LOCAL, CLAUDE_MODE: 'off', ...(value === undefined ? {} : { ALLOW_AUTO: value }) }).extractorCmd.slice(4);

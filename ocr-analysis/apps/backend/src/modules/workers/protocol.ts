@@ -38,13 +38,20 @@ export interface ExtractorFileResult {
       tanggal_lahir: NikCheckCode;
       jenis_kelamin: NikCheckCode;
       llm?: 'sama' | 'dipakai' | 'beda' | 'tidak_terbaca' | null; // Claude's reading of a crop of the NIK line
+      pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR (RapidOCR) on the same scan
     } | null;
     posisi?: {
       status: 'ditemukan' | 'bertentangan' | 'tidak_ditemukan';
       sumber: 'label' | 'kalimat' | 'llm' | null;
       cocok_llm?: boolean | null; // Claude's title against the local reading
+      pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR (RapidOCR) on the same scan
     } | null;
-    validasi_nama_file?: { nama?: 'cocok' | 'mirip' | 'tidak_cocok'; periode?: 'cocok' | 'mirip' | 'tidak_cocok' };
+    validasi_nama_file?: {
+      nama?: 'cocok' | 'mirip' | 'tidak_cocok';
+      periode?: 'cocok' | 'mirip' | 'tidak_cocok';
+      nama_halaman?: 'tanda_tangan'; // the name was confirmed in the signature block, not on the identity page
+      periode_dari?: 'pembaca_kedua'; // the second OCR's reading completed a period Tesseract's text left a date of unread
+    };
     validasi_vendor?: 'cocok' | 'tidak_cocok' | null; // the vendor folder against the document; null: not checked
     vendor_dari?: 'teks' | 'llm' | null; // what decided it: the page text, or the employer Claude read
     alasan: string[];

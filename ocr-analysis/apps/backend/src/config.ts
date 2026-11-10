@@ -133,6 +133,17 @@ function allowAuto(env: Record<string, string | undefined>): string[] {
   throw new ConfigError('ALLOW_AUTO must be true or false');
 }
 
+/** SECOND_READER=true has RapidOCR read a scanned identity page again when the NIK or position Tesseract read is
+ *  unsure, all on this machine (models from RAPIDOCR_MODEL_DIR or apps/extractor/models/rapidocr); false or empty keeps
+ *  the extractor config's `ocr.second_reader.enabled` (off by default). */
+function secondReader(env: Record<string, string | undefined>): string[] {
+  const raw = (env.SECOND_READER ?? '').trim().toLowerCase();
+  if (raw === '') return [];
+  if (raw === 'true') return ['--second-reader'];
+  if (raw === 'false') return ['--no-second-reader'];
+  throw new ConfigError('SECOND_READER must be true or false');
+}
+
 const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
 const DEFAULT_CLAUDE_EFFORT: ClaudeEffort = 'max';
 const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9@._-]{0,99}$/; // the extractor's own rule
@@ -194,6 +205,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     'serve-stdio',
     ...(env.EXTRACTOR_CONFIG ? ['--config', env.EXTRACTOR_CONFIG] : []),
     ...allowAuto(env),
+    ...secondReader(env),
   ];
   const workbookCmd = [python, '-m', 'contract_extractor', 'xlsx'];
   const port = int(env, 'PORT', 3000, 1, 65535);

@@ -59,6 +59,9 @@ export interface NikInfo {
   // Claude's reading of a crop of the NIK line, sent when the local reading was unsure: the same digits ('same'), used
   // in place of the local reading ('used'), other digits that were not used ('different'), or none ('unreadable').
   claude: 'same' | 'used' | 'different' | 'unreadable' | null;
+  // The second local OCR (RapidOCR) reading the same scan again, when the local reading was unsure: the same digits
+  // ('same'), other digits ('different'), or none ('unreadable'). It only ever confirms; it never replaces the NIK.
+  secondReader?: 'same' | 'different' | 'unreadable' | null;
 }
 
 /** The employee's job title as the extractor read it from the identity page (Jabatan/Posisi row or placement
@@ -69,6 +72,8 @@ export interface PositionInfo {
   confidence: number | null; // pattern: lowest OCR word confidence over the title (1 from a text layer); Claude: its own
   agreement: 'same' | 'different' | null; // Claude's title against the local pattern reading; null when not compared
   source: 'claude' | 'pattern' | null; // who read the title shown; null when there is none
+  // A low-confidence title from a scan, read again by the second local OCR (RapidOCR): the same title, another, or none
+  secondReader?: 'same' | 'different' | 'unreadable' | null;
 }
 
 /** Who read the name and the period: the local patterns, or Claude (verified against the text it was sent) for a
@@ -125,6 +130,8 @@ export interface ContractRow {
   nameFromFilename: string | null;
   nameFromDocument: string | null; // Claude's reading, as printed; null with the patterns or when it was not verified
   nameInDocument: boolean | null; // the filename's name is printed on the identity page; null when not checked
+  // Not on the identity page, but in the employee's column of the signature page (with the patterns only)
+  nameOnSignaturePage?: boolean;
   nameMatch: 'same' | 'similar' | 'different' | null; // Claude's name against the filename's; null when not compared
   // Claude's own, after verification; null otherwise. `nik` only in the no-OCR mode, where Claude reads the NIK whole
   readConfidence: { name: number | null; period: number | null; nik: number | null };
@@ -132,6 +139,8 @@ export interface ContractRow {
   position: PositionInfo;
   filenameStandard: boolean; // `Nama - Masa Kontrak` parsed into a name and a period
   periodFromFilename: DateRange | null;
+  // The second OCR (RapidOCR) read the dates Tesseract's text missed, and they are the filename's (with the patterns)
+  periodFromSecondReader?: boolean;
   periodFromDocument: DateRange | null; // Claude's verified dates, or the local regex's, when both were found
   documentPeriod: DocumentPeriod;
   periodMatches: boolean | null; // null when either period is missing

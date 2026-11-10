@@ -38,6 +38,11 @@ const NIK_STATUS: Record<string, NikStatus> = {
   tidak_ditemukan: 'missing',
 };
 const NIK_CHECK: Record<NikCheckCode, NikCheck> = { cocok: 'match', tidak_cocok: 'mismatch', tidak_ada: 'absent' };
+const SECOND_READER: Record<string, NonNullable<NikInfo['secondReader']>> = {
+  sama: 'same',
+  beda: 'different',
+  tidak_terbaca: 'unreadable',
+};
 const NIK_CLAUDE: Record<string, NikInfo['claude']> = {
   sama: 'same',
   dipakai: 'used',
@@ -63,6 +68,7 @@ function nikInfo(result: ExtractorFileResult): NikInfo {
     gender: NIK_CHECK[log?.jenis_kelamin ?? 'tidak_ada'] ?? 'absent',
     fromOcr: nik !== null && result.log.alasan.includes('nik_from_ocr'),
     claude: NIK_CLAUDE[log?.llm ?? ''] ?? null,
+    secondReader: SECOND_READER[log?.pembaca_kedua ?? ''] ?? null,
   };
 }
 
@@ -85,7 +91,8 @@ function positionInfo(result: ExtractorFileResult): PositionInfo {
     const agreement = agreed === true ? 'same' : agreed === false ? 'different' : null;
     // Claude's verified title replaces the local one; it was compared with it, or the local reading found none
     const source = agreement !== null || result.log.posisi?.sumber === 'llm' ? 'claude' : 'pattern';
-    return { status: 'found', value, confidence: confidenceOf(result, 'posisi'), agreement, source };
+    const secondReader = SECOND_READER[result.log.posisi?.pembaca_kedua ?? ''] ?? null;
+    return { status: 'found', value, confidence: confidenceOf(result, 'posisi'), agreement, source, secondReader };
   }
   const status = POSITION_STATUS[result.log.posisi?.status ?? ''] ?? 'missing';
   return { status: status === 'found' ? 'missing' : status, value: null, confidence: null, agreement: null, source: null };
@@ -170,6 +177,7 @@ export function toRow(result: ExtractorFileResult, filename: ParsedFilename, ven
     nameFromFilename: filename.name || null,
     nameFromDocument: reader === 'claude' && docName ? docName : null,
     nameInDocument: NAME_CHECK[nameCheck ?? ''] ?? null,
+    nameOnSignaturePage: nameCheck === 'cocok' && result.log.validasi_nama_file?.nama_halaman === 'tanda_tangan',
     nameMatch: reader === 'claude' && docName && nameCheck ? NAME_MATCH[nameCheck] : null,
     readConfidence: {
       name: reader === 'claude' ? confidenceOf(result, 'nama') : null,
@@ -180,6 +188,7 @@ export function toRow(result: ExtractorFileResult, filename: ParsedFilename, ven
     position: positionInfo(result),
     filenameStandard: filename.flags.length === 0 && fromName !== null,
     periodFromFilename: fromName,
+    periodFromSecondReader: reader === 'pattern' && result.log.validasi_nama_file?.periode_dari === 'pembaca_kedua',
     periodFromDocument: fromDocument,
     documentPeriod: documentPeriod(read),
     periodMatches:

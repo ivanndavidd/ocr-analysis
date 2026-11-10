@@ -64,6 +64,7 @@ describe('NIK', () => {
       gender: 'mismatch',
       fromOcr: true,
       claude: null,
+      secondReader: null,
     });
     expect(JSON.stringify(row)).not.toContain(NIK);
     expect(maskNik(NIK)).toBe('************0001');
@@ -91,6 +92,19 @@ describe('name in document', () => {
     const base = result(null);
     const row = toRow({ ...base, log: { ...base.log, validasi_nama_file: validasi } } as ExtractorFileResult, FILENAME);
     expect(row.nameInDocument).toBe(expected);
+    expect(row.nameOnSignaturePage).toBe(false);
+  });
+
+  test('a name confirmed in the employee column of the signature page says so', () => {
+    const base = result(null);
+    const validasi = { nama: 'cocok', periode: 'cocok', nama_halaman: 'tanda_tangan' } as const;
+    const row = toRow({ ...base, log: { ...base.log, validasi_nama_file: validasi } } as ExtractorFileResult, FILENAME);
+    expect([row.nameInDocument, row.nameOnSignaturePage]).toEqual([true, true]);
+    expect(row.fields.name).toEqual({
+      value: row.nameFromFilename,
+      check: null,
+      basis: 'Nama dari nama file tercetak di kolom karyawan halaman tanda tangan',
+    });
   });
 });
 
@@ -112,6 +126,7 @@ describe('position', () => {
       confidence: 0.72,
       agreement: null,
       source: 'pattern',
+      secondReader: null,
     });
   });
 
@@ -128,6 +143,54 @@ describe('position', () => {
       agreement: null,
       source: null,
     });
+  });
+});
+
+describe('second local reader', () => {
+  const NIK = '3199990101900001'; // fictitious: regency and district 99 exist nowhere
+  const scanned = (pembaca_kedua: 'sama' | 'beda' | 'tidak_terbaca', alasan: string[]) => {
+    const base = result(null);
+    const nik = { status: 'ditemukan', tanggal_lahir: 'cocok', jenis_kelamin: 'tidak_ada', pembaca_kedua } as const;
+    return { ...base, nik: NIK, log: { ...base.log, nik, alasan } } as ExtractorFileResult;
+  };
+
+  test('a scanned NIK both engines read the same is trusted', () => {
+    const row = toRow(scanned('sama', []), FILENAME); // the extractor drops nik_from_ocr once both engines agree
+    expect(row.nik.secondReader).toBe('same');
+    expect(row.fields.nik).toEqual({
+      value: '************0001',
+      check: null,
+      basis: 'Dua mesin OCR lokal (Tesseract dan RapidOCR) membaca angka yang sama dari scan',
+    });
+  });
+
+  test('other digits from the second engine keep the NIK coloured, and say so', () => {
+    const row = toRow(scanned('beda', ['nik_from_ocr']), FILENAME);
+    expect(row.nik.secondReader).toBe('different');
+    expect(row.fields.nik.check).toBe('Dibaca dari scan; mesin OCR kedua (RapidOCR) membaca lain, cocokkan angkanya');
+    expect(toRow(scanned('tidak_terbaca', ['nik_from_ocr']), FILENAME).fields.nik.check).toBe(
+      'Dibaca dari scan; cocokkan angkanya',
+    );
+  });
+
+  const title = (pembaca_kedua: 'sama' | 'beda' | undefined) => {
+    const base = result(null);
+    const posisi = { status: 'ditemukan', sumber: 'label', pembaca_kedua } as const;
+    return { ...base, posisi: 'Staff Gudang', confidence: { posisi: 0.62 }, log: { ...base.log, posisi } } as ExtractorFileResult;
+  };
+
+  test('an unclear title both engines read the same is trusted; another reading keeps it coloured', () => {
+    const same = toRow(title('sama'), FILENAME);
+    expect(same.position.secondReader).toBe('same');
+    expect(same.fields.position).toEqual({
+      value: 'Staff Gudang',
+      check: null,
+      basis: 'Dua mesin OCR lokal (Tesseract dan RapidOCR) membaca posisi yang sama',
+    });
+    expect(toRow(title('beda'), FILENAME).fields.position.check).toBe(
+      'Dibaca dari scan yang kurang jelas; mesin OCR kedua (RapidOCR) membaca lain, cocokkan angkanya',
+    );
+    expect(toRow(title(undefined), FILENAME).fields.position.check).toBe('Dibaca dari scan yang kurang jelas');
   });
 });
 
@@ -219,6 +282,7 @@ describe('read by Claude', () => {
       confidence: 0.95,
       agreement: 'different',
       source: 'claude',
+      secondReader: null,
     });
     expect(row.fields.position.check).toBe('Pembacaan pola teks berbeda; cek di dokumen');
   });
@@ -239,6 +303,19 @@ describe('pattern checks and Claude helping', () => {
     const conflicting = toRow(withLog({ periode_regex: regex(null, null, null, true), validasi_nama_file: { periode: 'cocok' } }), FILENAME);
     expect(conflicting.documentPeriod.status).toBe('conflict'); // the regex's veto stands
     expect(toRow(withLog({}), FILENAME).documentPeriod.status).toBe('missing');
+  });
+
+  test('a date the second OCR read, completing the period, says so', () => {
+    const validasi = { nama: 'cocok', periode: 'cocok', periode_dari: 'pembaca_kedua' } as const;
+    const row = toRow(withLog({ periode_regex: regex('2045-04-16', null), validasi_nama_file: validasi }), FILENAME);
+    expect(row.periodFromSecondReader).toBe(true);
+    expect(row.documentPeriod).toEqual({ status: 'found', start: '2045-04-16', end: '2047-04-15', durationMonths: null });
+    const basis = 'Dibaca ulang mesin OCR kedua (RapidOCR); sama dengan nama file';
+    expect([row.fields.start, row.fields.end]).toEqual([
+      { value: '2045-04-16', check: null, basis },
+      { value: '2047-04-15', check: null, basis },
+    ]);
+    expect(toRow(withLog({ validasi_nama_file: { nama: 'cocok', periode: 'cocok' } }), FILENAME).periodFromSecondReader).toBe(false);
   });
 
   test('the vendor folder is checked against the document', () => {

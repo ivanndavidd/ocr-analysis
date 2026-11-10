@@ -39,11 +39,15 @@ function nikFromPage(row: RowFacts): FieldValue {
   return doubt(masked, 'Dibaca Claude dari halaman pertama; cocokkan angkanya');
 }
 
+// The second local OCR reads an unsure scan again; the same value from both engines is trusted, another one is not.
+const TWO_ENGINES = 'Dua mesin OCR lokal (Tesseract dan RapidOCR)';
+const SECOND_DIFFERS = 'mesin OCR kedua (RapidOCR) membaca lain, cocokkan angkanya';
+
 /** The local reading first; Claude reads a crop of the NIK line only when that reading is unsure, and its NIK passes
  *  the same birth-date and gender checks before it is used. */
 function nik(row: RowFacts): FieldValue {
   if (fullPages(row)) return nikFromPage(row);
-  const { status, masked, birthDate, gender, fromOcr, claude } = row.nik;
+  const { status, masked, birthDate, gender, fromOcr, claude, secondReader } = row.nik;
   if (status === 'conflict') return doubt(null, 'Ada dua NIK berbeda di dokumen');
   const bothMatch = birthDate === 'match' && gender === 'match';
   if (claude === 'used' && masked) {
@@ -61,11 +65,14 @@ function nik(row: RowFacts): FieldValue {
   if (birthDate === 'mismatch' || gender === 'mismatch') {
     return doubt(masked, 'Tidak cocok dengan tanggal lahir atau jenis kelamin di kontrak');
   }
-  if (fromOcr && !bothMatch) return doubt(masked, 'Dibaca dari scan; cocokkan angkanya');
+  if (fromOcr && !bothMatch) {
+    return doubt(masked, secondReader === 'different' ? `Dibaca dari scan; ${SECOND_DIFFERS}` : 'Dibaca dari scan; cocokkan angkanya');
+  }
   if (row.reasons.includes('nik_digits_repaired')) {
     return doubt(masked, 'Terbaca lebih dari 16 angka di baris NIK; cocokkan angkanya');
   }
   if (bothMatch) return sure(masked, 'Cocok dengan tanggal lahir dan jenis kelamin di kontrak');
+  if (secondReader === 'same') return sure(masked, `${TWO_ENGINES} membaca angka yang sama dari scan`);
   if (claude === 'same') return sure(masked, 'Claude membaca angka yang sama dari potongan baris NIK');
   return sure(masked, 'Dari teks digital PDF, bukan hasil scan');
 }
@@ -110,16 +117,20 @@ function name(row: RowFacts): FieldValue {
   if (!row.filenameStandard) return doubt(value, 'Nama file tidak berformat "Nama - Masa Kontrak"');
   if (row.nameInDocument === false) return doubt(value, 'Nama dari nama file tidak ada di halaman identitas');
   if (row.nameInDocument === null) return doubt(value, 'Belum dicocokkan dengan dokumen');
+  if (row.nameOnSignaturePage) return sure(value, 'Nama dari nama file tercetak di kolom karyawan halaman tanda tangan');
   return sure(value, 'Nama dari nama file tercetak di halaman identitas');
 }
 
 function position(row: RowFacts): FieldValue {
-  const { status, value, confidence, agreement, source } = row.position;
+  const { status, value, confidence, agreement, source, secondReader } = row.position;
   if (status === 'conflict') return doubt(null, 'Ada dua posisi berbeda di dokumen');
   if (!value) return doubt(null, 'Tidak ditemukan di halaman identitas');
   if (agreement === 'different') return doubt(value, 'Pembacaan pola teks berbeda; cek di dokumen');
+  if (source === 'pattern' && secondReader === 'same') return sure(value, `${TWO_ENGINES} membaca posisi yang sama`);
   if (unsure(confidence)) {
-    return doubt(value, source === 'claude' ? 'Claude kurang yakin membaca posisi ini' : 'Dibaca dari scan yang kurang jelas');
+    if (source === 'claude') return doubt(value, 'Claude kurang yakin membaca posisi ini');
+    const check = secondReader === 'different' ? `Dibaca dari scan yang kurang jelas; ${SECOND_DIFFERS}` : 'Dibaca dari scan yang kurang jelas';
+    return doubt(value, check);
   }
   if (agreement === 'same') return sure(value, 'Dibaca Claude dan sama dengan pembacaan pola teks');
   return sure(value, source === 'claude' ? 'Dibaca Claude dari halaman identitas' : 'Tertulis di halaman identitas');
@@ -155,11 +166,14 @@ export function wholeMonths(start: string, end: string): number | null {
 function period(row: RowFacts): Pick<ContractFields, 'start' | 'end' | 'months'> {
   const doc = row.documentPeriod;
   const named = row.periodFromFilename;
+  const same = row.periodFromSecondReader
+    ? 'Dibaca ulang mesin OCR kedua (RapidOCR); sama dengan nama file'
+    : 'Sama di dokumen dan di nama file';
   const one = (fromDoc: string | null, fromName: string | null): FieldValue => {
     if (fromDoc) {
       if (!fromName) return doubt(fromDoc, 'Hanya dari dokumen; nama file tidak menyebut tanggal');
       if (fromName !== fromDoc) return doubt(fromDoc, `Nama file menyebut ${tanggal(fromName)}`);
-      return sure(fromDoc, 'Sama di dokumen dan di nama file');
+      return sure(fromDoc, same);
     }
     if (doc.status === 'conflict') return doubt(null, 'Ada beberapa tanggal berbeda di dokumen');
     if (fromName) return doubt(fromName, 'Tidak ada di dokumen; diambil dari nama file');
