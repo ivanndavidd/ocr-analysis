@@ -2,7 +2,8 @@
 
 It uses the website the Ctrl+Shift+B task starts (backend on http://127.0.0.1:3000), so the same workers, settings
 and Claude login read the files, and the job also shows up on the website under "Hasil OCR terakhir". The PDFs must
-already be in the website's folder: run copy_to_onedrive.py after generating.
+already be in the website's folder: run copy_to_onedrive.py after generating. The script signs in to the website
+(mock sign-in, no password) as a made-up benchmark user, BENCH_EMAIL below, so its runs are told apart in the history.
 
 Run it with the contract-ocr venv (from the contract-ocr folder; `rich`, for the tables, comes with that venv):
     .venv/Scripts/python contract-pdf-generator/compare_accuracy.py
@@ -10,7 +11,13 @@ Run it with the contract-ocr venv (from the contract-ocr folder; `rich`, for the
     .venv/Scripts/python contract-pdf-generator/compare_accuracy.py --form scan --form photo
     .venv/Scripts/python contract-pdf-generator/compare_accuracy.py --job <job id>      # score a job still on the website
     .venv/Scripts/python contract-pdf-generator/compare_accuracy.py --from <report folder>  # redo a report, no backend
-    .venv/Scripts/python contract-pdf-generator/compare_accuracy.py --gt output_v2/ground_truth.json
+    .venv/Scripts/python contract-pdf-generator/compare_accuracy.py --gt output-v2/ground_truth.json
+
+Claude check: when the website has Claude switched on but its workers cannot reach it, a run would quietly read with
+the text patterns only and look like a Claude run, so the script refuses to start one (--allow-without-claude starts it
+anyway). A run with Claude is stopped and cancelled on the website when none of the first 10 files read reached Claude,
+or 10 files in a row did not (the sign-in expired midway). With CLAUDE_MODE=off on the website, it reads with the text
+patterns only, as asked. CLAUDE_BENCHMARK.md next to this script is the checklist for a full run with Claude.
 
 Every field of the Excel row is scored against the ground truth: correct, wrong value, not found (nothing read where
 the contract has a value), or, for the signature, undecided. A wrong value the website did not mark for checking
@@ -42,6 +49,7 @@ import urllib.error
 import urllib.request
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from http.cookies import SimpleCookie
 from pathlib import Path
 
 from rich import box
@@ -79,6 +87,12 @@ CORRECT, WRONG, MISSING, UNDECIDED = "correct", "wrong", "missing", "undecided"
 VERDICT_LABEL = {CORRECT: "Correct", WRONG: "Wrong value", MISSING: "Not found", UNDECIDED: "Undecided"}
 POLL_S = 5
 HEALTH_WAIT_S = 180
+ACTIVE = ("queued", "running")  # a job still waiting in the website's queue or being read
+# The website's mock sign-in takes any email and name; the benchmark signs in as this made-up user (example.com is a
+# reserved domain), never as a real person, so its runs show up in the shared history as the benchmark's.
+BENCH_EMAIL, BENCH_NAME = "accuracy-check@example.com", "Accuracy check"
+CLAUDE_FIRST = 10  # stop a Claude run when none of the first this many files read reached Claude
+CLAUDE_STREAK = 10  # or when this many files in a row did not
 
 
 # --- website API ------------------------------------------------------------------------------------------------------
@@ -93,14 +107,21 @@ class ApiError(Exception):
 class Website:
     def __init__(self, base: str):
         self.base = base.rstrip("/")
+        self.session: str | None = None  # the sign-in cookie, sent back on every call; never printed
 
     def call(self, method: str, path: str, body: dict | None = None) -> dict:
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(self.base + path, data=data, method=method)
         if data is not None:
             request.add_header("content-type", "application/json")
+        if self.session:
+            request.add_header("cookie", self.session)
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
+                for header in response.headers.get_all("set-cookie") or []:
+                    cookie = SimpleCookie(header)
+                    for morsel in cookie.values():
+                        self.session = f"{morsel.key}={morsel.value}" if morsel.value else None
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             try:
@@ -109,53 +130,138 @@ class Website:
                 payload = {}
             raise ApiError(error.code, str(payload.get("error", "http_error")), payload) from None
 
+    def sign_in(self) -> None:
+        """The website asks every caller to sign in (since 2026-11-05); the benchmark signs in as its own user."""
+        self.call("POST", "/api/auth/login", {"email": BENCH_EMAIL, "name": BENCH_NAME})
+        if not self.session:
+            sys.exit("The website did not hand out a sign-in cookie; check the backend terminal.")
+
     def health(self) -> dict:
         return self.call("GET", "/api/health")
 
 
 def wait_until_ready(site: Website) -> dict:
+    """Signs in, then waits for the OCR workers to start and to say whether Claude helps them."""
     deadline = time.monotonic() + HEALTH_WAIT_S
+    try:
+        site.sign_in()
+    except (urllib.error.URLError, ConnectionError, TimeoutError):
+        sys.exit(f"The website backend is not running at {site.base}. Start it with Ctrl+Shift+B in VS Code.")
+    except ApiError as error:
+        sys.exit(f"The website refused the benchmark sign-in: {error}")
     while True:
         try:
             health = site.health()
         except (urllib.error.URLError, ConnectionError, TimeoutError):
-            sys.exit(f"The website backend is not running at {site.base}. Start it with Ctrl+Shift+B in VS Code.")
+            sys.exit(f"Lost the website backend at {site.base}; check the backend terminal.")
         state = health["extractor"]["state"]
-        if state == "ready":
+        if state == "ready" and health["claude"] != "starting":
             return health
-        if state == "unavailable" or time.monotonic() > deadline:
+        if state == "unavailable":
             sys.exit(f"The OCR workers are not usable ({health['extractor'].get('error') or state}); check the backend terminal.")
+        if time.monotonic() > deadline:
+            if state == "ready":
+                return health  # Claude still 'starting': the Claude check below refuses it
+            sys.exit(f"The OCR workers did not start in {HEALTH_WAIT_S} s ({state}); check the backend terminal.")
         time.sleep(2)
 
 
-def wait_for_job(site: Website, job_id: str, console: Console) -> dict:
-    """Poll until the job stops running: a progress bar in a terminal, a line every 10 files otherwise."""
+def claude_problem(state: str, mode: str, allow_without: bool) -> str | None:
+    """Why a new job must not start, given the website's Claude state, or None. 'off' is the website's own setting
+    (CLAUDE_MODE=off), so the patterns-only run is what was asked for; 'unavailable' or 'starting' means Claude is
+    switched on but the workers cannot reach it, and the run would quietly read without it."""
+    if state == "on":
+        return None
+    if mode == "full_page":
+        return "The no-OCR mode needs Claude, which the website does not have ready now."
+    if state == "off" or allow_without:
+        return None
+    return (f"Claude is switched on in the website's settings but its workers cannot reach it ({state}): the run would "
+            "read with the text patterns only. Sign in to Claude Code on this PC (`claude auth login`) or set "
+            "ANTHROPIC_API_KEY in ocr-analysis/apps/backend/.env, restart the website, and run again. "
+            "To read with the text patterns only on purpose, add --allow-without-claude.")
 
-    def fetch() -> tuple[dict, int, int, int]:
+
+def reached_claude(file: dict) -> bool:
+    """A file read with at least one Claude call and no failed one."""
+    row = file.get("row") or {}
+    return bool(row.get("claudeCalls")) and not any(r.startswith("extractor_error") for r in row.get("reasons") or [])
+
+
+class ClaudeStopped(Exception):
+    pass
+
+
+class ClaudeWatch:
+    """Watches a run that is meant to use Claude, file by file as they finish: it stops the run when none of the first
+    CLAUDE_FIRST files read reached Claude, or CLAUDE_STREAK files in a row did not. With Claude working nearly every
+    file makes a call (800 of 800 on 2026-11-04), so either means Claude is not answering."""
+
+    def __init__(self) -> None:
+        self.seen: set[str] = set()
+        self.reached = 0
+        self.streak = 0
+        self.failures: Counter = Counter()  # the kinds of failed calls, e.g. extractor_error:cli:exit_1 (no PII)
+
+    def update(self, job: dict) -> None:
+        for file in job["files"]:
+            if file["state"] != "done" or file["path"] in self.seen:
+                continue
+            self.seen.add(file["path"])
+            if reached_claude(file):
+                self.reached += 1
+                self.streak = 0
+                continue
+            self.streak += 1
+            reasons = (file.get("row") or {}).get("reasons") or []
+            self.failures.update(r for r in reasons if r.startswith("extractor_error"))
+        if len(self.seen) >= CLAUDE_FIRST and self.reached == 0:
+            raise ClaudeStopped(f"none of the first {len(self.seen)} files read reached Claude")
+        if self.streak >= CLAUDE_STREAK:
+            raise ClaudeStopped(f"the last {self.streak} files read in a row did not reach Claude")
+
+    def detail(self) -> str:
+        if not self.failures:
+            return "no Claude call was made"
+        return "failed calls: " + ", ".join(f"{kind} x{count}" for kind, count in self.failures.most_common(3))
+
+
+def wait_for_job(site: Website, job_id: str, console: Console, watch: ClaudeWatch | None = None) -> dict:
+    """Poll until the job stops (queued, then running): a progress bar in a terminal, a line every 10 files otherwise.
+    With `watch`, raises ClaudeStopped when Claude is not answering."""
+
+    def fetch() -> tuple[dict, int, int, str]:
         job = site.call("GET", f"/api/jobs/{job_id}")
+        if watch:
+            watch.update(job)
         states = Counter(f["state"] for f in job["files"])
-        return job, states["done"] + states["error"] + states["cancelled"], len(job["files"]), states["error"]
+        if job["status"] == "queued":
+            note = f"(queued behind {job.get('queueAhead', '?')} run(s))"
+        else:
+            note = f"({states['error']} failed)" if states["error"] else ""
+        return job, states["done"] + states["error"] + states["cancelled"], len(job["files"]), note
 
-    job, done, total, failed = fetch()
+    job, done, total, note = fetch()
     if console.is_terminal:
         columns = (TextColumn("Reading"), BarColumn(), MofNCompleteColumn(), TextColumn("files"),
-                   TextColumn("{task.fields[failed]}"), TimeElapsedColumn(), TextColumn("left"), TimeRemainingColumn())
+                   TextColumn("{task.fields[note]}"), TimeElapsedColumn(), TextColumn("left"), TimeRemainingColumn())
         with Progress(*columns, console=console) as progress:
-            task = progress.add_task("job", total=total, completed=done, failed="")
-            while job["status"] == "running":
+            task = progress.add_task("job", total=total, completed=done, note=note)
+            while job["status"] in ACTIVE:
                 time.sleep(POLL_S)
-                job, done, total, failed = fetch()
-                progress.update(task, completed=done, failed=f"({failed} failed)" if failed else "")
+                job, done, total, note = fetch()
+                progress.update(task, completed=done, note=note)
         return job
-    started, printed = time.monotonic(), -1
+    started, printed = time.monotonic(), (-1, "")
     while True:
-        if done != printed and (done % 10 == 0 or done == total):
-            print(f"  {done}/{total} files read ({failed} failed), {(time.monotonic() - started) / 60:.1f} min", flush=True)
-            printed = done
-        if job["status"] != "running":
+        if (done, note) != printed and (done % 10 == 0 or done == total or job["status"] == "queued"):
+            print(f"  {done}/{total} files read{f' {note}' if note else ''}, {(time.monotonic() - started) / 60:.1f} min",
+                  flush=True)
+            printed = (done, note)
+        if job["status"] not in ACTIVE:
             return job
         time.sleep(POLL_S)
-        job, done, total, failed = fetch()
+        job, done, total, note = fetch()
 
 
 # --- ground truth and scoring -----------------------------------------------------------------------------------------
@@ -852,6 +958,9 @@ def main() -> None:
     parser.add_argument("--mode", choices=MODES, default="ocr",
                         help="how a new job reads: with OCR (default), or full_page, which sends the whole first and last "
                              "page of every PDF unmasked to Claude (test only; use generated contracts)")
+    parser.add_argument("--allow-without-claude", action="store_true",
+                        help="start a new job even when the website has Claude switched on but cannot reach it (it then "
+                             "reads with the text patterns only); with CLAUDE_MODE=off no flag is needed")
     args = parser.parse_args()
     if not sys.stdout.isatty():  # piped or redirected on Windows would be cp1252, which has no bars or check marks
         sys.stdout.reconfigure(encoding="utf-8")
@@ -885,28 +994,43 @@ def main() -> None:
         site = Website(args.api)
         health = wait_until_ready(site)
         workers = health["extractor"]["workers"]
-        console.print(f"Website ready: {workers} worker(s), Claude {health['claude']}, folder '{health['rootName']}'")
-        if args.mode == "full_page" and not args.job and health["claude"] != "on":
-            sys.exit("The no-OCR mode needs Claude, which the website does not have ready now.")
-        if health["claude"] not in ("on", "starting"):
-            console.print("[yellow]Claude is not helping the workers now; the run reads with the text patterns only.[/]")
+        console.print(f"Website ready: {workers} worker(s), Claude {health['claude']}, folder '{health['rootName']}', "
+                      f"signed in as {BENCH_NAME}")
+        watch = None
         if args.job:
             job_id = args.job
         else:
+            problem = claude_problem(health["claude"], args.mode, args.allow_without_claude)
+            if problem:
+                sys.exit(problem)
+            if health["claude"] != "on":
+                console.print(f"[yellow]Claude is {health['claude']}: the run reads with the text patterns only.[/]")
             try:
-                job_id = site.call("POST", "/api/jobs", {"files": [t.path for t in truths], "mode": args.mode})["id"]
+                started = site.call("POST", "/api/jobs", {"files": [t.path for t in truths], "mode": args.mode})
             except ApiError as error:
-                if error.code == "job_running":
-                    sys.exit(f"Another OCR job is running ({error.body.get('jobId')}). Wait for it, or score it with --job.")
-                if error.code in ("not_found", "bad_path"):
-                    sys.exit("Some PDFs are not in the website's folder. Run copy_to_onedrive.py after generating, "
-                             "and check FOLDER_ROOT in ocr-analysis/apps/backend/.env.")
+                if error.code in ("user_has_job", "job_running"):
+                    sys.exit(f"The benchmark user already has a run queued or running ({error.body.get('jobId')}). "
+                             "Wait for it, cancel it on the website, or score it with --job.")
+                if error.code in ("file_not_found", "not_found", "bad_path"):
+                    sys.exit("Some PDFs are not in the website's folder. Run copy_to_onedrive.py for this ground truth's "
+                             "output folder, and check FOLDER_ROOT in ocr-analysis/apps/backend/.env.")
                 sys.exit(f"The website refused the job: {error}")
+            job_id = started["id"]
             console.print(f"Started job {job_id} ({args.mode}) for {len(truths)} file(s) at {dt.datetime.now():%H:%M:%S}; "
                           "it is also on the website under 'Hasil OCR terakhir'.")
+            if started["claude"]:
+                watch = ClaudeWatch()
+            elif health["claude"] == "on" and not args.allow_without_claude:  # the workers lost Claude in between
+                site.call("POST", f"/api/jobs/{job_id}/cancel", {})
+                sys.exit(f"Claude dropped out as job {job_id} started, so it was cancelled; check the Claude sign-in and rerun.")
         try:
-            job = wait_for_job(site, job_id, console)
+            job = wait_for_job(site, job_id, console, watch)
             niks = site.call("POST", f"/api/jobs/{job_id}/niks", {}).get("niks", {})
+        except ClaudeStopped as stop:
+            site.call("POST", f"/api/jobs/{job_id}/cancel", {})
+            sys.exit(f"\nStopped: {stop} ({watch.detail() if watch else ''}). Job {job_id} is cancelled on the website "
+                     "(the files being read finish first). Check the Claude sign-in (`claude auth status`), restart the "
+                     "website, and run again.")
         except KeyboardInterrupt:
             sys.exit(f"\nStopped waiting; the job keeps running on the website. Score it later with --job {job_id}")
         except ApiError as error:
