@@ -12,6 +12,7 @@ Website meminta masuk lebih dulu (2026-11-05): login tiruan dengan email kantor 
 
 ## Structure
 
+- `README.md` — ringkasan untuk pembaca baru (Inggris): cara baca, bagian, hasil sejauh ini, cara menjalankan, aturan data; README juga ada di root `contract-ocr`, `../contract-pdf-generator/`, dan `../ocr-benchmark/` (hasil benchmark per perubahan pembaca)
 - `PRD & RFC Ekstraksi Kontrak Karyawan dari PDF.md` — PRD dan RFC, sumber requirement dan desain pipeline
 - `sample/` — 4 PDF kontrak asli dari tim client; berisi PII, di-gitignore, tidak pernah jadi fixture test; hanya untuk uji asap lokal (lihat Key Decisions)
 - `output/` — keluaran run lokal, termasuk uji asap pada `sample/`; di-gitignore
