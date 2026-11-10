@@ -1,16 +1,26 @@
 """Synthetic PKWT contract generator.
 
-Generates 2-page synthetic Indonesian fixed-term employment contracts (Perjanjian Kerja Waktu Tertentu) as PDF,
-with ground truth for what the contract OCR has to read:
+Generates synthetic Indonesian fixed-term employment contracts (Perjanjian Kerja Waktu Tertentu) as PDF, with ground
+truth for what the contract OCR has to read. The contract itself is 2 to 6 pages (contract_page_weights): its first
+page holds the identity and the period, its last page the closing clauses and the signatures, the pages between more
+clauses. Like real uploads, the PDF can also hold extra pages: attachments (statement, job description, pay details,
+rules, receipt, confidentiality pact, employee data form, deduction authorisation) and now and then an offer letter or
+a document checklist. By default (extra_page_position "between", owner 2026-11-09) they sit between the contract's
+clause pages and its signature page, so the PDF's first page is always the identity page and its last page always the
+signature page; "around" puts the letter before the contract and the attachments after it, as real uploads can.
+meta.identity_page and meta.signature_page give the contract's pages within the PDF either way.
 
     Field                       Ground-truth key                    Where it is
-    Employee name               employee_name (exactly as printed)  page 1 identity block, page 2 signature block
-    Employee NIK                employee_nik (16 digits, always     page 1 identity block (key-value row or
-                                printed, as in real contracts)      "pemegang NIK ..." in a sentence)
-    Employee position           position (always printed, as in     page 1: Jabatan/Posisi row, placement or duties
-                                real contracts)                     clause, or the period clause
-    Contract period             contract_start, contract_end (ISO)  page 1, inside one pasal
-    Employee signature present  has_employee_signature              page 2, employee's signature block only
+    Employee name               employee_name (exactly as printed)  the contract's first page (identity block) and
+                                                                    signature page; attachments may repeat it
+    Employee NIK                employee_nik (16 digits, always     the contract's first page, identity block (key-
+                                printed, as in real contracts)      value row or "pemegang NIK ..." in a sentence)
+    Employee position           position (always printed, as in     the contract's first page: Jabatan/Posisi row,
+                                real contracts)                     placement or duties clause, or the period clause
+    Contract period             contract_start, contract_end (ISO)  the contract's first page, inside one pasal
+    Employee signature present  has_employee_signature              the contract's signature page, employee's block
+                                                                    only (attachments with an employee signature line
+                                                                    are signed exactly when the contract is)
     ENTITAS                     entitas (or null when the filename  the filename only: <name> - <period> - <ENTITAS>
                                 has none)                           (the company the employee works at, also the
                                                                     contract's Klien; the vendor is the outsourcing
@@ -19,7 +29,8 @@ with ground truth for what the contract OCR has to read:
 The NIK follows the KTP layout (province, regency, district, birth date with +40 on the day for women, serial),
 so it can be checked against the birth date and gender; meta.birth_date and meta.gender hold them when printed.
 Every document randomises layout, wording, fonts, date formats, distractors (HR name, birth date, signing date,
-HR signature, company stamp, paraf, meterai), signature style and form (digital PDF, scan, phone photo). Scans vary
+HR signature, company stamp, paraf, meterai, department row, attachments repeating the name, NIK and position),
+signature style and form (digital PDF, scan, phone photo). Scans vary
 in colour mode (colour, grey, 1-bit black and white), resolution and skew; phone photos in distance (paper share of
 the frame), perspective, rotation, desk clutter and focus (sideways photos are off; see p_photo_turned). Photos stay within
 what someone photographing a contract to upload would send: the paper filling most of the frame, at most 1.5
@@ -30,6 +41,9 @@ All personal data is fake (Faker id_ID); NIKs are random digits in the KTP layou
 Run it with the contract-ocr venv (from the contract-ocr folder):
     .venv/Scripts/python contract-pdf-generator/contract_generator.py
     .venv/Scripts/python contract-pdf-generator/contract_generator.py -n 200 --seed 7 --out D:/synthetic
+
+The first 800-contract set (output/, -n 800 --seed 2026) was made by the 2-page version of this script (git commit
+c1fb955); a run of this version with the same seed gives other contracts.
 
 Output folder (default: output/ next to this script; a previous run there is replaced):
     pdf/<name> - <period> - <ENTITAS>.pdf    (or "<name> <period> - <ENTITAS>.pdf", "<name> - <ENTITAS>.pdf" when
@@ -88,6 +102,18 @@ CONFIG = {
     # --- identity block ---
     "p_identity_grid": 0.15,   # identity rows in a ruled table; OCR reads the borders as `|` or `I` (`INo.KTP`)
     "p_nik_grouped": 0.10,     # NIK row printed in groups of four, "3171 0123 4567 8901"
+    "p_bagian_row": 0.20,      # a Bagian/Divisi (department) row beside the position, which is not the position
+
+    # --- pages ---
+    # Pages of the contract itself; the four real samples are 5 pages.
+    "contract_page_weights": {2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30, 6: 0.10},
+    "p_attachments": 0.50,     # attachment pages: statement, job description, pay details, ...
+    "attachment_count": {1: 0.50, 2: 0.35, 3: 0.15},
+    "p_front_page": 0.10,      # an offer letter or a document checklist
+    # Where those pages go. "between": after the contract's clause pages and before its signature page, so page 1 of
+    # the PDF is the identity page and the last page the signature page (owner, 2026-11-09: the reader assumes that
+    # for now). "around": the letter before the contract, the attachments after its signature page.
+    "extra_page_position": "between",
 
     # --- scans ---
     "scan_dpi": (150, 300),
@@ -366,13 +392,43 @@ def rupiah(n):
 
 fake = Faker("id_ID")
 
-ROLES = ["Frontliner", "Store Leader", "Admin QC Return", "Kasir", "Staff Gudang", "Customer Service",
-         "Sales Promotor", "Driver", "Admin Gudang", "Picker", "Packer", "Helper", "Staff Administrasi",
-         "Teknisi", "Operator Produksi", "Telemarketing", "Data Entry", "Kurir", "Admin Inbound",
-         "Staff Outbound", "Merchandiser", "Customer Care Agent", "Admin Payroll", "Checker"]
+ROLES = [
+    # store and retail
+    "Frontliner", "Store Leader", "Kasir", "Customer Service", "Sales Promotor", "Merchandiser", "Crew Store",
+    "Asisten Kepala Toko", "Kepala Toko", "Beauty Advisor", "Sales Counter", "Visual Merchandiser", "SPG",
+    "Store Crew - Kasir", "Promotor Elektronik", "Sales Associate",
+    # warehouse and logistics
+    "Staff Gudang", "Admin Gudang", "Picker", "Packer", "Helper", "Checker", "Admin Inbound", "Staff Outbound",
+    "Admin QC Return", "Operator Forklift", "Loader", "Sortir", "Inventory Control", "Admin Logistik", "Dispatcher",
+    "Supervisor Gudang", "Koordinator Lapangan", "Staff QC/Packing", "Admin Inbound & Outbound", "Kepala Regu Gudang",
+    "Stock Keeper", "Admin Ekspedisi",
+    # delivery
+    "Driver", "Kurir", "Kurir Motor", "Driver Box", "Pengemudi Truk", "Kenek",
+    # office and administration
+    "Staff Administrasi", "Data Entry", "Admin Payroll", "Admin HR", "Resepsionis", "Admin Finance",
+    "Staff Accounting", "Admin Pajak", "Staff Purchasing", "Admin Sales", "Admin Cabang", "Sekretaris", "Office Boy",
+    "Document Control", "Admin Marketplace", "Admin Operasional",
+    # customer care and sales
+    "Telemarketing", "Customer Care Agent", "Call Center Agent", "Customer Experience Officer", "Live Chat Agent",
+    "Sales Canvasser", "Sales Motoris", "Field Collector", "Surveyor", "Account Officer", "Sales Executive",
+    "Host Live Streaming", "Content Creator",
+    # production and technical
+    "Teknisi", "Operator Produksi", "Operator Mesin", "Teknisi AC", "Mekanik", "Quality Control", "IT Support",
+    "Teknisi Jaringan", "Maintenance Gedung",
+    # facility and food service
+    "Security", "Satpam", "Cleaning Service", "Housekeeping", "Petugas Parkir", "Barista", "Cook Helper", "Waiter",
+]
+DEPARTMENTS = ["Operasional", "Gudang", "Logistik", "Penjualan", "Layanan Pelanggan", "Administrasi", "Produksi",
+               "Keuangan", "Umum", "Distribusi", "Retail", "E-Commerce"]
+SUPERVISORS = ["Supervisor", "Store Manager", "Kepala Gudang", "Koordinator Lapangan", "Team Leader",
+               "Kepala Cabang", "Manajer Operasional"]
 HR_TITLES = ["HRD dan Hukum", "Senior Manager HRD", "HR Manager", "Manajer Personalia",
              "Kepala Divisi Human Capital", "Direktur", "Direktur Operasional", "HR & GA Manager",
-             "HR Business Partner"]
+             "HR Business Partner", "Direktur Utama", "General Manager", "HR Supervisor", "Kepala Bagian Personalia",
+             "Head of Human Resources", "Manajer Operasional"]
+EDUCATION = ["SMA", "SMK", "SMA/Sederajat", "D3", "S1", "D1"]
+RELIGION = ["Islam", "Kristen", "Katolik", "Hindu", "Buddha"]
+BANKS = ["BCA", "BRI", "BNI", "Mandiri", "CIMB Niaga", "BTN", "Permata"]
 TITLE_SUFFIX = ["S.Kom", "S.E.", "S.H.", "S.T.", "S.Pd.", "S.Sos.", "A.Md.", "S.I.Kom", "M.M.", "S.Ak."]
 MUSLIM_PREFIX = ["Muhammad", "Muhamad", "Mohammad", "Moch.", "Muh.", "M.", "Moh."]
 ABD_NAMES = ["Rahman", "Rahim", "Aziz", "Malik", "Karim", "Latif", "Gani", "Halim", "Hakim", "Wahab",
@@ -590,9 +646,15 @@ PARTY_LABELS = [
     {"co": "PERUSAHAAN", "emp": "TENAGA KERJA", "emp_title": "Tenaga Kerja"},
     {"co": "PENGUSAHA", "emp": "PEKERJA", "emp_title": "Pekerja"},
     {"co": "{short}", "emp": "TENAGA KERJA", "emp_title": "Tenaga Kerja"},
+    {"co": "PIHAK I", "emp": "PIHAK II", "emp_title": "Karyawan"},
+    {"co": "PEMBERI KERJA", "emp": "PENERIMA KERJA", "emp_title": "Penerima Kerja"},
+    {"co": "PERUSAHAAN", "emp": "PEKERJA", "emp_title": "Pekerja"},
 ]
 TITLES = ["PERJANJIAN KERJA WAKTU TERTENTU", "PERJANJIAN KERJA JANGKA WAKTU TERTENTU",
-          "PERJANJIAN KERJA WAKTU TERTENTU (PKWT)", "KONTRAK KERJA KARYAWAN", "SURAT PERJANJIAN KERJA"]
+          "PERJANJIAN KERJA WAKTU TERTENTU (PKWT)", "KONTRAK KERJA KARYAWAN", "SURAT PERJANJIAN KERJA",
+          "PERJANJIAN KERJA UNTUK WAKTU TERTENTU", "KESEPAKATAN KERJA WAKTU TERTENTU",
+          "SURAT PERJANJIAN KERJA WAKTU TERTENTU", "PERJANJIAN KERJA WAKTU TERTENTU TENAGA ALIH DAYA",
+          "PERJANJIAN KERJA KONTRAK"]
 
 
 def _client_suffix(d, text=" dan/atau Klien"):
@@ -620,8 +682,17 @@ def c_definisi(d, L, rng):
 
 def c_penempatan(d, L, rng):
     placed = f" yang ditempatkan pada {X(d['client'])}" if d["client"] else ""
-    return {"title": rng.choice(["PENEMPATAN", "JABATAN DAN PENEMPATAN", "LINGKUP PEKERJAAN"]), "items": [
-        f"{L['co']} mempekerjakan {L['emp']} sebagai <b>{X(d['role'])}</b>{placed}.",
+    role = f"<b>{X(d['role'])}</b>" if chance(rng, 0.7) else X(d["role"])
+    first = rng.choice([
+        f"{L['co']} mempekerjakan {L['emp']} sebagai {role}{placed}.",
+        f"{L['co']} menerima dan mempekerjakan {L['emp']} pada jabatan {role}{placed}, dan {L['emp']} menyatakan "
+        "bersedia menerima jabatan tersebut.",
+        f"{L['emp']} dipekerjakan oleh {L['co']} dengan posisi {role}{placed}.",
+        f"Dengan Perjanjian ini {L['co']} menempatkan {L['emp']} untuk bekerja sebagai {role}{placed}.",
+    ])
+    return {"title": rng.choice(["PENEMPATAN", "JABATAN DAN PENEMPATAN", "LINGKUP PEKERJAAN", "JABATAN",
+                                 "POSISI DAN LOKASI KERJA"]), "items": [
+        first,
         f"{L['emp']} bersedia ditempatkan maupun dipindahtugaskan ke bagian atau lokasi kerja lain sesuai "
         f"kebutuhan operasional {L['co']}{_client_suffix(d)}.",
         f"Selama Perjanjian ini berlangsung, {L['emp']} wajib mematuhi peraturan perusahaan, tata tertib, "
@@ -630,9 +701,16 @@ def c_penempatan(d, L, rng):
 
 
 def c_tugas(d, L, rng):
-    return {"title": rng.choice(["TUGAS DAN TANGGUNG JAWAB", f"KEWAJIBAN {L['emp']}"]), "items": [
+    first = rng.choice([
         f"{L['emp']} wajib melaksanakan tugas sebagai {X(d['role'])} dengan penuh tanggung jawab serta tugas "
         "lain yang diberikan oleh atasan.",
+        f"{L['emp']} bertanggung jawab penuh atas pelaksanaan pekerjaan sebagai {X(d['role'])} sesuai uraian tugas "
+        f"yang ditetapkan {L['co']}.",
+        f"Dalam jabatannya sebagai {X(d['role'])}, {L['emp']} wajib melaksanakan seluruh tugas yang diberikan "
+        "atasan dengan sebaik-baiknya.",
+    ])
+    return {"title": rng.choice(["TUGAS DAN TANGGUNG JAWAB", f"KEWAJIBAN {L['emp']}", "URAIAN PEKERJAAN"]), "items": [
+        first,
         f"{L['emp']} wajib mencurahkan waktu dan kemampuannya untuk kepentingan pekerjaan dan tidak menerima "
         f"pekerjaan lain yang bertentangan dengan kepentingan {L['co']} tanpa izin tertulis.",
         f"{L['emp']} wajib menjaga dan memelihara barang milik {L['co']}{_client_suffix(d, ' maupun Klien')} "
@@ -724,6 +802,26 @@ def c_period(d, L, rng, lay):
             f"Selambat-lambatnya 7 (tujuh) hari sebelum Perjanjian berakhir, {co} akan memberitahukan kepada "
             f"{emp} mengenai perpanjangan atau berakhirnya Perjanjian.",
         ]}
+    if pid == 6:
+        return {"title": rng.choice(["MASA KERJA", "JANGKA WAKTU"]), "items": [
+            f"Masa kerja {emp} berdasarkan Perjanjian ini terhitung sejak tanggal {s} dan berakhir pada tanggal {e}.",
+            f"Dengan berakhirnya masa kerja tersebut, hubungan kerja antara {co} dan {emp} berakhir demi hukum.",
+        ]}
+    if pid == 7:  # the dates as a list
+        return {"title": rng.choice(["JANGKA WAKTU PERJANJIAN", "MASA BERLAKU"]), "items": [
+            (f"Jangka waktu Perjanjian ini ditetapkan selama {n} bulan, dengan rincian sebagai berikut:", [
+                f"Tanggal mulai berlaku: {s};",
+                f"Tanggal berakhir: {e}.",
+            ]),
+            "Perjanjian ini tidak dapat diakhiri sebelum jangka waktunya kecuali karena hal-hal yang diatur dalam "
+            "Perjanjian ini.",
+        ]}
+    if pid == 8:
+        return {"title": "BERLAKUNYA PERJANJIAN", "items": [
+            f"Perjanjian ini mulai berlaku pada tanggal {s} dan dengan sendirinya berakhir pada tanggal {e}, kecuali "
+            "diakhiri lebih awal sesuai ketentuan Perjanjian ini.",
+            f"{co} tidak berkewajiban memperpanjang Perjanjian ini setelah tanggal berakhirnya.",
+        ]}
     return {"title": rng.choice(["PERIODE KERJA", "JANGKA WAKTU"]), "items": [
         f"Hubungan kerja berdasarkan Perjanjian ini berlangsung untuk periode {s} - {e}.",
         "Perpanjangan hubungan kerja hanya dapat dilakukan berdasarkan kesepakatan tertulis PARA PIHAK.",
@@ -789,11 +887,171 @@ def c_phk(d, L, rng):
 
 def c_penutup(d, L, rng):
     stamp = rng.choice([" bermeterai cukup", "", " di atas meterai"])
-    return {"title": "PENUTUP", "items": [
-        "PARA PIHAK menyatakan telah membaca, memahami, dan menyetujui seluruh isi Perjanjian ini.",
-        f"Perjanjian ini dibuat dalam rangkap 2 (dua){stamp}, masing-masing mempunyai kekuatan hukum yang sama, "
+    copies = rng.choice(["2 (dua)", "2 (dua)", "3 (tiga)"])
+    return {"title": rng.choice(["PENUTUP", "PENUTUP", "KETENTUAN PENUTUP"]), "items": [
+        rng.choice(["PARA PIHAK menyatakan telah membaca, memahami, dan menyetujui seluruh isi Perjanjian ini.",
+                    "PARA PIHAK menyatakan telah membaca dan memahami isi Perjanjian ini dan sepakat untuk "
+                    "melaksanakannya dengan itikad baik."]),
+        f"Perjanjian ini dibuat dalam rangkap {copies}{stamp}, masing-masing mempunyai kekuatan hukum yang sama, "
         "dan ditandatangani oleh PARA PIHAK dalam keadaan sadar tanpa paksaan dari pihak manapun.",
     ]}
+
+
+def c_cuti(d, L, rng):
+    return {"title": rng.choice(["CUTI DAN IZIN", "HAK CUTI", "ISTIRAHAT DAN CUTI"]), "items": [
+        f"{L['emp']} berhak atas cuti tahunan selama 12 (dua belas) hari kerja setelah bekerja 12 (dua belas) bulan "
+        "secara terus-menerus, yang pelaksanaannya diatur oleh atasan langsung.",
+        (f"{L['emp']} berhak atas izin dengan tetap mendapat upah dalam hal:", [
+            "menikah, selama 3 (tiga) hari;",
+            "menikahkan atau mengkhitankan anak, selama 2 (dua) hari;",
+            "istri melahirkan atau keguguran kandungan, selama 2 (dua) hari;",
+            "anggota keluarga dalam satu rumah meninggal dunia, selama 2 (dua) hari.",
+        ]),
+        "Permohonan cuti diajukan secara tertulis paling lambat 7 (tujuh) hari sebelumnya.",
+    ]}
+
+
+def c_jaminan_sosial(d, L, rng):
+    return {"title": rng.choice(["JAMINAN SOSIAL", "BPJS KETENAGAKERJAAN DAN KESEHATAN", "PERLINDUNGAN TENAGA KERJA"]),
+            "items": [
+        f"{L['co']} mengikutsertakan {L['emp']} dalam program BPJS Ketenagakerjaan yang meliputi Jaminan Kecelakaan "
+        "Kerja, Jaminan Kematian, Jaminan Hari Tua, dan Jaminan Pensiun.",
+        f"{L['co']} mendaftarkan {L['emp']} sebagai peserta BPJS Kesehatan sesuai ketentuan peraturan "
+        "perundang-undangan.",
+        f"Iuran yang menjadi bagian {L['emp']} dipotong langsung dari upah setiap bulan.",
+    ]}
+
+
+def c_tata_tertib(d, L, rng):
+    return {"title": rng.choice(["TATA TERTIB", "DISIPLIN KERJA", "KEWAJIBAN DAN LARANGAN"]), "items": [
+        (f"{L['emp']} wajib:", [
+            "hadir tepat waktu sesuai jadwal kerja;",
+            "mengenakan seragam dan tanda pengenal selama jam kerja;",
+            "menjaga kebersihan dan ketertiban di lingkungan kerja.",
+        ]),
+        (f"{L['emp']} dilarang:", [
+            "membawa atau mengonsumsi minuman keras dan narkotika di lingkungan kerja;",
+            "melakukan perjudian, perkelahian, atau tindakan asusila;",
+            "menyalahgunakan wewenang untuk kepentingan pribadi.",
+        ]),
+    ]}
+
+
+def c_sanksi(d, L, rng):
+    return {"title": rng.choice(["SANKSI", "SANKSI DAN PELANGGARAN", "SURAT PERINGATAN"]), "items": [
+        "Pelanggaran terhadap Perjanjian ini atau peraturan perusahaan dapat dikenakan sanksi berupa teguran lisan, "
+        "Surat Peringatan, hingga pemutusan hubungan kerja.",
+        "Masing-masing Surat Peringatan berlaku selama 6 (enam) bulan sejak diterbitkan.",
+        "Pelanggaran berat dapat mengakibatkan pemutusan hubungan kerja tanpa didahului Surat Peringatan.",
+    ]}
+
+
+def c_k3(d, L, rng):
+    return {"title": rng.choice(["KESELAMATAN DAN KESEHATAN KERJA", "K3"]), "items": [
+        f"{L['emp']} wajib mematuhi seluruh ketentuan keselamatan dan kesehatan kerja (K3) yang berlaku di lokasi "
+        "kerja.",
+        f"{L['emp']} wajib menggunakan alat pelindung diri yang disediakan {L['co']}{_client_suffix(d, ' atau Klien')}.",
+        "Setiap kecelakaan kerja wajib segera dilaporkan kepada atasan langsung.",
+    ]}
+
+
+def c_fasilitas(d, L, rng):
+    return {"title": rng.choice(["FASILITAS", "FASILITAS KERJA"]), "items": [
+        f"{L['co']} menyediakan seragam kerja dan perlengkapan yang diperlukan untuk menunjang pekerjaan {L['emp']}.",
+        f"Fasilitas yang diberikan tetap menjadi milik {L['co']} dan wajib dikembalikan pada saat Perjanjian ini "
+        "berakhir.",
+    ]}
+
+
+def c_pelatihan(d, L, rng):
+    return {"title": rng.choice(["PELATIHAN", "PENGEMBANGAN DAN PELATIHAN"]), "items": [
+        f"{L['co']} dapat mengikutsertakan {L['emp']} dalam pelatihan yang berkaitan dengan pekerjaannya.",
+        f"{L['emp']} wajib mengikuti pelatihan yang ditetapkan dengan sungguh-sungguh.",
+    ]}
+
+
+def c_hki(d, L, rng):
+    return {"title": rng.choice(["HAK KEKAYAAN INTELEKTUAL", "HASIL KERJA"]), "items": [
+        f"Seluruh hasil pekerjaan yang dibuat {L['emp']} selama masa kerja menjadi milik {L['co']}{_client_suffix(d)}.",
+        f"{L['emp']} tidak diperkenankan menggunakan hasil pekerjaan tersebut untuk kepentingan pribadi atau pihak lain.",
+    ]}
+
+
+def c_konflik(d, L, rng):
+    return {"title": "BENTURAN KEPENTINGAN", "numbered": False, "items": [
+        f"Selama Perjanjian ini berlangsung, {L['emp']} tidak diperkenankan bekerja pada perusahaan lain yang bergerak "
+        "di bidang usaha yang sama atau melakukan kegiatan yang menimbulkan benturan kepentingan dengan "
+        f"{L['co']}{_client_suffix(d)}.",
+    ]}
+
+
+def c_pengembalian(d, L, rng):
+    return {"title": rng.choice(["PENGEMBALIAN BARANG", "SERAH TERIMA BARANG"]), "items": [
+        f"Pada saat Perjanjian ini berakhir, {L['emp']} wajib mengembalikan seluruh barang, dokumen, dan peralatan "
+        f"milik {L['co']}{_client_suffix(d, ' maupun Klien')}.",
+        f"Kerugian akibat barang yang hilang atau rusak karena kelalaian {L['emp']} menjadi tanggung jawab {L['emp']}.",
+    ]}
+
+
+def c_kompensasi(d, L, rng):
+    return {"title": rng.choice(["UANG KOMPENSASI", "KOMPENSASI BERAKHIRNYA PKWT"]), "items": [
+        f"Pada saat berakhirnya Perjanjian ini, {L['co']} memberikan uang kompensasi kepada {L['emp']} sesuai "
+        "Peraturan Pemerintah Nomor 35 Tahun 2021.",
+        "Besarnya uang kompensasi dihitung secara proporsional sesuai masa kerja dan upah terakhir.",
+    ]}
+
+
+def c_mutasi(d, L, rng):
+    return {"title": rng.choice(["MUTASI", "PEMINDAHAN TUGAS"]), "items": [
+        f"{L['co']} berhak memindahkan {L['emp']} ke lokasi atau bagian lain sesuai kebutuhan operasional.",
+        "Pemindahan tugas sebagaimana dimaksud pada ayat (1) tidak mengubah jangka waktu Perjanjian ini.",
+    ]}
+
+
+def c_pemberitahuan(d, L, rng):
+    return {"title": rng.choice(["PEMBERITAHUAN", "KORESPONDENSI"]), "items": [
+        "Setiap pemberitahuan berdasarkan Perjanjian ini dibuat secara tertulis dan dikirimkan ke alamat masing-masing "
+        "pihak sebagaimana tercantum pada bagian awal Perjanjian ini.",
+        "Perubahan alamat wajib diberitahukan secara tertulis kepada pihak lainnya.",
+    ]}
+
+
+def c_kehadiran(d, L, rng):
+    return {"title": rng.choice(["KEHADIRAN", "ABSENSI"]), "items": [
+        f"{L['emp']} wajib mencatat kehadiran melalui sistem absensi yang ditetapkan {L['co']}{_client_suffix(d)}.",
+        "Ketidakhadiran tanpa keterangan yang sah tidak dibayar dan dapat dikenakan sanksi.",
+        "Keterlambatan lebih dari 3 (tiga) kali dalam 1 (satu) bulan dapat dikenakan Surat Peringatan.",
+    ]}
+
+
+def c_data_pribadi(d, L, rng):
+    return {"title": rng.choice(["PERLINDUNGAN DATA PRIBADI", "DATA PRIBADI"]), "items": [
+        f"{L['emp']} memberikan persetujuan kepada {L['co']} untuk memproses data pribadinya untuk keperluan "
+        "administrasi kepegawaian.",
+        f"{L['co']} menjaga kerahasiaan data pribadi {L['emp']} sesuai peraturan perundang-undangan yang berlaku.",
+    ]}
+
+
+def c_perubahan(d, L, rng):
+    return {"title": rng.choice(["PERUBAHAN PERJANJIAN", "AMANDEMEN"]), "numbered": False, "items": [
+        "Setiap perubahan atas Perjanjian ini hanya sah apabila dibuat secara tertulis dan ditandatangani oleh PARA "
+        "PIHAK.",
+    ]}
+
+
+def c_kesehatan(d, L, rng):
+    return {"title": rng.choice(["PEMERIKSAAN KESEHATAN", "KESEHATAN KARYAWAN"]), "items": [
+        f"{L['emp']} bersedia menjalani pemeriksaan kesehatan yang diselenggarakan {L['co']} sewaktu-waktu.",
+        f"Apabila hasil pemeriksaan menyatakan {L['emp']} tidak layak bekerja, {L['co']} berhak meninjau kembali "
+        f"penempatan {L['emp']}.",
+    ]}
+
+
+# Clauses for the pages between the first and the signature page; with p1's leftovers and p2's closing clauses there
+# are enough for a 6-page contract at the smallest font.
+MID_CLAUSES = [c_cuti, c_jaminan_sosial, c_tata_tertib, c_sanksi, c_k3, c_fasilitas, c_pelatihan, c_hki, c_konflik,
+               c_pengembalian, c_kompensasi, c_mutasi, c_pemberitahuan, c_kehadiran, c_data_pribadi, c_perubahan,
+               c_kesehatan]
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -1196,7 +1454,7 @@ def sample_layout(rng, d):
         "identity_bold_name": chance(rng, 0.6),
         "date_style": wchoice(rng, CONFIG["body_date_style_weights"]),
         "bold_dates": chance(rng, 0.5),
-        "period_phrase": rng.randrange(6),
+        "period_phrase": rng.randrange(9),
         "period_index": rng.choice([0, 1, 2]),
     }
 
@@ -1216,7 +1474,7 @@ def employee_rows(rng, d, lay, shown, role_row):
         shown["birth_date"] = True
     # Real contracts always print the employee's NIK, like the position (owner, 2026-11-03)
     shown["nik_label"] = rng.choice(["NIK", "NIK", "No. KTP", "Nomor KTP", "No. Induk Kependudukan", "NIK/No. KTP",
-                                     "No. KTP/NIK"])
+                                     "No. KTP/NIK", "Nomor Induk Kependudukan", "NIK KTP"])
     shown["nik_grouped"] = chance(rng, CONFIG["p_nik_grouped"])
     nik = " ".join(d["nik"][i:i + 4] for i in range(0, 16, 4)) if shown["nik_grouped"] else d["nik"]
     others.append((shown["nik_label"], nik))
@@ -1228,11 +1486,19 @@ def employee_rows(rng, d, lay, shown, role_row):
                        X(d["address"])))
     if chance(rng, 0.4):
         others.append((rng.choice(["Telepon", "No. HP", "No. Telepon"]), d["phone"]))
+    if chance(rng, 0.15):
+        others.append(("Pendidikan Terakhir", rng.choice(EDUCATION)))
+    if chance(rng, 0.15):
+        others.append((rng.choice(["Status", "Status Perkawinan"]), rng.choice(["Belum Menikah", "Menikah", "Kawin"])))
     if role_row or chance(rng, 0.25):
-        others.append((rng.choice(["Jabatan", "Posisi"]), X(d["role"])))
+        others.append((rng.choice(["Jabatan", "Posisi", "Jabatan", "Jabatan/Posisi", "Posisi Kerja"]), X(d["role"])))
+        if chance(rng, CONFIG["p_bagian_row"]):  # the department, not the position
+            others.insert(len(others) - rng.randint(0, 1),
+                          (rng.choice(["Bagian", "Divisi", "Departemen"]), rng.choice(DEPARTMENTS)))
     if chance(rng, 0.3):
         rng.shuffle(others)
-    rows = [(rng.choice(["Nama", "Nama", "Nama Lengkap", "Nama Karyawan", "Nama Pekerja"]), name)] + others
+    rows = [(rng.choice(["Nama", "Nama", "Nama Lengkap", "Nama Karyawan", "Nama Pekerja", "Nama Tenaga Kerja"]),
+             name)] + others
     if chance(rng, 0.1):  # name is not the first row
         rows.insert(0, (rng.choice(["No. Karyawan", "NIP", "ID Karyawan"]), f"{rng.randint(10000, 999999)}"))
     return rows
@@ -1273,11 +1539,13 @@ def plan_page1(rng, d, lay):
         ]
     elif lay["opening"] == "hari_tanggal":
         mand += [
-            {"kind": "para", "text":
+            {"kind": "para", "text": rng.choice([
+                f"Pada hari ini <b>{HARI[sign.weekday()]}</b> tanggal <b>{fmt_date(sign, 'd_month_id')}</b>, "
+                f"bertempat di {X(d['sign_city'])}, kami yang bertanda tangan di bawah ini:",
                 f"Perjanjian Kerja Waktu Tertentu ini (selanjutnya disebut \"PERJANJIAN\") dibuat dan ditandatangani "
                 f"di <b>{X(d['sign_city'])}</b> pada hari <b>{HARI[sign.weekday()]}</b>, tanggal <b>{day_w}</b>, "
                 f"bulan <b>{BULAN[sign.month - 1]}</b>, tahun <b>{year_w}</b> ({fmt_date(sign, 'dd-mm-yyyy')}) "
-                "oleh dan antara:"},
+                "oleh dan antara:"])},
             kv([("Nama", f"<b>{X(d['hr_name'])}</b>"),
                 ("Jabatan", X(d["hr_title"]) + (f" {X(d['company'])}" if chance(rng, 0.5) else "")),
                 (rng.choice(["Alamat", "Alamat kedudukan / kantor"]), X(d["company_address"]))]),
@@ -1438,7 +1706,7 @@ def draw_footer(c, lay, d, page_no, w):
     if not lay["footer"]:
         return
     n = lay["total_pages"]
-    pg = 1 if page_no == 1 else n
+    pg = page_no
     mx, y = lay["margin_x"], lay["margin_bottom"] * 0.45
     fsz = max(6.5, w.fs - 2.5)
     c.setFont(w.reg, fsz)
@@ -1569,13 +1837,423 @@ def draw_signature_block(c, rng, w, d, lay, sig, sl, y_top):
     return name_y - lead - w.fs * 0.3  # bottom of the block
 
 
-def render_contract(rng, d, lay, sig):
-    """Draw the 2-page digital PDF. Returns (pdf bytes, layout info)."""
+def header_top(lay, page_no):
+    """Where the content starts below the header on a page, as draw_header returns it, without drawing."""
+    y = PAGE_H - lay["margin_top"]
+    if lay["header"] == "letterhead" and (page_no == 1 or lay["letterhead_all"]):
+        y -= lay["logo_size"] + 0.7 * cm
+    elif lay["header"] == "logo_right" and page_no == 1:
+        y -= lay["logo_size"] * 0.8 + 0.2 * cm
+    return y
+
+
+# --------------------------------------------------------------------------------------------------------------
+# Pages bundled with the contract: attachments and a letter, placed by CONFIG["extra_page_position"].
+# Each builder returns (blocks, spec); spec["sign"] is who signs the page: "employee", "company", "both" or "none".
+# An employee signature line is signed exactly when the contract is, so has_employee_signature stays one answer.
+# --------------------------------------------------------------------------------------------------------------
+
+
+ATTACHMENT_KINDS = ["pernyataan", "uraian_tugas", "rincian_upah", "tata_tertib", "tanda_terima", "kerahasiaan",
+                    "data_karyawan", "surat_kuasa"]
+FRONT_KINDS = ["surat_penawaran", "checklist"]
+STATEMENTS = [
+    "bersedia mematuhi seluruh peraturan perusahaan dan tata tertib yang berlaku di lokasi penempatan;",
+    "bersedia ditempatkan di lokasi kerja mana pun sesuai kebutuhan perusahaan;",
+    "tidak akan menuntut diangkat menjadi karyawan tetap setelah Perjanjian Kerja Waktu Tertentu berakhir;",
+    "menyatakan bahwa seluruh data dan dokumen yang saya serahkan adalah benar;",
+    "tidak sedang terikat hubungan kerja dengan perusahaan lain;",
+    "bersedia menerima sanksi sesuai peraturan apabila melanggar ketentuan yang berlaku;",
+    "bersedia menjaga kerahasiaan data dan informasi perusahaan maupun klien;",
+]
+DUTIES = [
+    "Melaksanakan pekerjaan sesuai standar operasional prosedur yang berlaku;",
+    "Menyusun laporan harian dan menyerahkannya kepada atasan langsung;",
+    "Menjaga kebersihan dan kerapian area kerja;",
+    "Memastikan data dan dokumen yang dikelola akurat dan lengkap;",
+    "Berkoordinasi dengan tim dan bagian terkait untuk kelancaran operasional;",
+    "Melayani pelanggan dengan ramah dan profesional;",
+    "Melaporkan kendala atau kerusakan peralatan kepada atasan;",
+    "Mencapai target kerja yang ditetapkan setiap bulan;",
+    "Mengikuti briefing dan evaluasi kerja secara berkala;",
+    "Menjalankan tugas lain yang diberikan atasan sesuai kebutuhan.",
+]
+RULES = [
+    "Karyawan wajib hadir 15 (lima belas) menit sebelum jam kerja dimulai.",
+    "Karyawan wajib mengenakan seragam lengkap dan kartu identitas selama jam kerja.",
+    "Karyawan dilarang menggunakan telepon genggam untuk kepentingan pribadi selama jam kerja.",
+    "Karyawan dilarang merokok di area kerja kecuali di tempat yang telah disediakan.",
+    "Karyawan wajib menjaga barang milik perusahaan dan klien yang menjadi tanggung jawabnya.",
+    "Karyawan dilarang menerima pemberian dalam bentuk apa pun dari pelanggan atau pemasok.",
+    "Karyawan wajib melapor kepada atasan apabila berhalangan hadir.",
+    "Karyawan dilarang meninggalkan lokasi kerja tanpa izin atasan.",
+    "Karyawan wajib bersikap sopan kepada rekan kerja, atasan, dan pelanggan.",
+    "Karyawan dilarang membawa senjata tajam, minuman keras, atau narkotika ke lokasi kerja.",
+    "Karyawan wajib mengikuti pemeriksaan barang bawaan saat keluar dari lokasi kerja.",
+    "Pelanggaran tata tertib dikenakan sanksi sesuai peraturan perusahaan.",
+]
+DOCUMENTS = ["Fotokopi KTP", "Fotokopi Kartu Keluarga", "Fotokopi NPWP", "Fotokopi Ijazah Terakhir", "Pas Foto 3x4",
+             "Surat Keterangan Catatan Kepolisian (SKCK)", "Surat Keterangan Sehat", "Fotokopi Buku Rekening",
+             "Daftar Riwayat Hidup", "Kartu BPJS Kesehatan"]
+
+
+def sample_pages(rng):
+    """How many pages the contract has, and which pages come before and after it in the PDF."""
+    front = [rng.choice(FRONT_KINDS)] if chance(rng, CONFIG["p_front_page"]) else []
+    after = []
+    if chance(rng, CONFIG["p_attachments"]):
+        after = rng.sample(ATTACHMENT_KINDS, wchoice(rng, CONFIG["attachment_count"]))
+    return {"contract": wchoice(rng, CONFIG["contract_page_weights"]), "front": front, "after": after}
+
+
+def _kv(rng, rows, grid=False):
+    return {"kind": "kv", "rows": rows, "indent": rng.uniform(0, 1.0), "grid": grid}
+
+
+def _numbered(texts):
+    return [{"kind": "numbered_para", "bullet": f"{i}.", "text": t} for i, t in enumerate(texts, 1)]
+
+
+def _place_date(rng, d, when=None, align=None):
+    style = rng.choice(["d_month_id", "dd_month_id", "dd-mm-yyyy"])
+    return {"kind": "place_date", "align": align or rng.choice(["left", "right"]),
+            "text": f"{X(d['sign_city'])}, {fmt_date(when or d['sign_date'], style)}"}
+
+
+def _lampiran_head(rng, d, no):
+    """`LAMPIRAN I`, and often the contract it belongs to, above an attachment's title."""
+    if not no:
+        return []
+    head = [{"kind": "center", "text": f"<b>LAMPIRAN {ROMAN[no - 1]}</b>"}]
+    if chance(rng, 0.6):
+        head.append({"kind": "center", "text": f"Perjanjian Kerja Waktu Tertentu Nomor: {X(d['contract_no'])}"})
+    return head + [{"kind": "gap", "h": 0.6}]
+
+
+def x_pernyataan(rng, d, lay, no):
+    rows = [("Nama", X(d["employee_name"])), (rng.choice(["NIK", "No. KTP"]), d["nik"])]
+    if chance(rng, 0.5):
+        rows.append(("Tempat/Tgl. Lahir", f"{X(d['birth_place'])}, {fmt_date(d['birth_date'], 'dd-mm-yyyy')}"))
+    rows += [(rng.choice(["Jabatan", "Posisi"]), X(d["role"])), ("Alamat", X(d["address"]))]
+    blocks = [
+        {"kind": "title", "text": rng.choice(["SURAT PERNYATAAN", "SURAT PERNYATAAN KARYAWAN",
+                                              "SURAT PERNYATAAN KESANGGUPAN"])},
+        {"kind": "gap", "h": 1.0},
+        {"kind": "para", "text": "Yang bertanda tangan di bawah ini:"},
+        _kv(rng, rows),
+        {"kind": "para", "text": "Dengan ini menyatakan dengan sesungguhnya bahwa saya:"},
+        *_numbered(rng.sample(STATEMENTS, rng.randint(3, 5))),
+        {"kind": "para", "text": "Demikian surat pernyataan ini saya buat dengan sebenar-benarnya dalam keadaan sadar "
+                                 "dan tanpa paksaan dari pihak mana pun."},
+        _place_date(rng, d, align="right"),
+    ]
+    return blocks, {"sign": "employee", "meterai": True,
+                    "header": [rng.choice(["Yang membuat pernyataan,", "Yang menyatakan,", "Hormat saya,"])]}
+
+
+def x_uraian_tugas(rng, d, lay, no):
+    rows = [("Jabatan", X(d["role"])), ("Penempatan", X(d["client"] or d["sign_city"])),
+            ("Atasan Langsung", rng.choice(SUPERVISORS))]
+    if chance(rng, 0.5):
+        rows.insert(0, ("Nama Karyawan", X(d["employee_name"])))
+    blocks = _lampiran_head(rng, d, no) + [
+        {"kind": "title", "text": rng.choice(["URAIAN TUGAS", "URAIAN TUGAS (JOB DESCRIPTION)", "DESKRIPSI PEKERJAAN"])},
+        {"kind": "gap", "h": 0.8},
+        _kv(rng, rows),
+        {"kind": "para", "text": "Tugas dan tanggung jawab:"},
+        *_numbered(rng.sample(DUTIES, rng.randint(5, 8))),
+    ]
+    if chance(rng, 0.5):
+        return blocks, {"sign": "both", "co_hdr": ["Disetujui oleh,", d["company"]],
+                        "emp_hdr": [rng.choice(["Karyawan,", "Diterima oleh,"])]}
+    return blocks, {"sign": "none"}
+
+
+def x_rincian_upah(rng, d, lay, no):
+    transport = rng.randrange(200_000, 800_000, 50_000)
+    meal = rng.randrange(300_000, 900_000, 50_000)
+    extra = rng.choice([("Tunjangan Jabatan", rng.randrange(250_000, 1_000_000, 50_000)),
+                        ("Tunjangan Komunikasi", rng.randrange(100_000, 300_000, 25_000)), None])
+    rows = [("Gaji Pokok", d["salary"]), ("Tunjangan Transport", transport), ("Tunjangan Makan", meal)]
+    rows += [extra] if extra else []
+    rows.append(("Total", sum(v for _, v in rows)))
+    blocks = _lampiran_head(rng, d, no) + [
+        {"kind": "title", "text": rng.choice(["RINCIAN UPAH DAN TUNJANGAN", "RINCIAN KOMPENSASI", "STRUKTUR UPAH"])},
+        {"kind": "gap", "h": 0.8},
+        {"kind": "para", "text": f"Rincian upah dan tunjangan untuk jabatan {X(d['role'])} adalah sebagai berikut:"},
+        _kv(rng, [(k, f"Rp {rupiah(v)},-") for k, v in rows], grid=chance(rng, 0.4)),
+        *_numbered([
+            "Upah dibayarkan setiap bulan melalui transfer ke rekening atas nama karyawan.",
+            "Upah dipotong iuran BPJS Ketenagakerjaan, BPJS Kesehatan, dan PPh Pasal 21 sesuai ketentuan.",
+            "Upah lembur dihitung sesuai peraturan perundang-undangan yang berlaku.",
+        ]),
+    ]
+    if chance(rng, 0.4):
+        return blocks, {"sign": "both"}
+    return blocks, {"sign": "none"}
+
+
+def x_tata_tertib(rng, d, lay, no):
+    blocks = _lampiran_head(rng, d, no) + [
+        {"kind": "title", "text": rng.choice(["TATA TERTIB KARYAWAN", "PERATURAN DAN TATA TERTIB KERJA",
+                                              "TATA TERTIB DI LOKASI KERJA"])},
+        {"kind": "gap", "h": 0.8},
+        *_numbered(rng.sample(RULES, rng.randint(7, 11))),
+    ]
+    if chance(rng, 0.4):
+        return blocks, {"sign": "employee", "header": ["Telah dibaca dan dipahami,"]}
+    return blocks, {"sign": "none"}
+
+
+def x_tanda_terima(rng, d, lay, no):
+    blocks = [
+        {"kind": "title", "text": rng.choice(["TANDA TERIMA", "TANDA TERIMA DOKUMEN"])},
+        {"kind": "gap", "h": 1.0},
+        {"kind": "para", "text": "Telah diterima dengan baik oleh:"},
+        _kv(rng, [("Nama", X(d["employee_name"])), ("Jabatan", X(d["role"]))]),
+        {"kind": "para", "text": "berupa 1 (satu) rangkap asli Perjanjian Kerja Waktu Tertentu Nomor "
+                                 f"{X(d['contract_no'])} beserta seluruh lampirannya."},
+        _place_date(rng, d),
+    ]
+    if chance(rng, 0.5):
+        return blocks, {"sign": "both", "co_hdr": ["Yang menyerahkan,", d["company"]], "emp_hdr": ["Yang menerima,"]}
+    return blocks, {"sign": "employee", "header": ["Yang menerima,"]}
+
+
+def x_kerahasiaan(rng, d, lay, no):
+    name = X(d["employee_name"])
+    name = f"<b>{name}</b>" if chance(rng, 0.5) else name
+    blocks = [
+        {"kind": "title", "text": rng.choice(["PERNYATAAN MENJAGA KERAHASIAAN", "PAKTA INTEGRITAS",
+                                              "PERJANJIAN KERAHASIAAN"])},
+        {"kind": "gap", "h": 1.0},
+        {"kind": "para", "text": f"Saya yang bertanda tangan di bawah ini, {name}, selaku {X(d['role'])} pada "
+                                 f"{X(d['company'])}, dengan ini menyatakan:"},
+        *_numbered([
+            "tidak akan memberikan informasi, data, atau dokumen perusahaan dan klien kepada pihak mana pun;",
+            "tidak akan menggunakan informasi rahasia untuk kepentingan pribadi;",
+            "akan mengembalikan seluruh dokumen dan data pada saat hubungan kerja berakhir;",
+            "akan tetap menjaga kerahasiaan tersebut meskipun hubungan kerja telah berakhir.",
+        ]),
+        {"kind": "para", "text": "Apabila saya melanggar pernyataan ini, saya bersedia dikenakan sanksi sesuai "
+                                 "peraturan yang berlaku."},
+        _place_date(rng, d, align="right"),
+    ]
+    if chance(rng, 0.3):
+        return blocks, {"sign": "both"}
+    return blocks, {"sign": "employee", "header": [rng.choice(["Yang menyatakan,", "Hormat saya,"])]}
+
+
+def x_data_karyawan(rng, d, lay, no):
+    contact_gender = rng.choice("LP")
+    contact = " ".join(person_name_parts(rng, contact_gender)[:2])
+    phone = lambda: rng.choice(PHONE_PREFIX) + "".join(str(rng.randint(0, 9)) for _ in range(rng.randint(6, 8)))  # noqa: E731
+    first = re.sub(r"[^a-z]", "", d["employee_name"].split()[0].lower()) or "karyawan"
+    rows = [
+        ("Nama Lengkap", X(d["employee_name"])), ("NIK", d["nik"]),
+        ("Tempat/Tgl. Lahir", f"{X(d['birth_place'])}, {fmt_date(d['birth_date'], 'dd-mm-yyyy')}"),
+        ("Jenis Kelamin", "Laki-laki" if d["gender"] == "L" else "Perempuan"),
+        ("Agama", rng.choice(RELIGION)), ("Status Perkawinan", rng.choice(["Belum Menikah", "Menikah"])),
+        ("Alamat", X(d["address"])), ("No. HP", d["phone"]),
+        ("Email", f"{first}{rng.randint(1, 999)}@{rng.choice(['gmail.com', 'yahoo.co.id', 'outlook.com'])}"),
+        ("Pendidikan Terakhir", rng.choice(EDUCATION)), ("Jabatan", X(d["role"])),
+        ("Nama Bank", rng.choice(BANKS)), ("No. Rekening", "".join(str(rng.randint(0, 9)) for _ in range(rng.randint(10, 13)))),
+        ("Kontak Darurat", f"{X(contact)} ({rng.choice(['Orang Tua', 'Saudara', 'Suami', 'Istri'])})"),
+        ("No. HP Kontak Darurat", phone()),
+    ]
+    blocks = [
+        {"kind": "title", "text": rng.choice(["FORMULIR DATA KARYAWAN", "BIODATA KARYAWAN", "DATA PRIBADI KARYAWAN"])},
+        {"kind": "gap", "h": 1.0},
+        _kv(rng, rows, grid=chance(rng, 0.3)),
+        {"kind": "para", "text": "Data di atas saya isi dengan sebenar-benarnya dan dapat dipertanggungjawabkan."},
+        _place_date(rng, d, align="right"),
+    ]
+    return blocks, {"sign": "employee", "header": [rng.choice(["Karyawan,", "Yang mengisi,", "Hormat saya,"])]}
+
+
+def x_surat_kuasa(rng, d, lay, no):
+    blocks = [
+        {"kind": "title", "text": rng.choice(["SURAT KUASA PEMOTONGAN UPAH", "SURAT PERSETUJUAN PEMOTONGAN UPAH"])},
+        {"kind": "gap", "h": 1.0},
+        {"kind": "para", "text": "Yang bertanda tangan di bawah ini:"},
+        _kv(rng, [("Nama", X(d["employee_name"])), ("NIK", d["nik"]), ("Jabatan", X(d["role"]))]),
+        {"kind": "para", "text": f"Dengan ini memberikan kuasa kepada {X(d['company'])} untuk memotong upah saya setiap "
+                                 "bulan guna pembayaran:"},
+        *_numbered(rng.sample(["iuran BPJS Ketenagakerjaan;", "iuran BPJS Kesehatan;",
+                               "Pajak Penghasilan (PPh) Pasal 21;", "pinjaman koperasi karyawan;",
+                               "biaya seragam kerja."], rng.randint(2, 4))),
+        {"kind": "para", "text": "Surat kuasa ini berlaku selama saya terikat hubungan kerja dan tidak dapat ditarik "
+                                 "kembali tanpa persetujuan perusahaan."},
+        _place_date(rng, d, align="right"),
+    ]
+    return blocks, {"sign": "employee", "meterai": True, "header": ["Pemberi Kuasa,"]}
+
+
+def x_surat_penawaran(rng, d, lay, no):
+    """An offer letter before the contract: name, position, start date and duration, signed by the company."""
+    when = d["sign_date"] - dt.timedelta(days=rng.randint(3, 14))
+    placed = f" yang ditempatkan di {X(d['client'])}" if d["client"] else ""
+    style = rng.choice(["d_month_id", "dd_month_id", "dd-mm-yyyy"])
+    gender = "Sdr." if d["gender"] == "L" else rng.choice(["Sdri.", "Sdr/i."])
+    blocks = [
+        _place_date(rng, d, when=when, align="right"),
+        {"kind": "para", "text": f"Nomor : {rng.randint(1, 999):03d}/HRD/OL/{ROMAN[when.month - 1]}/{when.year}<br/>"
+                                 f"Perihal : {rng.choice(['Penawaran Kerja', 'Surat Penawaran Kerja', 'Offering Letter'])}"},
+        {"kind": "para", "text": f"Kepada Yth.<br/>{gender} {X(d['employee_name'])}<br/>di Tempat"},
+        {"kind": "para", "text": "Dengan hormat,"},
+        {"kind": "para", "text": f"Berdasarkan hasil seleksi yang telah Saudara/i ikuti, dengan ini {X(d['company'])} "
+                                 f"menawarkan posisi <b>{X(d['role'])}</b>{placed} dengan ketentuan sebagai berikut:"},
+        _kv(rng, [("Status", "Karyawan Kontrak (PKWT)"),
+                  ("Masa Kontrak", f"{d['months']} ({terbilang(d['months'])}) bulan"),
+                  ("Mulai Bekerja", fmt_date(d["start"], style)),
+                  ("Gaji Pokok", f"Rp {rupiah(d['salary'])},- per bulan")]),
+        {"kind": "para", "text": "Apabila Saudara/i menyetujui penawaran ini, mohon menandatangani Perjanjian Kerja "
+                                 "Waktu Tertentu yang terlampir."},
+        {"kind": "para", "text": "Atas perhatian dan kerja samanya kami ucapkan terima kasih."},
+    ]
+    return blocks, {"sign": "company", "letter": True, "header": ["Hormat kami,", d["company"]]}
+
+
+def x_checklist(rng, d, lay, no):
+    docs = rng.sample(DOCUMENTS, rng.randint(6, 9))
+    blocks = [
+        {"kind": "title", "text": rng.choice(["CHECKLIST KELENGKAPAN DOKUMEN", "DAFTAR KELENGKAPAN BERKAS KARYAWAN"])},
+        {"kind": "gap", "h": 1.0},
+        _kv(rng, [("Nama", X(d["employee_name"])), ("Jabatan", X(d["role"])),
+                  ("Penempatan", X(d["client"] or d["sign_city"]))]),
+        {"kind": "para", "text": "Dokumen yang diserahkan:"},
+        _kv(rng, [(doc, rng.choice(["Ada", "Ada", "Ada", "Belum"])) for doc in docs], grid=True),
+        {"kind": "para", "text": f"Diperiksa oleh bagian HRD {X(d['company'])}."},
+    ]
+    return blocks, {"sign": "none"}
+
+
+EXTRA_BUILDERS = {"pernyataan": x_pernyataan, "uraian_tugas": x_uraian_tugas, "rincian_upah": x_rincian_upah,
+                  "tata_tertib": x_tata_tertib, "tanda_terima": x_tanda_terima, "kerahasiaan": x_kerahasiaan,
+                  "data_karyawan": x_data_karyawan, "surat_kuasa": x_surat_kuasa,
+                  "surat_penawaran": x_surat_penawaran, "checklist": x_checklist}
+
+
+def plan_single_signature(rng, side, header):
+    return {"side": side, "header": header, "right": chance(rng, 0.7 if side == "emp" else 0.3),
+            "area_h": rng.uniform(2.0, 2.8) * cm, "name_bold": chance(rng, 0.6),
+            "name_underline": chance(rng, 0.5), "name_paren": chance(rng, 0.12)}
+
+
+def single_signature_height(w, ss):
+    lead = w.fs * 1.3
+    return len(ss["header"]) * lead + ss["area_h"] + w.fs * 1.2 + (lead if ss["side"] == "co" else 0) + w.fs
+
+
+def draw_single_signature(c, rng, w, d, lay, sig, ss, y_top, meterai=False):
+    """One signature column (the employee's or the company's) in the left or right half of the page."""
+    mx = lay["margin_x"]
+    colw = (PAGE_W - 2 * mx) / 2
+    cx = (mx + colw if ss["right"] else mx) + colw / 2
+    lead = w.fs * 1.3
+    for i, line in enumerate(ss["header"]):
+        c.setFont(w.reg, fit_font(line, w.reg, w.fs, colw - 4))
+        c.drawCentredString(cx, y_top - (i + 1) * lead + (lead - w.fs), line)
+    area_top = y_top - len(ss["header"]) * lead
+    name_y = area_top - ss["area_h"]
+    area_bottom = name_y + w.fs * 0.9
+    emp = ss["side"] == "emp"
+    name = d["employee_name"] if emp else d["hr_name"]
+    s = f"( {name} )" if ss["name_paren"] else name
+    font = w.bold if ss["name_bold"] else w.reg
+    size = fit_font(s, font, w.fs, colw - 4)
+    c.setFont(font, size)
+    c.drawCentredString(cx, name_y, s)
+    if ss["name_underline"]:
+        sw = pdfmetrics.stringWidth(s, font, size)
+        c.setLineWidth(0.6)
+        c.line(cx - sw / 2, name_y - 2, cx + sw / 2, name_y - 2)
+    if not emp:
+        c.setFont(w.reg, fit_font(d["hr_title"], w.reg, w.fs, colw - 4))
+        c.drawCentredString(cx, name_y - lead, d["hr_title"])
+
+    def place(img, width_cm):
+        iw = width_cm * cm
+        ih = iw * img.height / img.width
+        max_h = (area_top - area_bottom) * 1.15
+        if ih > max_h:
+            ih, iw = max_h, max_h * img.width / img.height
+        x = cx + rng.uniform(-0.6, 0.6) * cm - iw / 2
+        y = area_bottom - rng.uniform(0, 0.5) * w.fs + rng.uniform(0, max(0.0, area_top - area_bottom - ih))
+        draw_image(c, img, x, y, iw, ih)
+
+    if emp:
+        if meterai:
+            m = make_meterai(rng)
+            mw = rng.uniform(2.3, 2.8) * cm
+            mh = mw * m.height / m.width
+            draw_image(c, m, cx - mw / 2 - rng.uniform(0.3, 1.3) * cm,
+                       area_bottom + rng.uniform(0.05, 0.4) * max(area_top - area_bottom - mh, 0.0), mw, mh)
+        if sig["employee_signed"]:
+            place(make_signature(rng, d["employee_name"], sig["style"], sig["faint"]), rng.uniform(2.6, 5.0))
+        elif sig["unsigned_variant"] == "line_only":
+            c.setLineWidth(0.6)
+            c.setDash(1, 2)
+            c.line(cx - 2 * cm, area_bottom + 4, cx + 2 * cm, area_bottom + 4)
+            c.setDash()
+    else:
+        if sig["stamp"]:
+            sd = rng.uniform(2.4, 3.3) * cm
+            draw_image(c, make_stamp(rng, d), cx - sd / 2 - rng.uniform(0.3, 1.2) * cm,
+                       area_bottom + (area_top - area_bottom) / 2 - sd / 2, sd, sd)
+        if sig["hr_signed"]:
+            place(make_signature(rng, d["hr_name"], sig["hr_style"]), rng.uniform(2.8, 4.8))
+    return name_y - lead
+
+
+def draw_extra_page(c, rng, d, lay, sig, logo, fs, kind, no):
+    """One attachment or letter page, at the contract's font size or smaller until it fits. Returns its record."""
+    blocks, spec = EXTRA_BUILDERS[kind](rng, d, lay, no)
+    sign = spec["sign"]
+    top = draw_header(c, lay, d, 1 if spec.get("letter") else 2, logo)
+    bottom = lay["margin_bottom"]
+    if sign == "both":
+        sl = plan_signature_layout(rng, d, lay)
+        sl.update({k: spec[k] for k in ("co_hdr", "emp_hdr") if k in spec})
+        sl["emp_title"] = rng.choice([sl["emp_title"], None])
+    elif sign != "none":
+        ss = plan_single_signature(rng, "emp" if sign == "employee" else "co", spec["header"])
+    while True:
+        for size in font_sizes(fs):
+            w = Styles(lay, size)
+            sig_h = 0 if sign == "none" else (signature_block_height(w, sl) if sign == "both"
+                                               else single_signature_height(w, ss))
+            items = build_items(w, lay, blocks, 1)[0]
+            if flow_height(items, w.width) + sig_h + w.fs * 1.5 <= top - bottom:
+                break
+        else:
+            listed = [i for i, b in enumerate(blocks) if b["kind"] == "numbered_para"]
+            if not listed:
+                raise RuntimeError(f"{kind} page does not fit")
+            blocks.pop(listed[-1])
+            continue
+        break
+    y = draw_flow(c, items, lay["margin_x"], top, w.width) - w.fs * 1.5
+    # A meterai under the employee's signature on a statement or authorisation: when the contract's has one, or now
+    # and then on a signed one; an unsigned contract's "meterai_only" page keeps its meterai here too.
+    meterai = spec.get("meterai", False) and (sig["meterai"] or (sig["employee_signed"] and chance(rng, 0.4)))
+    if sign == "both":
+        draw_signature_block(c, rng, w, d, lay, dict(sig, meterai=False), sl, y)
+    elif sign != "none":
+        draw_single_signature(c, rng, w, d, lay, sig, ss, y, meterai=meterai)
+    c.showPage()
+    return {"type": kind, "signature": sign}
+
+
+def render_contract(rng, d, lay, sig, pages):
+    """Draw the digital PDF: the contract and its extra pages, placed by CONFIG["extra_page_position"]. Returns
+    (pdf bytes, info)."""
     logo = make_logo(rng, d["company_acr"]) if lay["header"] != "plain" else None
     p1_mand, p1_opt, shown = plan_page1(rng, d, lay)
     p2_opt, p2_mand = plan_page2(rng, d, lay)
     sl = plan_signature_layout(rng, d, lay)
     fill1, n2_target = rng.uniform(0.7, 1.0), rng.randint(0, len(p2_opt))
+    L = lay["labels"]
 
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4, invariant=1)
@@ -1584,8 +2262,9 @@ def render_contract(rng, d, lay, sig):
     footer_space = 0.35 * cm if lay["footer"] else 0
     bottom = lay["margin_bottom"] + footer_space
 
-    # ---- page 1: shrink font until the mandatory part fits, then add optional clauses up to a fill target
-    top = draw_header(c, lay, d, 1, logo)
+    # ---- the contract's first page: shrink font until the mandatory part fits, then add optional clauses up to a
+    # fill target. Laid out before anything is drawn, so the pages between can be planned and numbered first.
+    top = header_top(lay, 1)
     avail = top - bottom
     mand = list(p1_mand)
     while True:
@@ -1611,39 +2290,97 @@ def render_contract(rng, d, lay, sig):
     # period clause); the company signatory's title is a different list, so it never matches.
     role = X(d["role"])
     position_page1 = any(role in json.dumps(b, ensure_ascii=False, default=str) for b in mand + chosen)
+
+    # ---- the pages between: page 1's leftover clauses, then more, then closing clauses, each page filled to its
+    # bottom. A page that would get nothing ends the contract earlier, so the footer's page count stays true.
+    queue = p1_opt[len(chosen):] + [{"kind": "clause", **f(d, L, rng)} for f in rng.sample(MID_CLAUSES, len(MID_CLAUSES))]
+    middle, num = [], next_num
+    for k in range(2, pages["contract"]):
+        avail_k, page_blocks = header_top(lay, k) - bottom, []
+        while queue or len(p2_opt) > 1:
+            if not queue:
+                queue.append(p2_opt.pop(0))
+            if flow_height(build_items(w, lay, page_blocks + [queue[0]], num)[0], w.width) > avail_k:
+                break
+            page_blocks.append(queue.pop(0))
+        if not page_blocks:
+            break
+        page_items, num, _ = build_items(w, lay, page_blocks, num)
+        middle.append(page_items)
+    n_pages = len(middle) + 2
+    lay["total_pages"] = n_pages
+
+    between = CONFIG["extra_page_position"] == "between"
+    extra, lampiran = [], 0
+
+    def draw_extras(kinds):
+        """Attachments are numbered LAMPIRAN I, II, ... where they carry such a heading."""
+        nonlocal lampiran
+        for kind in kinds:
+            titled = kind in ("uraian_tugas", "rincian_upah", "tata_tertib") and chance(rng, 0.7)
+            lampiran += titled
+            rec = draw_extra_page(c, rng, d, lay, sig, logo, w.fs, kind, lampiran if titled else 0)
+            extra.append(dict(rec, page=len(extra) + 1))  # the page within the PDF, fixed below
+
+    if not between:
+        draw_extras(pages["front"])
+    identity_page = len(extra) + 1
+
+    draw_header(c, lay, d, 1, logo)
     y1 = draw_flow(c, items, lay["margin_x"], top, w.width)
     draw_footer(c, lay, d, 1, w)
     if sig["paraf_page1"]:
         draw_paraf(c, rng, lay, d["employee_name"], y1)
     c.showPage()
 
-    # ---- page 2: closing clauses + signature block
-    top2 = draw_header(c, lay, d, 2, logo)
-    gap_pages = lay["total_pages"] - 2 if lay["footer"] else rng.randint(0, 3)
-    start2 = next_num + sum(rng.randint(2, 4) for _ in range(gap_pages))
+    for k, page_items in enumerate(middle, 2):
+        top_k = draw_header(c, lay, d, k, logo)
+        y_k = draw_flow(c, page_items, lay["margin_x"], top_k, w.width)
+        draw_footer(c, lay, d, k, w)
+        if sig["paraf_page1"]:
+            draw_paraf(c, rng, lay, d["employee_name"], y_k)
+        c.showPage()
+
+    if between:
+        before = len(extra)
+        draw_extras(pages["front"] + pages["after"])
+        for rec in extra[before:]:
+            rec["page"] = identity_page + len(middle) + rec["page"]
+
+    # ---- the signature page: closing clauses + signature block
+    top2 = draw_header(c, lay, d, n_pages, logo)
     for fs in font_sizes(w.fs):
         w2 = Styles(lay, fs)
         sig_h = signature_block_height(w2, sl)
         fitted = None
-        for n in range(n2_target, -1, -1):
-            items2 = build_items(w2, lay, p2_opt[:n] + p2_mand, start2)[0]
+        for n in range(min(n2_target, len(p2_opt)), -1, -1):
+            items2 = build_items(w2, lay, p2_opt[:n] + p2_mand, num)[0]
             if flow_height(items2, w2.width) + sig_h + w2.fs * 1.5 <= top2 - bottom:
                 fitted = items2
                 break
         if fitted:
             break
     else:
-        raise RuntimeError("page 2 does not fit")
+        raise RuntimeError("signature page does not fit")
     y = draw_flow(c, fitted, lay["margin_x"], top2, w2.width) - w2.fs * 1.5
     slack = max(0.0, y - sig_h - bottom)
     y2 = draw_signature_block(c, rng, w2, d, lay, sig, sl, y - rng.uniform(0, 0.4) * slack)
-    draw_footer(c, lay, d, 2, w2)
+    draw_footer(c, lay, d, n_pages, w2)
     if sig["paraf_page2"]:
         draw_paraf(c, rng, lay, d["employee_name"], y2)
     c.showPage()
+    signature_page = identity_page + n_pages - 1 + (len(extra) if between else 0)
+
+    if not between:
+        before = len(extra)
+        draw_extras(pages["after"])
+        for rec in extra[before:]:
+            rec["page"] = signature_page + rec["page"] - before
     c.save()
     return buf.getvalue(), {"font_size": w.fs, "period_pasal": period_num, "identity": shown,
-                            "position_page1": position_page1}
+                            "position_page1": position_page1, "contract_pages": n_pages,
+                            "identity_page": identity_page, "signature_page": signature_page,
+                            "page_count": n_pages + len(extra), "extra_pages": extra}
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -1913,7 +2650,8 @@ def generate_one(idx, used_names, batch=None):
     d = sample_contract(rng, batch)
     lay = sample_layout(rng, d)
     sig = sample_signature_plan(rng)
-    pdf_bytes, info = render_contract(rng, d, lay, sig)
+    pages = sample_pages(rng)
+    pdf_bytes, info = render_contract(rng, d, lay, sig, pages)
     form = wchoice(rng, CONFIG["form_weights"])
     prof = None
     if form != "digital":
@@ -1935,7 +2673,12 @@ def generate_one(idx, used_names, batch=None):
         "has_employee_signature": sig["employee_signed"],
         "entitas": entitas,
         "meta": {
-            "doc_index": idx, "seed": seed, "form": form, "page_count": 2,
+            "doc_index": idx, "seed": seed, "form": form, "page_count": info["page_count"],
+            # pages within the PDF (1-based): the contract's first page (identity and period) and its signature page
+            "contract_pages": info["contract_pages"], "identity_page": info["identity_page"],
+            "signature_page": info["signature_page"],
+            "extra_page_position": CONFIG["extra_page_position"],
+            "extra_pages": info["extra_pages"],  # [{type, page, signature}]: attachments and letters, in PDF order
             "scan_mode": prof["mode"] if form == "scan" else None,
             "photo_pages": prof["pages"] if form == "photo" else None,  # fill, keystone, rotation_deg, turn
             "photo_clutter": prof["clutter"] if form == "photo" else None,
@@ -1953,6 +2696,7 @@ def generate_one(idx, used_names, batch=None):
             "signature_style": sig["style"], "signature_faint": sig["faint"],
             "unsigned_variant": sig["unsigned_variant"],
             "has_hr_signature": sig["hr_signed"], "has_company_stamp": sig["stamp"],
+            # paraf_page1: on every contract page before the signature page; paraf_page2: on the signature page
             "has_meterai": sig["meterai"], "has_paraf_page1": sig["paraf_page1"], "has_paraf_page2": sig["paraf_page2"],
             "signing_date": d["sign_date"].isoformat(), "contract_number": d["contract_no"], "company": d["company"],
             "nik_label": shown["nik_label"], "nik_grouped": shown["nik_grouped"],
@@ -1966,9 +2710,11 @@ def generate_one(idx, used_names, batch=None):
 
 # Columns of contract-extractor's label-template.csv, plus columns the template does not have yet, which `evaluate`
 # ignores: `nik` and `posisi` (both always printed on page 1), `entitas`
-# (empty when the filename has none) and `bentuk` (digital, scan or photo). Every document is 2 pages: identity and
-# period on page 1, signatures on page 2. `kasus` only marks what the generator draws: `stempel` (company stamp) and
-# `foto_buram` (an out-of-focus photo); `tulisan_tangan`, `nama_file_salah` and `lampiran` are never generated.
+# (empty when the filename has none) and `bentuk` (digital, scan or photo). halaman_identitas and halaman_periode are
+# the contract's first page, halaman_ttd its signature page, both counted within the PDF (with extra pages "between",
+# always the first and the last page). `kasus` only marks what the generator draws: `stempel` (company stamp),
+# `foto_buram` (an out-of-focus photo) and `lampiran` (extra pages: attachments or a letter); `tulisan_tangan` and
+# `nama_file_salah` are never generated.
 LABEL_COLUMNS = ["file", "kelompok", "vendor", "jenis_pdf", "nama_karyawan", "nik", "posisi", "entitas",
                  "tanggal_mulai", "tanggal_selesai", "status_ttd", "halaman_identitas", "halaman_periode",
                  "halaman_ttd", "kasus", "bentuk"]
@@ -1983,8 +2729,10 @@ def label_row(rec):
         "posisi": rec["position"] or "", "entitas": rec["entitas"] or "",
         "tanggal_mulai": rec["contract_start"], "tanggal_selesai": rec["contract_end"],
         "status_ttd": "signed" if rec["has_employee_signature"] else "unsigned",
-        "halaman_identitas": 1, "halaman_periode": 1, "halaman_ttd": 2,
-        "kasus": ";".join(k for k, on in (("stempel", m["has_company_stamp"]), ("foto_buram", m["photo_blurry"])) if on),
+        "halaman_identitas": m["identity_page"], "halaman_periode": m["identity_page"],
+        "halaman_ttd": m["signature_page"],
+        "kasus": ";".join(k for k, on in (("stempel", m["has_company_stamp"]), ("foto_buram", m["photo_blurry"]),
+                                          ("lampiran", bool(m["extra_pages"]))) if on),
         "bentuk": m["form"],
     }
 
@@ -2051,6 +2799,14 @@ def generate(out_dir):
     print("filename ' - ' separator:", dict(Counter(r["meta"]["filename_dash"] for r in records)))
     print("ENTITAS in filename:", dict(Counter(r["entitas"] is not None for r in records)))
     print("entities:", dict(Counter(r["meta"]["entitas_code"] for r in records)))
+    print("contract pages:", dict(sorted(Counter(r["meta"]["contract_pages"] for r in records).items())))
+    print("PDF pages:", dict(sorted(Counter(r["meta"]["page_count"] for r in records).items())))
+    print(f"extra pages ({CONFIG['extra_page_position']}):",
+          dict(Counter(a["type"] for r in records for a in r["meta"]["extra_pages"])),
+          f"({sum(1 for r in records if r['meta']['extra_pages'])} files)")
+    print("identity page / signature page:",
+          dict(Counter((r["meta"]["identity_page"] == 1, r["meta"]["signature_page"] == r["meta"]["page_count"])
+                       for r in records)), "(first page, last page)")
     print("position printed on page 1:", dict(Counter(r["position"] is not None for r in records)))
     print("NIK printed on page 1:", dict(Counter(r["employee_nik"] is not None for r in records)))
     print("scan modes:", dict(Counter(r["meta"]["scan_mode"] for r in records if r["meta"]["scan_mode"])))
@@ -2095,7 +2851,7 @@ def print_timing(records, seconds, started_at, total):
 def main():
     global VENDORS, ENTITAS
     default_out = Path(CONFIG["output_dir"]) if CONFIG["output_dir"] else SCRIPT_DIR / "output"
-    parser = argparse.ArgumentParser(description="Generate synthetic 2-page PKWT contract PDFs with ground truth.")
+    parser = argparse.ArgumentParser(description="Generate synthetic PKWT contract PDFs with ground truth.")
     parser.add_argument("-n", "--n-docs", type=int, default=CONFIG["n_docs"],
                         help=f"number of contracts (default {CONFIG['n_docs']})")
     parser.add_argument("--seed", type=int, default=CONFIG["seed"],
