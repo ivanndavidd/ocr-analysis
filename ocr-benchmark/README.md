@@ -15,6 +15,10 @@ Synthetic data only. `runs/` holds full NIKs and names from the generator, so it
 - **Keep Tesseract, with RapidOCR as a second reader.**
   - RapidOCR (Baidu PP-OCRv6 small) as the main reader ties Tesseract on accuracy but costs about 4x the CPU, uses
     twice the memory, and lets more wrong values through unmarked.
+  - Rerun on 2026-11-11 with the current reader, RapidOCR as the main reader gets more scans and photos fully
+    correct (430 vs 412, and 464 vs 438 on v2). But it lets more wrong values through unmarked (7 vs 1, 4 vs 2),
+    leaves about 20 times as many NIKs yellow, and costs 1.5 to 1.8x the CPU. See
+    [the rerun](#rerun-with-the-current-reader-2026-11-11).
   - As a second reader it confirms the cells Tesseract marks yellow, so it is now built into the extractor.
 - **Contracts fully correct went from 622 to 738 of 800** on the first set, with Claude off. On the harder v2 set
   the current reader gets 735 of 800.
@@ -57,6 +61,95 @@ Full tables, per field and per form, are in `results/summary.md`. The hand-writt
 `results/findings.md`.
 
 These numbers come from the reader as it was on 2026-11-07, before the changes in part 2.
+
+### Rerun with the current reader (2026-11-11)
+
+RapidOCR as the main reader again, now with every change from part 2 (first and last page only, stamp rule),
+against `tesseract_second-stamp` and `tesseract_second-v2-stamp` on the same scans and photos. Runs
+`rapid_v6_small-img` and `rapid_v6_small-v2-img`.
+
+| | First set, RapidOCR | First set, Tesseract + second | v2, RapidOCR | v2, Tesseract + second |
+| --- | ---: | ---: | ---: | ---: |
+| Scans and photos | 473 | 473 | 500 | 500 |
+| Fully correct | **430** | 412 | **464** | 438 |
+| Nothing to check | 158 | **248** | 138 | **247** |
+| Wrong, not marked (cells) | 7 | **1** | 4 | **2** |
+| Yellow NIKs | 172 | **8** | 209 | **10** |
+| Job titles wrong | 5 | 3 | **2** | 7 |
+| Signatures wrong | 13 | **6** | **3** | 7 |
+| CPU s per file | 32.0 | **17.5** | 27.4 | **17.9** |
+| Worker peak memory | 744 MB | 747 MB | 754 MB | 749 MB |
+
+- RapidOCR reads more values right, mostly job titles and signatures on v2.
+- Its NIKs stay yellow because no second engine confirms them, so HR would check about 90 more rows per set.
+- It lets more wrong values through unmarked, which is the number this product protects most.
+- Memory is the same, since the product already loads RapidOCR as its second reader.
+
+So Tesseract stays the main reader.
+
+### Every engine order, with and without Claude (2026-11-13)
+
+Six setups on the scans and photos of both datasets. Digital PDFs read the same in every setup.
+- **Tesseract alone / RapidOCR alone:** one engine, no second reader.
+- **Tesseract → RapidOCR:** the product's reader. RapidOCR rereads the identity page when Tesseract's NIK or job
+  title is unsure, or a date is missing.
+- **RapidOCR → Tesseract:** the same with the roles swapped (`rapid_second`, benchmark only).
+- **… → Claude:** the same, with Claude as the website's fallback (`--claude`: same model, effort and rules as the
+  website). Tesseract → RapidOCR → Claude is the flow now.
+
+| Setup | First dataset (473): fully correct | Nothing to check | Wrong, not marked | Second dataset (500): fully correct | Nothing to check | Wrong, not marked | Claude tokens (both) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Tesseract alone | 412 | 139 | 1 | 438 | 135 | 2 | 0 |
+| RapidOCR alone | 430 | 158 | 7 | 464 | 138 | 4 | 0 |
+| Tesseract → RapidOCR | 412 | 248 | 1 | 438 | 247 | 2 | 0 |
+| RapidOCR → Tesseract | 430 | 241 | 7 | 464 | 238 | 4 | 0 |
+| Tesseract → RapidOCR → Claude (the flow now) | **447** | **271** | **1** | 468 | **267** | **2** | 3.5 M |
+| RapidOCR → Tesseract → Claude | 441 | 255 | 6 | **482** | 260 | 3 | 3.0 M |
+
+- **The second reader changes no value**, either way round: Tesseract alone and Tesseract → RapidOCR read the same
+  value in every cell of all 973 contracts, and so do RapidOCR alone and RapidOCR → Tesseract. It only turns cells
+  green where both engines agree, so about 100 more contracts per dataset need no check, and NIKs left yellow drop
+  from about 200 to about 10 per dataset. It roughly doubles Tesseract's CPU: 8.7 to 16.8 seconds per file.
+- **Alone, RapidOCR reads more right** (894 against 850 fully correct; the contracts only one gets right split 82
+  against 38, sign test p < 0.001). But it leaves more wrong values unmarked (11 against 3) and costs about 3.5 times
+  the CPU (30.1 against 8.7 seconds per file).
+- **With Claude, the two orders tie on fully correct:** 923 against 915. The contracts only one order gets right
+  split 40 against 32 (p 0.41). RapidOCR first is ahead on the second dataset (24 against 10, p 0.02) and behind on
+  the first (16 against 22).
+- **RapidOCR first leaves more wrong values unmarked:** 9 against 3. Most are job titles RapidOCR misread with high
+  confidence (`Operator Produksl`, `Custoimer Service`, `TelemarketIng`, `Staff Adminiştrasi`), so neither Tesseract
+  nor Claude is asked. The flow now leaves `Kurlr`, `Sales Executi Cutive` and one signed contract read unsigned. It
+  also leaves 23 more rows HR can skip than RapidOCR first, and uses 16.9 CPU seconds per file against 36.3.
+
+- **Signature agreement rule (owner decision 2026-11-16):** a signature the ink check calls not clear ("Kurang
+  jelas") turns green when Claude's look at the crop agrees at 0.85 or more. Replayed on the saved answers of the
+  Claude runs above (`-agree` runs, no new calls): contracts with nothing to check 538 to 881 for the flow now and
+  515 to 920 for RapidOCR first; wrong cells not marked 3 to 4 and 9 to 10. `tools/comparison.py` shows these.
+
+So Tesseract stays first. A local check that marks a title with an odd letter or an unknown word as unsure would send
+those titles to the second reader and Claude, in either order; it is not built.
+
+The flow now was also run through the website on 2026-11-11 (446 and 469 fully correct, 2 and 2 unmarked); Claude
+answers a little differently each run. Three signature calls timed out in RapidOCR → Tesseract → Claude and those
+files were read again.
+
+**CPU seconds per file** are measured for every setup on the same 100 contracts (`--form scan --form photo --sample 50`
+on each dataset) with the laptop lightly loaded (machine CPU 38 to 56%). The full runs of RapidOCR → Tesseract and of
+both Claude flows kept all 8 cores busy, which inflates CPU seconds, so those three were read again on the sample
+(`*-cpu50` runs, 2026-11-16). On that sample, Tesseract alone measured 9.1 against 8.8 in its full run, so the sample
+gives the same figure. Claude adds little CPU on the laptop: its work runs at Anthropic; it costs tokens and waiting.
+
+| Setup | CPU s / file |
+| --- | ---: |
+| Tesseract alone | 8.7 |
+| RapidOCR alone | 30.1 |
+| Tesseract → RapidOCR | 16.8 |
+| RapidOCR → Tesseract | 31.4 |
+| Tesseract → RapidOCR → Claude (the flow now) | 16.9 |
+| RapidOCR → Tesseract → Claude | 36.3 |
+
+All of it, per field and with every unmarked mistake: `.venv/Scripts/python tools/comparison.py`
+(`results/comparison.txt`).
 
 ## 2. Reader changes on the full sets (Claude off)
 
@@ -144,6 +237,20 @@ Score runs and write the summary:
 .venv/Scripts/python -m bench.report
 ```
 
+Claude as the website's fallback (`--claude`, through the Claude Code login set in `CLAUDE_CODE_CMD` of
+`../ocr-analysis/apps/backend/.env`; it sends masked text and crops to Claude, synthetic contracts only):
+
+```bash
+./tools/queue.sh "rapid_second --claude --form scan --form photo --workers 5 --tag img-claude"
+```
+
+Several setups side by side on the same contracts, benchmark runs or website reports (`label=source`, the first one
+picks the contracts; a report may add `+<job.json>` of a later rerun):
+
+```bash
+PYTHONPATH=. .venv/Scripts/python tools/compare_runs.py "Rapid first=rapid_second-img" "Tesseract first=tesseract_second-stamp"
+```
+
 Run settings: 3 workers x 2 threads at below-normal priority, and no new contract while less than 3 GB of memory is
 free, so the laptop stays usable. `--stop-at HH:MM` starts no new contract after that time. Accuracy does not depend
 on these settings; wall-clock time does.
@@ -151,7 +258,7 @@ on these settings; wall-clock time does.
 ## Layout
 
 - `bench/engines.py`: the engines, each behind the extractor's `OCRProvider` interface. `tesseract_second` is the
-  product's setup, Tesseract plus the RapidOCR second reader.
+  product's setup, Tesseract plus the RapidOCR second reader; `rapid_second` swaps the roles.
 - `bench/paths.py`: where it reads and writes. `BENCH_DATASET` picks `output` (default) or `output-<name>`.
 - `bench/run.py`: reads contracts with one engine and records the result and its cost.
   - Per file: time, CPU-seconds (including Tesseract's own process), OCR calls and memory.
@@ -163,6 +270,10 @@ on these settings; wall-clock time does.
   `fields.csv`, `engines.csv`, and `runs/<key>/scored.csv` per contract and field.
 - `bench/report.py`: writes `results/summary.md`, with `results/findings.md` at the top.
 - `tools/queue.sh`: runs steps one after another, then `to_rows`.
+- `tools/compare_engines.py`, `tools/compare_runs.py`: two or more runs side by side, per field, with cost.
+- `tools/comparison.py`: every setup tried on both datasets in one report (`SETUPS` lists them), with the rich
+  library: all setups on both datasets together, correct values per field, and every wrong value left unmarked.
+  It writes `results/comparison.txt`, with NIKs in full (synthetic data only).
 - `tools/check_packages.py`: OSV advisories and licences. `results/packages.txt` holds the result for everything
   installed.
 - `tools/install_size.py`: what each engine adds to the installation.

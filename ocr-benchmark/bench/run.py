@@ -36,7 +36,7 @@ from copy_to_onedrive import safe_folder  # noqa: E402  (the vendor folder name,
 _state: dict = {}
 
 
-def _init(engine_key: str, threads: int, binarize: bool) -> None:
+def _init(engine_key: str, threads: int, binarize: bool, claude: bool = False) -> None:
     # below normal: the owner's own apps (Zoom, Word) always come first; Tesseract's processes inherit it
     psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
     _count_child_processes()
@@ -59,8 +59,14 @@ def _init(engine_key: str, threads: int, binarize: bool) -> None:
     settings = load_settings(None)
     settings.decision.allow_auto = True  # as the website runs (ALLOW_AUTO=true)
     _state["settings"] = settings
+    _state["extractor"] = _claude_extractor(settings) if claude else None
     second = None
-    if ENGINES[engine_key].options.get("second_reader"):
+    second_kind = ENGINES[engine_key].options.get("second_reader")
+    if second_kind == "tesseract":  # roles swapped: Tesseract confirms what RapidOCR read
+        from bench.engines import TesseractEngine
+
+        second = _Timed(TesseractEngine(ENGINES["tesseract_fast"], threads))
+    elif second_kind:
         from contract_extractor.document.ocr.rapid import RapidOCRReader
 
         second = _Timed(RapidOCRReader(MODELS / "rapidocr", threads))  # the product's own reader and settings
@@ -69,6 +75,30 @@ def _init(engine_key: str, threads: int, binarize: bool) -> None:
                                  read_dpi=settings.ocr.read_dpi, min_mean_conf=settings.ocr.min_mean_conf,
                                  second=second)
     _state["first"] = True
+
+
+# Claude as the website runs it (backend: `serve-stdio --claude --model claude-haiku-5-5 --effort max`): only the
+# fallback for the fields the local reading leaves unsure, plus the NIK and signature crops.
+CLAUDE_MODEL, CLAUDE_EFFORT = "claude-haiku-5-5", "max"
+BACKEND_ENV = Path(__file__).resolve().parents[2] / "ocr-analysis" / "apps" / "backend" / ".env"
+
+
+def _claude_extractor(settings):
+    from contract_extractor.cli import _override_extractor
+    from contract_extractor.extractor_method.llm.factory import build_extractor
+
+    _override_extractor(settings, True, CLAUDE_MODEL, CLAUDE_EFFORT)
+    return build_extractor(settings)
+
+
+def _claude_code_cmd() -> None:
+    """The Claude Code binary the website uses (CLAUDE_CODE_CMD in the backend's .env), for the workers to inherit.
+    Only that one line is read."""
+    if os.environ.get("CLAUDE_CODE_CMD") or not BACKEND_ENV.exists():
+        return
+    for line in BACKEND_ENV.read_text(encoding="utf-8").splitlines():
+        if line.startswith("CLAUDE_CODE_CMD="):
+            os.environ["CLAUDE_CODE_CMD"] = line.split("=", 1)[1].strip()
 
 
 _child = {"cpu_s": 0.0, "peak_mb": 0.0}
@@ -170,7 +200,7 @@ def _one(item: tuple[str, str]) -> dict:
     error = None
     reply = None
     try:
-        result = process_file(PDF_DIR / name, _state["settings"], _state["runner"], None, vendor)
+        result = process_file(PDF_DIR / name, _state["settings"], _state["runner"], _state.get("extractor"), vendor)
         reply = {"result": result.model_dump(mode="json"), "filename": parsed_filename_json(parse_filename(name))}
     except Exception as exc:  # noqa: BLE001 - one contract failing is a result, not the end of the run
         error = f"{type(exc).__name__}: {str(exc)[:200]}"
@@ -247,12 +277,22 @@ def main() -> None:
     parser.add_argument("--sample", type=int, help="a fixed random sample of this many contracts (seed 7)")
     parser.add_argument("--form", action="append", choices=["digital", "scan", "photo"])
     parser.add_argument("--gray", action="store_true", help="full read on grayscale, not thresholded, pages")
+    parser.add_argument("--claude", action="store_true", help="Claude as the website's fallback (sends text and crops)")
     parser.add_argument("--tag", default="", help="suffix for the run folder")
     parser.add_argument("--fresh", action="store_true")
     parser.add_argument("--stop-at", help="HH:MM local time: start no new contract after it (the run can resume)")
     parser.add_argument("--min-free-gb", type=float, default=3.0, help="pause new contracts below this free RAM")
     args = parser.parse_args()
 
+    if args.claude:  # fail here, not in every worker, when Claude cannot be reached
+        from contract_extractor.common.config import load_settings
+        from contract_extractor.extractor_method.llm.base import ExtractorUnavailable
+
+        _claude_code_cmd()
+        try:
+            _claude_extractor(load_settings(None))
+        except ExtractorUnavailable as exc:
+            raise SystemExit(f"Claude unavailable: {exc}") from exc
     truth = json.loads(GROUND_TRUTH.read_text(encoding="utf-8"))
     truth.sort(key=lambda r: r["file_name"])
     if args.form:
@@ -303,7 +343,7 @@ def main() -> None:
     paused_s = 0.0
     stopped_early = False
     with files_path.open("a", encoding="utf-8") as sink, Pool(
-        args.workers, initializer=_init, initargs=(args.engine, args.threads, not args.gray)
+        args.workers, initializer=_init, initargs=(args.engine, args.threads, not args.gray, args.claude)
     ) as pool:
         pending: list = []
         queue = list(items)
@@ -347,6 +387,7 @@ def main() -> None:
         "label": spec.label + (" (grayscale input)" if args.gray else ""),
         "family": spec.family,
         "gray_input": args.gray,
+        "claude": {"model": CLAUDE_MODEL, "effort": CLAUDE_EFFORT} if args.claude else None,
         "workers": args.workers,
         "threads_per_worker": args.threads,
         "files_this_session": count,

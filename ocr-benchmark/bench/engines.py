@@ -45,6 +45,11 @@ ENGINES: dict[str, EngineSpec] = {
                    {"tessdata": str(TESSDATA_BEST), "lang": "ind+eng"}),
         EngineSpec("rapid_v6_small", "RapidOCR, PP-OCRv6 small", "rapidocr",
                    {"version": "PP-OCRv6", "det": ("id", "small"), "rec": ("id", "small")}),
+        # Roles swapped (2026-11-13 trial): RapidOCR reads everything, and Tesseract (fast models) reads a scanned
+        # identity page again when the NIK or position RapidOCR read is unsure, or a contract date is missing.
+        EngineSpec("rapid_second", "RapidOCR PP-OCRv6 small + Tesseract second reader (roles swapped)", "rapidocr",
+                   {"version": "PP-OCRv6", "det": ("id", "small"), "rec": ("id", "small"),
+                    "second_reader": "tesseract"}),
         EngineSpec("rapid_v6_medium", "RapidOCR, PP-OCRv6 medium", "rapidocr",
                    {"version": "PP-OCRv6", "det": ("id", "medium"), "rec": ("id", "medium")}),
         EngineSpec("rapid_v6_tiny", "RapidOCR, PP-OCRv6 tiny", "rapidocr",
