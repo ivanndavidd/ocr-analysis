@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import type { ClaudeCallKind, ContractFields, ContractRow, FieldValue, JobFile, ManagedUser } from '@contract-ocr/shared-types';
+import { type ClaudeCallKind, type ContractFields, type ContractRow, type FieldValue, type JobFile, type ManagedUser, note } from '@contract-ocr/shared-types';
 import { downloadName } from '../src/services/api.ts';
 import { displayValue, fieldPage, fullNik, groupsToCheck, periodCell, rowState, toCheck } from '../src/utils/fields.ts';
 import { formatDate, formatDateTime, formatDay, formatNik, formatRange, formatTokens, partialPeriod, totalTokens } from '../src/utils/format.ts';
 import {
-  MARK_LABEL,
-  OUTCOME_LABEL,
+  markLabel,
+  outcomeLabel,
   claudeTokens,
   folderDone,
   folderMarkTitle,
@@ -21,19 +21,20 @@ import {
   runState,
   vendorOf,
 } from '../src/utils/jobs.ts';
-import { JOB_STATUS, errorLabel, reasonLabel } from '../src/utils/labels.ts';
+import { t } from '../src/utils/i18n.ts';
+import { errorLabel, reasonLabel } from '../src/utils/labels.ts';
 import { matches, nextSort, selectionLabel, sortFiles, sortFolders } from '../src/utils/listing.ts';
 import {
-  CLAUDE_HINT,
-  FLOW_LABEL,
+  claudeHint,
+  flowLabel,
   MODES,
-  MODE_LABEL,
+  modeLabel,
   callsLabel,
   claudeConsent,
   claudeNotice,
   flowDescription,
   fullPageBlocked,
-  FULL_PAGE_NOTICE,
+  fullPageNotice,
   fullPageConsent,
   jobFlowLabel,
   loadMode,
@@ -105,7 +106,7 @@ describe('labels', () => {
     const labels = codes.map(errorLabel);
     expect(labels.some((label, i) => label === codes[i])).toBe(false);
     expect(new Set(labels).size).toBe(codes.length);
-    expect(Object.keys(JOB_STATUS).sort()).toEqual(['cancelled', 'done', 'interrupted', 'queued', 'running']);
+    expect(Object.keys(t().labels.jobStatus).sort()).toEqual(['cancelled', 'done', 'interrupted', 'queued', 'running']);
   });
 
   test('tokens of a result taken from another run count there, not in this run', () => {
@@ -144,14 +145,14 @@ describe('labels', () => {
 
 describe('reading flow', () => {
   test('one flow: the patterns, with Claude helping when the backend has it', () => {
-    expect([FLOW_LABEL.on, FLOW_LABEL.off]).toEqual(['Pola teks + Claude', 'Pola teks']);
+    expect([flowLabel('on'), flowLabel('off')]).toEqual(['Pola teks + Claude', 'Pola teks']);
     expect(flowDescription('on')).toContain('potongan gambar baris NIK');
     expect(flowDescription('on')).toContain('hanya bila nama, periode, posisi, atau vendor belum bisa dipastikan');
     expect(reasonLabel('extractor_not_needed')).toContain('tidak dikirim ke Claude');
     expect(flowDescription('off')).not.toContain('Claude');
     expect(flowDescription(null)).toBe(flowDescription('off'));
-    expect(CLAUDE_HINT.unavailable).toContain('pola teks saja');
-    expect(CLAUDE_HINT.on).toBeUndefined();
+    expect(claudeHint('unavailable')).toContain('pola teks saja');
+    expect(claudeHint('on')).toBeNull();
   });
 
   test('what was sent for a file is listed in order', () => {
@@ -168,7 +169,7 @@ describe('reading flow', () => {
 describe('read mode', () => {
   test('the OCR mode comes first and is what a new tab starts with', () => {
     expect(MODES).toEqual(['ocr', 'full_page']);
-    expect([MODE_LABEL.ocr, MODE_LABEL.full_page]).toEqual(['Dengan OCR', 'Tanpa OCR']);
+    expect([modeLabel('ocr'), modeLabel('full_page')]).toEqual(['Dengan OCR', 'Tanpa OCR']);
     saveMode('full_page'); // no session storage under bun test: nothing is kept, and nothing throws
     expect(loadMode()).toBe('ocr');
     expect(jobFlowLabel(true, 'full_page')).toBe('tanpa OCR, halaman utuh ke Claude');
@@ -201,8 +202,8 @@ describe('jobs', () => {
 
     // the same reading as a mark in the folder list: that it was read, and the day; how it came out and who on hover
     const mark = { outcome: 'needs_check' as const, run };
-    expect(MARK_LABEL).toBe('Sudah di-OCR');
-    expect(OUTCOME_LABEL[mark.outcome]).toBe('Perlu dicek');
+    expect(markLabel()).toBe('Sudah di-OCR');
+    expect(outcomeLabel(mark.outcome)).toBe('Perlu dicek');
     expect(markWhen(mark)).toBe(formatDay(run.finishedAt));
     expect(markWhen({ ...mark, run: { ...run, status: 'queued', finishedAt: null } })).toBe('proses berjalan');
     expect(markTitle({ ...mark, outcome: 'ready' })).toBe(`Hasil OCR terakhir: Siap dipakai, Penguji A · ${ended}`);
@@ -327,7 +328,7 @@ describe('run confirmation', () => {
     }
     expect([claudeNotice('off'), claudeNotice('unavailable'), claudeNotice(null)]).toEqual([null, null, null]);
     for (const part of ['UTUH', 'tanpa disamarkan', 'NIK', 'Belum disetujui', 'uji coba']) {
-      expect(FULL_PAGE_NOTICE).toContain(part);
+      expect(fullPageNotice()).toContain(part);
     }
   });
 });
@@ -381,8 +382,9 @@ describe('download name', () => {
 });
 
 describe('fields', () => {
-  const ok = (value: string | number | null): FieldValue => ({ value, check: null, basis: 'cocok' });
-  const doubt = (value: string | number | null): FieldValue => ({ value, check: 'cek', basis: null });
+  // notes saved as text render the same in either language, which keeps these fixtures readable
+  const ok = (value: string | number | null): FieldValue => ({ value, check: null, basis: note('legacy', { text: 'cocok' }) });
+  const doubt = (value: string | number | null): FieldValue => ({ value, check: note('legacy', { text: 'cek' }), basis: null });
   const fields: ContractFields = {
     nik: ok('************0001'),
     vendor: ok('PT Contoh Sejahtera'),
@@ -417,7 +419,7 @@ describe('fields', () => {
     expect(periodCell(row)).toEqual({ range: '1 Jan 2026 – 31 Mar 2026', months: '3 bulan', checks: ['cek'], basis: 'cocok' });
     const none = { ...row, fields: { ...fields, start: ok(null), end: ok(null), months: ok(null) } };
     expect(periodCell(none)).toMatchObject({ range: null, months: null, checks: [] });
-    const half = { ...row, fields: { ...fields, end: doubt(null), months: { value: null, check: 'lain', basis: null } } };
+    const half = { ...row, fields: { ...fields, end: doubt(null), months: { value: null, check: note('legacy', { text: 'lain' }), basis: null } } };
     expect(periodCell(half)).toMatchObject({ range: '1 Jan 2026 – ?', checks: ['cek', 'lain'] });
   });
 

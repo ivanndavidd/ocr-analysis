@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { LoginRequest, User } from '@contract-ocr/shared-types';
   import Banner from '../components/Banner.svelte';
+  import LanguageSwitch from '../components/LanguageSwitch.svelte';
   import { api, failureCode } from '../services/api.ts';
+  import { t } from '../utils/i18n.ts';
   import { errorLabel } from '../utils/labels.ts';
   import { TEST_ACCOUNTS } from '../utils/testAccounts.ts';
   import { initials } from '../utils/users.ts';
@@ -55,14 +57,15 @@
         </svg>
       </span>
       <span>
-        <span class="product">Contract OCR</span>
-        <span class="muted small">Pemeriksaan kontrak PKWT</span>
+        <span class="product">{t().common.product}</span>
+        <span class="muted small">{t().common.tagline}</span>
       </span>
+      <span class="lang"><LanguageSwitch /></span>
     </div>
 
     <div class="heading">
-      <h1 id="login-title">Masuk</h1>
-      <p class="muted">Gunakan akun kantor Blibli untuk melanjutkan.</p>
+      <h1 id="login-title">{t().login.title}</h1>
+      <p class="muted">{t().login.intro}</p>
     </div>
 
     {#if error}
@@ -74,13 +77,13 @@
 
     <form onsubmit={submit} novalidate>
       <label class="field">
-        <span class="label">Email kantor</span>
+        <span class="label">{t().login.email}</span>
         <input
           type="email"
           name="email"
           autocomplete="email"
           inputmode="email"
-          placeholder="nama@gdn-commerce.com"
+          placeholder={t().login.emailPlaceholder}
           maxlength="255"
           required
           bind:value={email}
@@ -88,12 +91,12 @@
         />
       </label>
       <label class="field">
-        <span class="label">Nama lengkap</span>
+        <span class="label">{t().login.name}</span>
         <input
           type="text"
           name="name"
           autocomplete="name"
-          placeholder="Nama sesuai akun kantor"
+          placeholder={t().login.namePlaceholder}
           maxlength="255"
           required
           bind:value={name}
@@ -101,13 +104,13 @@
         />
       </label>
       <button class="btn btn-primary submit" type="submit" disabled={busy || !email.trim() || !name.trim()}>
-        {busy && !signingAs ? 'Memproses…' : 'Masuk'}
+        {busy && !signingAs ? t().common.processing : t().login.submit}
       </button>
     </form>
 
     {#if quick}
       <div class="quick">
-        <p class="divider"><span>atau</span></p>
+        <p class="divider"><span>{t().login.or}</span></p>
         <button
           class="btn btn-outline toggle"
           type="button"
@@ -116,13 +119,13 @@
           disabled={busy}
           onclick={() => (accountsOpen = !accountsOpen)}
         >
-          Masuk cepat dengan akun uji
+          {t().login.quick}
           <svg class="chevron" class:open={accountsOpen} viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path fill="none" stroke="currentColor" stroke-width="2" d="m6 9 6 6 6-6" />
           </svg>
         </button>
         {#if accountsOpen}
-          <ul id="test-accounts" class="accounts" aria-label="Akun uji">
+          <ul id="test-accounts" class="accounts" aria-label={t().login.testAccounts}>
             {#each TEST_ACCOUNTS as account (account.email)}
               <li>
                 <button class="account" type="button" disabled={busy} onclick={() => signInAs(account)}>
@@ -131,23 +134,21 @@
                     <span class="name">{account.name}</span>
                     <span class="email">{account.email}</span>
                   </span>
-                  <span class="go">{signingAs === account.email ? 'Memproses…' : 'Masuk'}</span>
+                  <span class="go">{signingAs === account.email ? t().common.processing : t().login.submit}</span>
                 </button>
               </li>
             {/each}
           </ul>
-          <p class="muted small">Akun fiktif untuk menguji beberapa user. Hanya tampil saat dijalankan lokal (<code>bun run dev</code>).</p>
+          <p class="muted small">{t().login.quickNoteBefore}<code>bun run dev</code>{t().login.quickNoteAfter}</p>
         {/if}
       </div>
     {/if}
 
     <Banner tone="warning">
-      <strong>Login tiruan untuk pengujian.</strong> Tidak ada kata sandi yang diminta atau diperiksa. Nanti diganti
-      Apps Gateway (SSO kantor). Email yang pertama kali masuk dicatat sebagai Reviewer nonaktif sampai admin
-      mengaktifkannya.
+      <strong>{t().login.mockTitle}</strong> {t().login.mockBody}
     </Banner>
   </section>
-  <p class="muted small footer">© Blibli · Hanya untuk user internal</p>
+  <p class="muted small footer">{t().common.footer}</p>
 </main>
 
 <style>
@@ -173,6 +174,9 @@
     display: flex;
     align-items: center;
     gap: var(--blue-space-3);
+  }
+  .lang {
+    margin-left: auto;
   }
   .mark {
     display: grid;

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
-import type { ContractRow, FieldKey, FieldValue, HistoryFilter, Job, JobFile, TokenUsage } from '@contract-ocr/shared-types';
+import { type ContractRow, type FieldKey, type FieldValue, type HistoryFilter, type Job, type JobFile, type TokenUsage, note } from '@contract-ocr/shared-types';
 import { asc, eq } from 'drizzle-orm';
 import { type OpenDatabase, openDatabase } from '../src/modules/database/database.ts';
 import { ocrContractDetails, ocrHeaders } from '../src/modules/database/schema.ts';
@@ -10,7 +10,11 @@ import { UserStore } from '../src/modules/users/store.ts';
 // Fictitious people, numbers and folders only.
 const NIK = '3199990101900001';
 const FOLDER = 'PT Uji/Januari 2026 - Maret 2026';
-const field = (value: FieldValue['value'], check: string | null = null): FieldValue => ({ value, check, basis: null });
+const field = (value: FieldValue['value'], check: string | null = null): FieldValue => ({
+  value,
+  check: check === null ? null : note('legacy', { text: check }),
+  basis: null,
+});
 
 function readFile(name: string, fields: Partial<Record<FieldKey, FieldValue>> = {}, tokens: TokenUsage | null = null): JobFile {
   const all: Record<FieldKey, FieldValue> = {
@@ -346,9 +350,28 @@ describe('reading saved runs back', () => {
     await database.db.update(ocrContractDetails).set({ result: null }).where(eq(ocrContractDetails.headerId, (await saving.headerId())!));
     const row = (await archive.load(run.id))!.job.files[0]!.row!;
     expect(row.fields.name).toEqual({ value: 'Lama Uji', check: null, basis: null });
-    expect(row.fields.signature).toEqual({ value: 'NO', check: 'Tanda tangan karyawan tidak terlihat', basis: null });
+    // its note was saved as text only: shown as written, in either language
+    expect(row.fields.signature).toEqual({ value: 'NO', check: note('legacy', { text: 'Tanda tangan karyawan tidak terlihat' }), basis: null });
     expect(row.fields.nik.value).toBe('************0001');
     expect(row.nik.masked).toBe('************0001');
+  });
+
+  test('a reading saved with its notes as text (before 2026-11-16) opens with notes the page can render', async () => {
+    const old = readFile('Teks Uji - 1jan-31mar26.pdf');
+    const run = job([old]);
+    const saving = await saveRun(run, userId, (s) => {
+      s.file(old, NIK, null);
+      s.finish({ ...run, status: 'done', finishedAt: '2026-11-05T03:05:00.000Z' });
+    });
+    const asText = { ...old.row!, fields: { ...old.row!.fields, signature: { value: 'NO', check: 'Kurang jelas; lihat sekilas', basis: null } } };
+    await database.db
+      .update(ocrContractDetails)
+      .set({ result: JSON.stringify(asText) })
+      .where(eq(ocrContractDetails.headerId, (await saving.headerId())!));
+    const row = (await archive.load(run.id))!.job.files[0]!.row!;
+    // this fixture holds too few facts for today's rules, so the text is kept as written rather than guessed
+    expect(row.fields.signature).toEqual({ value: 'NO', check: note('legacy', { text: 'Kurang jelas; lihat sekilas' }), basis: null });
+    expect(row.fields.name).toEqual({ value: 'Teks Uji', check: null, basis: null });
   });
 
   test("a PDF's newest reading in any run: never a taken copy, a failure or a cancelled file", async () => {

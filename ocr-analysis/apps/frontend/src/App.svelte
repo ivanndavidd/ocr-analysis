@@ -2,6 +2,7 @@
   import type { Health, User } from '@contract-ocr/shared-types';
   import { onMount } from 'svelte';
   import Banner from './components/Banner.svelte';
+  import LanguageSwitch from './components/LanguageSwitch.svelte';
   import BrowsePage from './pages/BrowsePage.svelte';
   import HistoryPage from './pages/HistoryPage.svelte';
   import InactivePage from './pages/InactivePage.svelte';
@@ -9,8 +10,10 @@
   import LoginPage from './pages/LoginPage.svelte';
   import UsersPage from './pages/UsersPage.svelte';
   import { ACCESS_CHANGED_EVENT, SIGNED_OUT_EVENT, api, failureCode } from './services/api.ts';
+  import { t } from './utils/i18n.ts';
   import { errorLabel } from './utils/labels.ts';
   import { USERS_HREF, folderHref, historyHref, parseRoute } from './utils/routes.ts';
+  import { roleLabel } from './utils/users.ts';
 
   const HEALTH_READY_MS = 15_000;
   const HEALTH_WAITING_MS = 3_000;
@@ -119,7 +122,7 @@
   );
   // a run belongs to the history
   const section = $derived(route.page === 'browse' ? 'folder' : route.page === 'users' ? 'users' : 'history');
-  const rootName = $derived(health?.rootName ?? 'Folder');
+  const rootName = $derived(health?.rootName ?? t().common.folder);
   const extractor = $derived(health?.extractor ?? null);
 </script>
 
@@ -138,41 +141,42 @@
         </svg>
       </span>
       <span>
-        <span class="title">Contract OCR</span>
-        <span class="subtitle">Pemeriksaan kontrak PKWT</span>
+        <span class="title">{t().common.product}</span>
+        <span class="subtitle">{t().common.tagline}</span>
       </span>
     </a>
-    <nav class="tabs" aria-label="Halaman">
+    <nav class="tabs" aria-label={t().app.pages}>
       <a href={folderHref(lastFolder)} class:active={section === 'folder'} aria-current={route.page === 'browse' ? 'page' : undefined}>
-        Folder
+        {t().app.tabFolders}
       </a>
       <a href={historyHref(lastHistory)} class:active={section === 'history'} aria-current={route.page === 'history' ? 'page' : undefined}>
-        Riwayat OCR
+        {t().app.tabHistory}
       </a>
       {#if isAdmin}
         <a href={USERS_HREF} class:active={section === 'users'} aria-current={route.page === 'users' ? 'page' : undefined}>
-          User
+          {t().app.tabUsers}
         </a>
       {/if}
     </nav>
     <span class="status" class:ok={!offline && extractor?.state === 'ready'} class:bad={offline || extractor?.state === 'unavailable'}>
       <span class="dot" aria-hidden="true"></span>
       {#if offline}
-        Backend mati
+        {t().app.backendDown}
       {:else if !extractor || extractor.state === 'starting'}
-        OCR disiapkan…
+        {t().app.ocrStarting}
       {:else if extractor.state === 'ready'}
-        OCR siap · {extractor.workers} pembaca{#if health?.claude === 'on'} · dibantu Claude{/if}
+        {t().app.ocrReady(extractor.workers, health?.claude === 'on')}
       {:else}
-        OCR tidak tersedia
+        {t().app.ocrUnavailable}
       {/if}
     </span>
+    <div class="lang"><LanguageSwitch /></div>
     <div class="account">
-      <span class="who" title={`${user.email} · ${user.role === 'admin' ? 'Admin' : 'Reviewer'}`}>
+      <span class="who" title={`${user.email} · ${roleLabel(user.role)}`}>
         <span class="avatar" aria-hidden="true">{user.name.charAt(0).toUpperCase()}</span>
         <span class="name">{user.name}</span>
       </span>
-      <button class="btn btn-ghost btn-sm" type="button" onclick={signOut} disabled={signingOut}>Keluar</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick={signOut} disabled={signingOut}>{t().common.signOut}</button>
     </div>
   </div>
 </header>
@@ -182,9 +186,9 @@
     <Banner tone="danger">{errorLabel('network')}</Banner>
   {:else if extractor?.state === 'unavailable'}
     <Banner tone="danger">
-      Pembaca OCR tidak bisa dijalankan ({errorLabel(extractor.error ?? 'extractor_unavailable')}). Periksa
-      <span class="mono">TESSERACT_CMD</span> dan <span class="mono">EXTRACTOR_PYTHON</span> di
-      <span class="mono">apps/backend/.env</span>, lalu jalankan ulang backend.
+      {t().app.readerDown(errorLabel(extractor.error ?? 'extractor_unavailable'))}
+      <span class="mono">TESSERACT_CMD</span> {t().common.and} <span class="mono">EXTRACTOR_PYTHON</span> {t().app.readerDownIn}
+      <span class="mono">apps/backend/.env</span>{t().app.readerDownRestart}
     </Banner>
   {/if}
 
@@ -291,6 +295,10 @@
     border-bottom-color: var(--blue-brand);
     color: var(--blue-link);
   }
+  .lang {
+    display: flex;
+    align-items: center;
+  }
   .account {
     display: flex;
     align-items: center;
@@ -348,8 +356,8 @@
   @media (max-width: 900px) {
     .topbar-inner {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      grid-template-areas: 'brand status account' 'tabs tabs tabs';
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      grid-template-areas: 'brand status lang account' 'tabs tabs tabs tabs';
       height: auto;
       row-gap: 0;
     }
@@ -360,6 +368,9 @@
     .status {
       grid-area: status;
       justify-self: end;
+    }
+    .lang {
+      grid-area: lang;
     }
     .account {
       grid-area: account;
@@ -375,11 +386,14 @@
       justify-content: center;
     }
   }
-  /* A phone: the brand and the account on top, the backend's state under them, then the tabs. */
+  /* A phone: the brand and the account on top, the backend's state and the language under them, then the tabs. */
   @media (max-width: 640px) {
     .topbar-inner {
       grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas: 'brand account' 'status status' 'tabs tabs';
+      grid-template-areas: 'brand account' 'status lang' 'tabs tabs';
+    }
+    .lang {
+      padding-bottom: var(--blue-space-2);
     }
     .brand {
       min-height: 52px;

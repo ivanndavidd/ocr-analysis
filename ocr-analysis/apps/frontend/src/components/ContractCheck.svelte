@@ -2,11 +2,12 @@
   import type { FieldKey, JobFile, LatestResult } from '@contract-ocr/shared-types';
   import { untrack } from 'svelte';
   import { api, failureCode } from '../services/api.ts';
-  import { FIELDS, FIELD_LABEL, EXCEL_HEADER, displayValue, fieldPage, toCheck } from '../utils/fields.ts';
+  import { EXCEL_HEADER, FIELDS, basisNote, checkNote, displayValue, fieldLabel, fieldPage, toCheck } from '../utils/fields.ts';
   import { formatNik, formatTokens, percent } from '../utils/format.ts';
   import { callsLabel } from '../utils/claude.ts';
   import { readBy } from '../utils/jobs.ts';
-  import { DECISION, PAGE_KIND, errorLabel, reasonLabel } from '../utils/labels.ts';
+  import { t } from '../utils/i18n.ts';
+  import { decisionLabel, errorLabel, pageKindLabel, reasonLabel } from '../utils/labels.ts';
   import { jobHref } from '../utils/routes.ts';
 
   // One contract's data next to its PDF, so a person compares the yellow values with the page without leaving the
@@ -112,17 +113,17 @@
         <p class="file" title={file.path}>{file.name}</p>
       </div>
       {#if position}
-        <div class="nav" role="group" aria-label="Pindah kontrak">
-          <button class="btn btn-outline btn-sm" disabled={!onprev} onclick={() => onprev?.()} title="Sebelumnya (Alt + ←)">
-            ‹ Sebelumnya
+        <div class="nav" role="group" aria-label={t().check.move}>
+          <button class="btn btn-outline btn-sm" disabled={!onprev} onclick={() => onprev?.()} title={t().common.previousKey}>
+            {t().common.previous}
           </button>
-          <span class="count">{position.index + 1} dari {position.total}</span>
-          <button class="btn btn-outline btn-sm" disabled={!onnext} onclick={() => onnext?.()} title="Berikutnya (Alt + →)">
-            Berikutnya ›
+          <span class="count">{t().check.position(position.index + 1, position.total)}</span>
+          <button class="btn btn-outline btn-sm" disabled={!onnext} onclick={() => onnext?.()} title={t().common.nextKey}>
+            {t().common.next}
           </button>
         </div>
       {/if}
-      <button class="close" aria-label="Tutup" title="Tutup (Esc)" onclick={onclose}>
+      <button class="close" aria-label={t().common.close} title={t().common.closeEsc} onclick={onclose}>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path fill="none" stroke="currentColor" stroke-width="2" d="M6 6l12 12M18 6 6 18" />
         </svg>
@@ -130,19 +131,19 @@
     </header>
 
     <div class="body">
-      <aside class="data" aria-label="Data kontrak">
+      <aside class="data" aria-label={t().check.data}>
         {#if run}
           <div class="source">
-            <p><strong>Hasil OCR terakhir PDF ini</strong><br />{readBy(run)}</p>
-            <a class="btn btn-outline btn-sm" href={jobHref(run.jobId)} onclick={onclose}>Buka proses</a>
+            <p><strong>{t().check.latest}</strong><br />{readBy(run)}</p>
+            <a class="btn btn-outline btn-sm" href={jobHref(run.jobId)} onclick={onclose}>{t().check.openRun}</a>
           </div>
         {/if}
         {#if flagged.length}
           <p class="verdict check">
-            <strong>{flagged.length} kolom perlu dicek.</strong> Cocokkan nilai berlatar kuning dengan PDF di samping.
+            <strong>{t().check.toCheck(flagged.length)}</strong> {t().check.toCheckHint}
           </p>
         {:else}
-          <p class="verdict ready"><strong>Siap dipakai.</strong> Semua kolom terbaca dan cocok.</p>
+          <p class="verdict ready"><strong>{t().check.ready}</strong> {t().check.readyHint}</p>
         {/if}
 
         <ul class="fields">
@@ -150,24 +151,26 @@
             {@const field = row.fields[key]}
             {@const value = shown(key)}
             {@const at = fieldPage(key, row)}
-            <li class:flag={field.check !== null}>
+            {@const check = checkNote(field)}
+            {@const basis = basisNote(field)}
+            <li class:flag={check !== null}>
               <div class="top">
-                <span class="label">{FIELD_LABEL[key]} <span class="excel">· Excel: {EXCEL_HEADER[key]}</span></span>
-                {#if at && field.check !== null}
-                  <button class="page" class:current={page === at} onclick={() => (page = at)}>Lihat hal. {at}</button>
+                <span class="label">{fieldLabel(key)} <span class="excel">· Excel: {EXCEL_HEADER[key]}</span></span>
+                {#if at && check !== null}
+                  <button class="page" class:current={page === at} onclick={() => (page = at)}>{t().check.seePage(at)}</button>
                 {/if}
               </div>
               <div class="value">
                 {#if value}
                   <span class:mono={key === 'nik'}>{value}</span>
                 {:else}
-                  <span class="empty">Kosong</span>
+                  <span class="empty">{t().common.empty}</span>
                 {/if}
               </div>
-              {#if field.check}
-                <p class="note"><span class="icon" aria-hidden="true">!</span>{field.check}</p>
-              {:else if field.basis}
-                <p class="note ok"><span class="icon" aria-hidden="true">✓</span>{field.basis}</p>
+              {#if check}
+                <p class="note"><span class="icon" aria-hidden="true">!</span>{check}</p>
+              {:else if basis}
+                <p class="note ok"><span class="icon" aria-hidden="true">✓</span>{basis}</p>
               {/if}
             </li>
           {/each}
@@ -175,42 +178,43 @@
 
         {#if row.detail.vendorNote}
           <div class="vendor">
-            <strong>Catatan untuk vendor</strong>
-            <p>{row.detail.vendorNote}</p>
+            <strong>{t().check.vendorNote}</strong>
+            <!-- written by the extractor in Indonesian, for the vendor: shown as it is in either language -->
+            <p lang="id">{row.detail.vendorNote}</p>
           </div>
         {/if}
 
         <details class="tech">
-          <summary>Detail teknis</summary>
+          <summary>{t().check.technical}</summary>
           <dl>
-            <dt>Halaman identitas</dt>
-            <dd>{row.detail.identityPages.length ? row.detail.identityPages.join(', ') : 'tidak ditemukan'}</dd>
-            <dt>Halaman tanda tangan</dt>
+            <dt>{t().check.identityPages}</dt>
+            <dd>{row.detail.identityPages.length ? row.detail.identityPages.join(', ') : t().check.notFound}</dd>
+            <dt>{t().check.signaturePage}</dt>
             <dd>
-              {row.detail.signaturePage ?? 'tidak ditemukan'}{row.detail.signatureSource ? ` (dari ${row.detail.signatureSource})` : ''}
+              {row.detail.signaturePage ?? t().check.notFound}{row.detail.signatureSource ? t().check.from(row.detail.signatureSource) : ''}
             </dd>
-            <dt>Jenis halaman</dt>
+            <dt>{t().check.pageKinds}</dt>
             <dd>
-              {#each pages as [n, kind], i (n)}{i ? ', ' : ''}hal. {n} {PAGE_KIND[kind] ?? kind}{:else}—{/each}
+              {#each pages as [n, kind], i (n)}{i ? ', ' : ''}{t().check.page(n)} {pageKindLabel(kind)}{:else}—{/each}
             </dd>
-            <dt>Keyakinan OCR</dt>
+            <dt>{t().check.ocrConfidence}</dt>
             <dd>
-              {#each confidence as [n, value], i (n)}{i ? ', ' : ''}hal. {n} {percent(value)}{:else}tidak perlu OCR (teks digital){/each}
+              {#each confidence as [n, value], i (n)}{i ? ', ' : ''}{t().check.page(n)} {percent(value)}{:else}{t().check.noOcr}{/each}
             </dd>
-            <dt>Dibaca oleh</dt>
+            <dt>{t().check.readBy}</dt>
             <dd>
               {row.reader === 'claude'
                 ? row.readByFallback
-                  ? 'Pola teks; nama dan periode dibaca Claude karena pola teks tidak bisa memastikannya'
-                  : 'Claude'
-                : 'Pola teks'}
+                  ? t().check.readByFallback
+                  : t().check.readByClaude
+                : t().check.readByPatterns}
               {#if row.claudeCalls?.length}
-                <br /><span class="muted">Dikirim ke Claude: {callsLabel(row.claudeCalls)}</span>
+                <br /><span class="muted">{t().check.sentToClaude(callsLabel(row.claudeCalls))}</span>
               {/if}
               {#if row.tokens}<br /><span class="muted">{formatTokens(row.tokens)}</span>{/if}
             </dd>
-            <dt>Keputusan pembaca</dt>
-            <dd>{DECISION[row.decision]}</dd>
+            <dt>{t().check.decision}</dt>
+            <dd>{decisionLabel(row.decision)}</dd>
           </dl>
           {#if row.reasons.length}
             <ul class="codes">
@@ -222,16 +226,16 @@
         </details>
       </aside>
 
-      <section class="pdf" aria-label="PDF kontrak">
+      <section class="pdf" aria-label={t().check.pdf}>
         {#if error}
           <p class="state error">{errorLabel(error)}.</p>
         {:else if url}
           <!-- Recreated per page: the viewer reads the fragment only when it loads. No thumbnails, page at full width. -->
           {#key `${url}#${page ?? ''}`}
-            <iframe src="{url}#{page ? `page=${page}&` : ''}navpanes=0&view=FitH" title="Isi {file.name}"></iframe>
+            <iframe src="{url}#{page ? `page=${page}&` : ''}navpanes=0&view=FitH" title={t().common.pdfOf(file.name)}></iframe>
           {/key}
         {:else}
-          <p class="state muted">Memuat PDF…</p>
+          <p class="state muted">{t().common.loadingPdf}</p>
         {/if}
       </section>
     </div>

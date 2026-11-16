@@ -1,4 +1,4 @@
-import type { FieldValue, Job, JobFile } from '@contract-ocr/shared-types';
+import { type FieldValue, type Job, type JobFile, noteText } from '@contract-ocr/shared-types';
 import { BULAN_SINGKAT } from './fields.ts';
 
 // The workbook spec `contract-extractor xlsx` takes (apps/extractor/src/contract_extractor/output/workbook.py).
@@ -40,7 +40,8 @@ const FAILED: Record<string, string> = {
 };
 
 const cell = (value: string | number | null, check?: string | null): WorkbookCell => (check ? { value, check } : { value });
-const excel = (field: FieldValue): WorkbookCell => cell(field.value, field.check);
+// The Excel stays Indonesian whatever language the page shows: its columns follow HR's Indonesian template.
+const excel = (field: FieldValue): WorkbookCell => cell(field.value, field.check && noteText(field.check, 'id'));
 
 /** The vendor is the first folder under the root: `root/<vendor>/<kontrak range>/<pdf>`. */
 export function vendorOf(path: string): string {
@@ -65,7 +66,7 @@ function fileRow(file: JobFile, niks: ReadonlyMap<string, string>): WorkbookCell
   const { fields } = row;
   const nik = fields.nik.value === null ? null : (niks.get(file.path) ?? fields.nik.value);
   return [
-    cell(nik, fields.nik.check),
+    cell(nik, fields.nik.check && noteText(fields.nik.check, 'id')),
     excel(fields.vendor),
     excel(fields.entity),
     excel(fields.name),

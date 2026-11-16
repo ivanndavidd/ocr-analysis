@@ -1,84 +1,70 @@
-import type { ClaudeCall, ClaudeCallKind, ClaudeState, ReadMode } from '@contract-ocr/shared-types';
+import type { ClaudeCall, ClaudeState, ReadMode } from '@contract-ocr/shared-types';
 import { formatCount, totalTokens } from './format.ts';
+import { t } from './i18n.ts';
 
 /** How "Jalankan OCR" reads, by whether Claude helps the patterns (the backend's `claude` state). */
-export const FLOW_LABEL: Record<ClaudeState, string> = {
-  off: 'Pola teks',
-  starting: 'Pola teks + Claude',
-  on: 'Pola teks + Claude',
-  unavailable: 'Pola teks (Claude tidak tersedia)',
-};
+export const flowLabel = (state: ClaudeState) => t().claude.flow[state];
 
-const PATTERNS =
-  'Dibaca di laptop ini: nama dan periode dari nama file serta vendor dari nama folder, dicocokkan dengan teks dokumen; NIK dan tanda tangan diperiksa di sini dulu.';
 // Claude is a fallback (owner 2026-11-11): the identity page's text goes out only for a field the laptop leaves unsure.
-const WITH_CLAUDE =
-  ' Claude hanya cadangan: teks halaman identitas yang sudah disamarkan dikirim hanya bila nama, periode, posisi, atau vendor belum bisa dipastikan di laptop ini, dan jawabannya dipakai untuk kolom itu saja; potongan gambar baris NIK bila pemeriksaan di laptop ini ragu, serta potongan area tanda tangan untuk setiap scan dan foto (PDF teks bila ragu) sebagai pemeriksa kedua.';
-
 export function flowDescription(state: ClaudeState | null): string {
-  return state === 'on' || state === 'starting' ? PATTERNS + WITH_CLAUDE : PATTERNS;
+  const { patterns, withClaude } = t().claude;
+  return state === 'on' || state === 'starting' ? patterns + withClaude : patterns;
 }
 
 /** Why Claude is not helping, for the run area; null when it is, or is still starting. */
-export const CLAUDE_HINT: Partial<Record<ClaudeState, string>> = {
-  off: 'Claude dimatikan di backend (CLAUDE_MODE=off): tidak ada isi kontrak yang dikirim keluar.',
-  unavailable:
-    'Claude belum bisa dipakai, jadi OCR berjalan dengan pola teks saja. Isi ANTHROPIC_API_KEY di .env backend, atau login dengan "claude auth login" di komputer ini, lalu jalankan ulang backend.',
-};
+export function claudeHint(state: ClaudeState | null): string | null {
+  if (state === 'off') return t().claude.hintOff;
+  if (state === 'unavailable') return t().claude.hintUnavailable;
+  return null;
+}
 
 /** The warning in the run confirmation when Claude may be sent something; null when nothing leaves the laptop. */
 export function claudeConsent(state: ClaudeState | null, pdfs: number): string | null {
   if (state !== 'on' && state !== 'starting') return null;
-  return `Dari ${pdfs} PDF, yang dikirim ke Claude: teks halaman identitas yang sudah disamarkan (tanpa NIK, alamat, dan gaji) hanya bila nama, periode, posisi, atau vendor belum pasti, potongan gambar baris NIK bila NIK ragu, dan potongan area tanda tangan untuk setiap scan dan foto (PDF teks bila tanda tangannya ragu); tidak pernah satu halaman utuh. Setiap panggilan dikenai biaya pemakaian Claude.`;
+  return t().claude.consent(pdfs);
 }
 
 /** The one line a run confirmation always shows when Claude may be sent something; `claudeConsent` spells it out under
  *  the confirmation's "Detail". Null when nothing leaves the laptop. */
 export function claudeNotice(state: ClaudeState | null): string | null {
   if (state !== 'on' && state !== 'starting') return null;
-  return 'Sebagian isi PDF dikirim ke Claude, tidak pernah satu halaman utuh. Dikenai biaya pemakaian.';
+  return t().claude.notice;
 }
 
-export const CALL_LABEL: Record<ClaudeCallKind, string> = {
-  text: 'teks halaman identitas',
-  nik: 'potongan baris NIK',
-  signature: 'potongan area tanda tangan',
-  pages: 'halaman pertama dan terakhir utuh',
-};
-
 /** `teks halaman identitas (12.475 token), potongan baris NIK (2.010 token)`: what was sent for one file, in order. */
-export const callsLabel = (calls: ClaudeCall[]) =>
-  calls
-    .map(({ kind, tokens }) => (tokens ? `${CALL_LABEL[kind]} (${formatCount(totalTokens(tokens))} token)` : CALL_LABEL[kind]))
+export function callsLabel(calls: ClaudeCall[]): string {
+  const { calls: labels, callTokens } = t().claude;
+  return calls
+    .map(({ kind, tokens }) => (tokens ? callTokens(labels[kind], formatCount(totalTokens(tokens))) : labels[kind]))
     .join(', ');
+}
 
 /** A job in the lists: how it read, and whether Claude was helping when it ran. */
-export const jobFlowLabel = (claude: boolean, mode: ReadMode = 'ocr') =>
-  mode === 'full_page' ? 'tanpa OCR, halaman utuh ke Claude' : claude ? 'dibantu Claude' : 'pola teks saja';
+export function jobFlowLabel(claude: boolean, mode: ReadMode = 'ocr'): string {
+  const m = t().claude;
+  return mode === 'full_page' ? m.jobFullPage : claude ? m.jobClaude : m.jobPatterns;
+}
 
 // The two ways a run reads. The OCR mode is the main flow; the no-OCR mode sends the first and last page of every PDF
 // whole and unmasked to Claude, a backup the owner and mentor test while sending whole pages is not approved yet
 // (2026-11-04). The switch shows until they decide.
 export const MODES: ReadMode[] = ['ocr', 'full_page'];
-export const MODE_LABEL: Record<ReadMode, string> = { ocr: 'Dengan OCR', full_page: 'Tanpa OCR' };
+export const modeLabel = (mode: ReadMode) => t().claude.modes[mode];
 
-export const FULL_PAGE_FLOW = 'Halaman utuh ke Claude (uji coba)';
-export const FULL_PAGE_DESCRIPTION =
-  'Tidak memakai OCR di laptop ini. Halaman pertama (dianggap halaman identitas) dan halaman terakhir (dianggap halaman tanda tangan) setiap PDF dikirim utuh sebagai gambar ke Claude, yang membaca nama, NIK, posisi, periode, perusahaan pemberi kerja, dan tanda tangan. Di laptop ini NIK dicocokkan dengan tanggal lahir dan jenis kelamin yang tercetak, nama dan periode dengan nama file, dan perusahaan dengan folder vendor.';
+export const fullPageFlow = () => t().claude.fullPageFlow;
+export const fullPageDescription = () => t().claude.fullPageDescription;
 
 /** The warning in the run confirmation of the no-OCR mode, which sends whole, unmasked pages. */
-export const fullPageConsent = (pdfs: number) =>
-  `Dari ${pdfs} PDF, halaman pertama dan halaman terakhir dikirim UTUH ke Claude tanpa disamarkan: nama, NIK, alamat, tanggal lahir, dan isi lain di halaman itu ikut terkirim. Cara ini belum disetujui untuk dipakai; gunakan hanya untuk uji coba. Setiap PDF satu panggilan Claude (sekitar 15 ribu token) dan dikenai biaya pemakaian.`;
+export const fullPageConsent = (pdfs: number) => t().claude.fullPageConsent(pdfs);
 
 /** The no-OCR mode's warning in one line, always shown; `fullPageConsent` spells it out under "Detail". */
-export const FULL_PAGE_NOTICE =
-  'Halaman pertama dan terakhir dikirim UTUH ke Claude tanpa disamarkan, NIK ikut terkirim. Belum disetujui: hanya untuk uji coba.';
+export const fullPageNotice = () => t().claude.fullPageNotice;
 
 /** Why the no-OCR mode cannot run now; null when it can. Claude is its only reader, so it needs Claude ready. */
 export function fullPageBlocked(state: ClaudeState | null): string | null {
   if (state === 'on') return null;
-  if (state === 'starting') return 'Tunggu Claude siap untuk membaca tanpa OCR.';
-  return 'Tanpa OCR butuh Claude, yang tidak tersedia di backend ini. Pilih Dengan OCR.';
+  if (state === 'starting') return t().claude.fullPageWait;
+  return t().claude.fullPageNeedsClaude;
 }
 
 const MODE_KEY = 'contract-ocr.read-mode';

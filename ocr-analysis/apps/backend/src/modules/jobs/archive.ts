@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { FieldValue, HistoryFilter, Job, JobFile, JobHistory, LatestResult, ReadMark } from '@contract-ocr/shared-types';
+import { type FieldValue, type HistoryFilter, type Job, type JobFile, type JobHistory, type LatestResult, type ReadMark, noteText } from '@contract-ocr/shared-types';
 import { eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../database/database.ts';
 import { type OcrDetailInsert, ocrContractDetails, ocrHeaders } from '../database/schema.ts';
@@ -84,7 +84,7 @@ export function detailValues(file: JobFile, nik: string | null): DetailValues {
   const checks = Object.fromEntries(
     Object.entries(fields)
       .filter(([, field]) => field.check !== null)
-      .map(([key, field]) => [key, field.check]),
+      .map(([key, field]) => [key, field.check && noteText(field.check, 'id')]), // as the Excel words it, for people reading the table
   );
   return {
     ...base,

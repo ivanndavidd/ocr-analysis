@@ -1,4 +1,5 @@
 import type { ManagedUser, Role } from '@contract-ocr/shared-types';
+import { t } from './i18n.ts';
 
 // The User page: wording, its search and filters, and which rows an admin may not change.
 
@@ -11,30 +12,22 @@ export function initials(name: string): string {
     .join('');
 }
 
-export const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', reviewer: 'Reviewer' };
+export const roleLabel = (role: Role) => t().users.roles[role];
 
 /** The choices of a row's dropdowns on the User page. */
 export const ROLE_CHOICES: readonly Role[] = ['reviewer', 'admin'];
-export const STATUS_CHOICES = [
-  { value: 'active', label: 'Aktif' },
-  { value: 'inactive', label: 'Nonaktif' },
-] as const;
+export const STATUS_CHOICES = ['active', 'inactive'] as const;
 
-export const STATUS_FILTERS = [
-  { value: 'all', label: 'Semua status' },
-  { value: 'active', label: 'Aktif' },
-  { value: 'inactive', label: 'Nonaktif' },
-] as const;
-export const ROLE_FILTERS = [
-  { value: 'all', label: 'Semua peran' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'reviewer', label: 'Reviewer' },
-] as const;
+/** The filters' choices; `statusLabel` and `roleFilterLabel` word them. */
+export const STATUS_FILTERS = ['all', 'active', 'inactive'] as const;
+export const ROLE_FILTERS = ['all', 'admin', 'reviewer'] as const;
+export const statusLabel = (status: (typeof STATUS_FILTERS)[number]) => t().users.statuses[status];
+export const roleFilterLabel = (role: (typeof ROLE_FILTERS)[number]) => t().users.roles[role];
 
 export interface UserFilter {
   q: string; // part of the name or email, any case
-  status: (typeof STATUS_FILTERS)[number]['value'];
-  role: (typeof ROLE_FILTERS)[number]['value'];
+  status: (typeof STATUS_FILTERS)[number];
+  role: (typeof ROLE_FILTERS)[number];
 }
 
 export const NO_FILTER: UserFilter = { q: '', status: 'all', role: 'all' };
@@ -57,33 +50,14 @@ export function userCounts(users: readonly ManagedUser[]): { total: number; acti
 /** Why the signed-in admin may not change this row, or null: their own row (nobody locks themselves out), or an
  *  ADMIN_EMAILS admin (each sign-in would make it an active admin again). The backend refuses both as well. */
 export function lockReason(user: ManagedUser, signedInId: number): string | null {
-  if (user.id === signedInId) return 'Akun Anda sendiri: peran dan status tidak bisa diubah sendiri';
-  if (user.adminFromConfig) return 'Admin tetap dari ADMIN_EMAILS di backend: ubah di pengaturan backend';
+  if (user.id === signedInId) return t().users.lockedSelf;
+  if (user.adminFromConfig) return t().users.lockedConfig;
   return null;
 }
 
 /** What a change does, for its confirmation. Activating needs none: it is the page's everyday step, undone in a click. */
 export function changeQuestion(user: ManagedUser, change: { role?: Role; active?: boolean }): { title: string; body: string; confirm: string } | null {
-  if (change.role === 'admin') {
-    return {
-      title: 'Jadikan admin?',
-      body: `${user.name} akan bisa membuka halaman User, mengaktifkan dan menonaktifkan user lain, serta mengubah peran mereka.`,
-      confirm: 'Ya, jadikan admin',
-    };
-  }
-  if (change.role === 'reviewer') {
-    return {
-      title: 'Jadikan reviewer?',
-      body: `${user.name} tetap bisa memakai website, tetapi tidak bisa lagi membuka halaman User.`,
-      confirm: 'Ya, jadikan reviewer',
-    };
-  }
-  if (change.active === false) {
-    return {
-      title: 'Nonaktifkan user?',
-      body: `${user.name} langsung tidak bisa memakai website, termasuk sesi yang sedang terbuka, sampai diaktifkan lagi. Proses OCR miliknya yang sedang berjalan tetap diselesaikan.`,
-      confirm: 'Ya, nonaktifkan',
-    };
-  }
-  return null;
+  const m = t().users;
+  const question = change.role === 'admin' ? m.makeAdmin : change.role === 'reviewer' ? m.makeReviewer : change.active === false ? m.deactivate : null;
+  return question && { title: question.title, body: question.body(user.name), confirm: question.confirm };
 }

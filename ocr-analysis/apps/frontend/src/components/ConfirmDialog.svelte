@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { t } from '../utils/i18n.ts';
 
   // A yes/no question over the page, for steps that start work or may cost money. "Batal" has the focus, so an Enter
   // pressed out of habit does not confirm.
@@ -53,7 +54,7 @@
   <h2 id="{id}-title">{title}</h2>
   <div class="body" id="{id}-body">{@render children()}</div>
   <div class="actions">
-    <button class="btn btn-outline" bind:this={cancelButton} disabled={busy} onclick={cancel}>Batal</button>
+    <button class="btn btn-outline" bind:this={cancelButton} disabled={busy} onclick={cancel}>{t().common.cancel}</button>
     <button class="btn btn-primary" disabled={busy} onclick={onconfirm}>{confirmLabel}</button>
   </div>
 </dialog>

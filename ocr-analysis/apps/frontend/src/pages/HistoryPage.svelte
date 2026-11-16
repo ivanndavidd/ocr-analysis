@@ -3,7 +3,7 @@
   import { untrack } from 'svelte';
   import Banner from '../components/Banner.svelte';
   import { api } from '../services/api.ts';
-  import { jobFlowLabel } from '../utils/claude.ts';
+  import { jobFlowLabel, modeLabel } from '../utils/claude.ts';
   import { formatCount, formatDateTime } from '../utils/format.ts';
   import {
     DEFAULT_VIEW,
@@ -15,11 +15,14 @@
     type HistoryView,
     dayOf,
     narrows,
+    outcomeOptionLabel,
+    statusOptionLabel,
     pageList,
     parseView,
     viewFilter,
     viewQuery,
   } from '../utils/history.ts';
+  import { t } from '../utils/i18n.ts';
   import { isActive, jobTitle, runState } from '../utils/jobs.ts';
   import { folderHref, historyHref, jobHref } from '../utils/routes.ts';
 
@@ -120,11 +123,11 @@
 
 <section class="card history" aria-labelledby="history-title">
   <div class="head">
-    <h1 id="history-title">Riwayat OCR</h1>
-    <span class="muted">Proses semua user, terbaru dulu</span>
+    <h1 id="history-title">{t().history.title}</h1>
+    <span class="muted">{t().history.subtitle}</span>
   </div>
 
-  <div class="filters" role="search" aria-label="Cari dan saring riwayat">
+  <div class="filters" role="search" aria-label={t().history.filters}>
     <label class="search">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
@@ -136,53 +139,53 @@
         oninput={typed}
         onkeydown={searchKey}
         maxlength={MAX_SEARCH}
-        placeholder="Cari folder, nama, atau email user"
-        aria-label="Cari folder, nama, atau email user"
+        placeholder={t().history.search}
+        aria-label={t().history.search}
         autocomplete="off"
         spellcheck="false"
       />
     </label>
     <div class="selects">
       <select
-        aria-label="Status proses"
+        aria-label={t().history.status}
         class:set={view.status}
         value={view.status}
         onchange={(e) => go({ status: e.currentTarget.value as HistoryView['status'] })}
       >
-        <option value="">Semua status</option>
-        {#each STATUS_OPTIONS as [value, label] (value)}<option {value}>{label}</option>{/each}
+        <option value="">{t().history.allStatuses}</option>
+        {#each STATUS_OPTIONS as value (value)}<option {value}>{statusOptionLabel(value)}</option>{/each}
       </select>
       <select
-        aria-label="Hasil"
+        aria-label={t().history.outcome}
         class:set={view.outcome}
         value={view.outcome}
         onchange={(e) => go({ outcome: e.currentTarget.value as HistoryView['outcome'] })}
       >
-        <option value="">Semua hasil</option>
-        {#each OUTCOME_OPTIONS as [value, label] (value)}<option {value}>{label}</option>{/each}
+        <option value="">{t().history.allOutcomes}</option>
+        {#each OUTCOME_OPTIONS as value (value)}<option {value}>{outcomeOptionLabel(value)}</option>{/each}
       </select>
       <select
-        aria-label="Cara baca"
+        aria-label={t().common.readMode}
         class:set={view.mode}
         value={view.mode}
         onchange={(e) => go({ mode: e.currentTarget.value as HistoryView['mode'] })}
       >
-        <option value="">Semua cara baca</option>
-        {#each MODE_OPTIONS as [value, label] (value)}<option {value}>{label}</option>{/each}
+        <option value="">{t().history.allModes}</option>
+        {#each MODE_OPTIONS as value (value)}<option {value}>{modeLabel(value)}</option>{/each}
       </select>
       <select
-        aria-label="User"
+        aria-label={t().history.user}
         class:set={view.mine}
         value={view.mine ? 'mine' : ''}
         onchange={(e) => go({ mine: e.currentTarget.value === 'mine' })}
       >
-        <option value="">Semua user</option>
-        <option value="mine">Proses saya</option>
+        <option value="">{t().history.allUsers}</option>
+        <option value="mine">{t().history.mine}</option>
       </select>
     </div>
     <div class="dates">
       <label class="date">
-        <span>Dari</span>
+        <span>{t().history.from}</span>
         <input
           type="date"
           class:set={view.from}
@@ -192,7 +195,7 @@
         />
       </label>
       <label class="date">
-        <span>Sampai</span>
+        <span>{t().history.to}</span>
         <input
           type="date"
           class:set={view.to}
@@ -202,14 +205,14 @@
           onchange={(e) => go({ to: e.currentTarget.value })}
         />
       </label>
-      {#if narrowed}<button class="link" type="button" onclick={reset}>Hapus filter</button>{/if}
+      {#if narrowed}<button class="link" type="button" onclick={reset}>{t().common.clearFilters}</button>{/if}
     </div>
   </div>
 
   {#if failed}
     <div class="pad">
       <Banner tone="danger">
-        Riwayat gagal dimuat. <button class="link" type="button" onclick={() => load(view, false)}>Coba lagi</button>
+        {t().history.failed} <button class="link" type="button" onclick={() => load(view, false)}>{t().common.tryAgain}</button>
       </Banner>
     </div>
   {/if}
@@ -217,24 +220,24 @@
   {#if result}
     <p class="count" aria-live="polite">
       {#if result.total > 0}
-        Menampilkan <strong>{formatCount(first)}–{formatCount(first + result.jobs.length - 1)}</strong> dari
-        <strong>{formatCount(result.total)}</strong> proses{#if narrowed}&nbsp;yang cocok{/if}
+        {t().history.showing} <strong>{formatCount(first)}–{formatCount(first + result.jobs.length - 1)}</strong>
+        {t().history.of} <strong>{formatCount(result.total)}</strong> {t().history.runs(result.total, narrowed)}
       {:else}
-        0 proses
+        {t().history.none}
       {/if}
-      {#if loading}<span class="muted"> · memuat…</span>{/if}
+      {#if loading}<span class="muted">{t().history.loadingMore}</span>{/if}
     </p>
 
     {#if result.total === 0}
       <div class="state empty">
         {#if narrowed}
-          <strong>Tidak ada proses yang cocok</strong>
-          <span class="muted">Ubah kata kunci atau filternya.</span>
-          <button class="btn btn-outline btn-sm" type="button" onclick={reset}>Hapus filter</button>
+          <strong>{t().history.noMatch}</strong>
+          <span class="muted">{t().history.noMatchHint}</span>
+          <button class="btn btn-outline btn-sm" type="button" onclick={reset}>{t().common.clearFilters}</button>
         {:else}
-          <strong>Belum ada proses OCR</strong>
-          <span class="muted">Pilih folder atau PDF, lalu tekan Jalankan OCR.</span>
-          <a class="btn btn-outline btn-sm" href={folderHref('')}>Buka folder</a>
+          <strong>{t().history.empty}</strong>
+          <span class="muted">{t().history.emptyHint}</span>
+          <a class="btn btn-outline btn-sm" href={folderHref('')}>{t().history.openFolders}</a>
         {/if}
       </div>
     {:else}
@@ -245,31 +248,31 @@
               <a href={jobHref(job.id)}>{jobTitle(job, rootName)}</a>
               <span class="muted small">{where(job.folders)} · {jobFlowLabel(job.claude, job.mode)}</span>
               <span class="muted small">
-                {#if job.startedBy}oleh <strong class="by">{job.startedBy.name}</strong>&nbsp;·&nbsp;{/if}<span class:live={isActive(job)}>{runState(job)}</span>
+                {#if job.startedBy}{t().history.by} <strong class="by">{job.startedBy.name}</strong>&nbsp;·&nbsp;{/if}<span class:live={isActive(job)}>{runState(job)}</span>
                 {formatDateTime(isActive(job) ? job.startedAt : (job.finishedAt ?? job.startedAt))}
               </span>
             </div>
             <div class="counts">
-              <span class="ready">{job.ready} siap</span>
-              <span class="check">{job.check} perlu dicek</span>
-              {#if job.failed}<span class="failed">{job.failed} gagal</span>{/if}
-              <span class="total muted">dari {job.total}</span>
+              <span class="ready">{t().history.ready(job.ready)}</span>
+              <span class="check">{t().history.check(job.check)}</span>
+              {#if job.failed}<span class="failed">{t().history.failedCount(job.failed)}</span>{/if}
+              <span class="total muted">{t().history.ofTotal(job.total)}</span>
             </div>
-            <a class="btn btn-ghost btn-sm" href={jobHref(job.id)}>{isActive(job) ? 'Lihat progres' : 'Buka hasil'}</a>
+            <a class="btn btn-ghost btn-sm" href={jobHref(job.id)}>{isActive(job) ? t().common.viewProgress : t().history.openResults}</a>
           </li>
         {/each}
       </ul>
       <div class="foot">
         <label class="size">
-          <span class="muted small">Per halaman</span>
+          <span class="muted small">{t().history.perPage}</span>
           <select value={String(view.size)} onchange={(e) => go({ size: Number(e.currentTarget.value) })}>
             {#each PAGE_SIZES as size (size)}<option value={String(size)}>{size}</option>{/each}
           </select>
         </label>
         {#if pages > 1}
-          <nav class="pager" aria-label="Halaman riwayat">
+          <nav class="pager" aria-label={t().history.pager}>
             <button class="btn btn-outline btn-sm" type="button" disabled={view.page <= 1} onclick={() => turn(view.page - 1)}>
-              ‹ Sebelumnya
+              {t().common.previous}
             </button>
             {#each pageList(view.page, pages) as n, i (n ?? `gap-${i}`)}
               {#if n === null}
@@ -279,21 +282,21 @@
                   class="num"
                   class:current={n === view.page}
                   type="button"
-                  aria-label="Halaman {n}"
+                  aria-label={t().history.page(n)}
                   aria-current={n === view.page ? 'page' : undefined}
                   onclick={() => turn(n)}>{n}</button
                 >
               {/if}
             {/each}
             <button class="btn btn-outline btn-sm" type="button" disabled={view.page >= pages} onclick={() => turn(view.page + 1)}>
-              Berikutnya ›
+              {t().common.next}
             </button>
           </nav>
         {/if}
       </div>
     {/if}
   {:else if !failed}
-    <p class="muted state">Memuat riwayat…</p>
+    <p class="muted state">{t().history.loading}</p>
   {/if}
 </section>
 

@@ -1,5 +1,9 @@
 // Shapes shared by the backend API and the Svelte frontend.
 
+import type { Note } from './notes.ts';
+
+export * from './notes.ts';
+
 export interface Crumb {
   name: string;
   path: string; // relative to the folder root, '/'-separated; '' is the root itself
@@ -88,11 +92,12 @@ export type Reader = 'claude' | 'pattern';
 export type FieldKey = 'nik' | 'vendor' | 'entity' | 'name' | 'position' | 'start' | 'end' | 'months' | 'signature';
 
 /** One value as it goes into the Excel. When `check` is set a person compares it with the PDF: the cell is yellow, on
- *  the page and in the Excel, with this note. `basis` says why a value without a check can be trusted. */
+ *  the page and in the Excel, with this note. `basis` says why a value without a check can be trusted. Both are keys
+ *  the page renders in the reader's language (see notes.ts). */
 export interface FieldValue {
   value: string | number | null; // NIK masked (the Excel gets the full one); dates ISO; signature 'YES' or 'NO'
-  check: string | null;
-  basis: string | null;
+  check: Note | null;
+  basis: Note | null;
 }
 
 export type ContractFields = Record<FieldKey, FieldValue>;

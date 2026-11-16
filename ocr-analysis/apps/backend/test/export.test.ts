@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import type { ContractRow, Job, JobFile } from '@contract-ocr/shared-types';
+import { type ContractRow, type Job, type JobFile, noteText } from '@contract-ocr/shared-types';
 import { COLUMNS, type WorkbookCell, exportFileName, vendorOf, workbookSpec } from '../src/modules/jobs/export.ts';
 import { type RowFacts, fieldsOf, tanggal, wholeMonths } from '../src/modules/jobs/fields.ts';
 import { WorkbookError, processWorkbookWriter } from '../src/modules/jobs/workbook.ts';
@@ -295,7 +295,11 @@ describe('fields shown on the page', () => {
       ['months', 'MONTH'],
       ['signature', 'SIGN'],
     ] as const;
-    for (const [key, header] of pairs) expect(first?.[col(header)]?.check ?? null).toBe(row.fields[key].check);
+    // the Excel carries the page's note in Indonesian
+    for (const [key, header] of pairs) {
+      const check = row.fields[key].check;
+      expect(first?.[col(header)]?.check ?? null).toBe(check && noteText(check, 'id'));
+    }
     expect(row.fields.nik.value).toBe('************0001');
     expect(first?.[col('NIK KTP')]?.value).toBe(NIK);
   });
@@ -306,7 +310,7 @@ describe('fields shown on the page', () => {
       expect(field.check).toBeNull();
       expect(field.basis).toBeTruthy();
     }
-    expect(fields.start.basis).toBe('Sama di dokumen dan di nama file');
+    expect(noteText(fields.start.basis!, 'id')).toBe('Sama di dokumen dan di nama file');
   });
 
   test('dates in notes are written as people write them', () => {

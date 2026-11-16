@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import type { ExtractorFileResult, ParsedFilename } from '../src/modules/workers/protocol.ts';
-import { maskNik, toRow } from '../src/modules/jobs/rows.ts';
+import { maskNik, toRow as readRow } from '../src/modules/jobs/rows.ts';
+import { inIndonesian } from './fixtures/notes.ts';
+
+// The rows' notes are keys the page renders in the reader's language; these tests read them in Indonesian, the wording
+// HR knows and the Excel carries.
+const toRow = (...args: Parameters<typeof readRow>) => inIndonesian(readRow(...args));
 
 const FILENAME: ParsedFilename = { name: 'Budi', start: '2045-04-16', end: '2047-04-15', duration_months: null, flags: [] };
 
