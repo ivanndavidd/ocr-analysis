@@ -44,6 +44,8 @@ export interface ExtractorFileResult {
       status: 'ditemukan' | 'bertentangan' | 'tidak_ditemukan';
       sumber: 'label' | 'kalimat' | 'llm' | null;
       cocok_llm?: boolean | null; // Claude's title against the local reading
+      ocr_ragu?: boolean | null; // that local reading came from an unclear scan, whose OCR text Claude read too
+      koreksi_llm?: boolean | null; // Claude's title fixes an OCR misread: it is not printed letter for letter
       pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR (RapidOCR) on the same scan
     } | null;
     validasi_nama_file?: {

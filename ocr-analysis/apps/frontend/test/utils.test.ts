@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { ClaudeCallKind, ContractFields, ContractRow, FieldValue, JobFile } from '@contract-ocr/shared-types';
+import type { ClaudeCallKind, ContractFields, ContractRow, FieldValue, JobFile, ManagedUser } from '@contract-ocr/shared-types';
 import { downloadName } from '../src/services/api.ts';
 import { displayValue, fieldPage, fullNik, groupsToCheck, periodCell, rowState, toCheck } from '../src/utils/fields.ts';
 import { formatDate, formatDateTime, formatDay, formatNik, formatRange, formatTokens, partialPeriod, totalTokens } from '../src/utils/format.ts';
@@ -39,7 +39,7 @@ import {
   loadMode,
   saveMode,
 } from '../src/utils/claude.ts';
-import { HISTORY_HREF, filePath, folderHref, historyHref, jobHref, parseRoute } from '../src/utils/routes.ts';
+import { HISTORY_HREF, USERS_HREF, filePath, folderHref, historyHref, jobHref, parseRoute } from '../src/utils/routes.ts';
 import {
   DEFAULT_VIEW,
   type HistoryView,
@@ -50,7 +50,8 @@ import {
   viewFilter,
   viewQuery,
 } from '../src/utils/history.ts';
-import { TEST_ACCOUNTS, initials } from '../src/utils/testAccounts.ts';
+import { TEST_ACCOUNTS } from '../src/utils/testAccounts.ts';
+import { NO_FILTER, changeQuestion, filterUsers, initials, lockReason, userCounts } from '../src/utils/users.ts';
 
 describe('routes', () => {
   test('folder and job links round-trip, including spaces and slashes', () => {
@@ -58,6 +59,7 @@ describe('routes', () => {
     expect(parseRoute(folderHref(path))).toEqual({ page: 'browse', path });
     expect(parseRoute(jobHref('abc-123'))).toEqual({ page: 'job', id: 'abc-123' });
     expect(parseRoute(HISTORY_HREF)).toEqual({ page: 'history', query: '' });
+    expect(parseRoute(USERS_HREF)).toEqual({ page: 'users' });
     expect(parseRoute(historyHref('q=PT+Uji&page=2'))).toEqual({ page: 'history', query: 'q=PT+Uji&page=2' });
     expect(historyHref('')).toBe(HISTORY_HREF);
   });
@@ -144,6 +146,8 @@ describe('reading flow', () => {
   test('one flow: the patterns, with Claude helping when the backend has it', () => {
     expect([FLOW_LABEL.on, FLOW_LABEL.off]).toEqual(['Pola teks + Claude', 'Pola teks']);
     expect(flowDescription('on')).toContain('potongan gambar baris NIK');
+    expect(flowDescription('on')).toContain('hanya bila nama, periode, posisi, atau vendor belum bisa dipastikan');
+    expect(reasonLabel('extractor_not_needed')).toContain('tidak dikirim ke Claude');
     expect(flowDescription('off')).not.toContain('Claude');
     expect(flowDescription(null)).toBe(flowDescription('off'));
     expect(CLAUDE_HINT.unavailable).toContain('pola teks saja');
@@ -348,6 +352,7 @@ describe('vendor', () => {
       'nik_from_llm',
       'nik_llm_differs',
       'signature_from_llm',
+      'signature_llm_agrees',
       'signature_llm_differs',
       'signature_llm_sees_none',
     ]) {
@@ -507,5 +512,60 @@ describe('history list', () => {
     expect(pageList(6, 10)).toEqual([1, null, 5, 6, 7, null, 10]);
     expect(pageList(10, 10)).toEqual([1, null, 9, 10]);
     expect(pageList(2, 3)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('users page', () => {
+  // fictitious test users
+  const user = (id: number, name: string, extra: Partial<ManagedUser> = {}): ManagedUser => ({
+    id,
+    email: `${name.toLowerCase().replace(/ /g, '.')}@gdn-commerce.com`,
+    name,
+    role: 'reviewer',
+    active: false,
+    createdAt: '2026-11-16T01:00:00.000Z',
+    lastLoginAt: null,
+    adminFromConfig: false,
+    ...extra,
+  });
+  const list = [
+    user(1, 'Penguji Admin', { role: 'admin', active: true, adminFromConfig: true }),
+    user(2, 'Penguji Dua', { active: true }),
+    user(3, 'Penguji Tiga'),
+    user(4, 'Rina Uji', { role: 'admin', active: true }),
+  ];
+
+  test('searches name and email in any case, and filters by status and role', () => {
+    expect(filterUsers(list, NO_FILTER)).toHaveLength(4);
+    expect(filterUsers(list, { ...NO_FILTER, q: '  PENGUJI ' }).map((u) => u.id)).toEqual([1, 2, 3]);
+    expect(filterUsers(list, { ...NO_FILTER, q: 'rina.uji@' }).map((u) => u.id)).toEqual([4]);
+    expect(filterUsers(list, { ...NO_FILTER, status: 'inactive' }).map((u) => u.id)).toEqual([3]);
+    expect(filterUsers(list, { ...NO_FILTER, status: 'active', role: 'reviewer' }).map((u) => u.id)).toEqual([2]);
+    expect(filterUsers(list, { q: 'tiga', status: 'active', role: 'all' })).toEqual([]);
+  });
+
+  test('counts users, active, inactive and admins', () => {
+    expect(userCounts(list)).toEqual({ total: 4, active: 3, inactive: 1, admins: 2 });
+    expect(userCounts([])).toEqual({ total: 0, active: 0, inactive: 0, admins: 0 });
+  });
+
+  test("locks the admin's own row and ADMIN_EMAILS admins, nothing else", () => {
+    expect(lockReason(list[3]!, 4)).toContain('sendiri');
+    expect(lockReason(list[0]!, 4)).toContain('ADMIN_EMAILS');
+    expect(lockReason(list[1]!, 4)).toBeNull();
+    expect(lockReason(list[3]!, 1)).toBeNull();
+  });
+
+  test('asks before a role change or deactivation, not before activation', () => {
+    expect(changeQuestion(list[2]!, { active: true })).toBeNull();
+    expect(changeQuestion(list[1]!, { active: false })?.title).toBe('Nonaktifkan user?');
+    expect(changeQuestion(list[1]!, { role: 'admin' })?.body).toContain('Penguji Dua');
+    expect(changeQuestion(list[3]!, { role: 'reviewer' })?.confirm).toBe('Ya, jadikan reviewer');
+  });
+
+  test('labels the new error codes', () => {
+    for (const code of ['account_inactive', 'admin_only', 'cannot_change_self', 'admin_from_config', 'user_not_found']) {
+      expect(errorLabel(code)).not.toBe(code);
+    }
   });
 });

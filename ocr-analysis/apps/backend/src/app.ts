@@ -8,13 +8,16 @@ import type {
   Job,
   JobHistory,
   LatestResult,
+  ManagedUser,
   ReadMark,
   RunUser,
   User,
+  UserAccessErrorCode,
+  UserList,
 } from '@contract-ocr/shared-types';
 import { type SessionStore, loginIdentity, sessionCookie, sessionToken } from './modules/auth/sessions.ts';
 import type { UserRow } from './modules/database/schema.ts';
-import type { UserStore } from './modules/users/store.ts';
+import { AccessError, type UserStore } from './modules/users/store.ts';
 import { claudeState } from './modules/workers/claude.ts';
 import type { ExtractorClient } from './modules/workers/protocol.ts';
 import { GraphError } from './modules/folders/graph.ts';
@@ -34,14 +37,19 @@ export interface AppDeps {
   sessions: SessionStore;
 }
 
-// Everything else under /api needs a signed-in session.
+// Everything else under /api needs a signed-in session, and everything but these also an active user: an inactive one
+// may only ask who it is (the page then says it waits for an admin) and sign out.
 const PUBLIC_PATHS = new Set(['/api/auth/login', '/api/auth/logout']);
+const INACTIVE_PATHS = new Set(['/api/auth/me']);
 
 const publicUser = (row: UserRow): User => ({
   id: row.id,
   email: row.email,
   name: row.name,
+  role: row.role,
+  active: row.active,
   createdAt: row.createdAt.toISOString(),
+  lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
 });
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -55,6 +63,13 @@ const MAX_MARKED_FILES = 2000; // PDFs marked in one folder listing, as many as 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const SOURCE_STATUS: Record<SourceError['code'], number> = { bad_path: 400, not_found: 404, not_pdf: 400, too_large: 413 };
+const ACCESS_STATUS: Record<UserAccessErrorCode, number> = {
+  admin_only: 403,
+  cannot_change_self: 403,
+  admin_from_config: 409,
+  user_not_found: 404,
+};
+const USER_ID = t.Numeric({ minimum: 1, maximum: 2_147_483_647 }); // a PostgreSQL integer id
 const JOB_STATUS: Record<JobError['code'], number> = {
   job_running: 409,
   user_has_job: 409,
@@ -109,10 +124,19 @@ export function createApp({
       exporting--;
     }
   }
-  // the guard below lets only a signed-in session through to the job routes
-  const userId = (request: Request) => sessions.userId(sessionToken(request.headers.get('cookie')));
+  // The guard below looks up the signed-in user once per request, in the database, so a role change or deactivation
+  // applies to sessions already open; the routes read that user here.
+  const signedIn = new WeakMap<Request, UserRow>();
+  const userId = (request: Request) => signedIn.get(request)?.id ?? null;
+  const managedUser = (row: UserRow): ManagedUser => ({ ...publicUser(row), adminFromConfig: users.adminFromConfig(row.email) });
+  /** The signed-in user if an admin, else the 403 to answer. Checked by the route itself, after routing, so no spelling
+   *  of the path gets past it; the store checks again while it writes. */
+  const admin = (request: Request): UserRow | Response => {
+    const user = signedIn.get(request);
+    return user?.active && user.role === 'admin' ? user : fail(403, { error: 'admin_only' });
+  };
   return new Elysia()
-    .onRequest(({ request, set }) => {
+    .onRequest(async ({ request, set }) => {
       const host = (request.headers.get('host') ?? '').toLowerCase();
       if (!allowedHosts.has(host)) return fail(403, { error: 'forbidden_host' });
       if (!SAFE_METHODS.has(request.method)) {
@@ -123,8 +147,12 @@ export function createApp({
         if (request.headers.get('sec-fetch-site') === 'cross-site') return fail(403, { error: 'forbidden_origin' });
       }
       const path = new URL(request.url).pathname;
-      if (!PUBLIC_PATHS.has(path) && sessions.userId(sessionToken(request.headers.get('cookie'))) === null) {
-        return fail(401, { error: 'unauthenticated' });
+      if (!PUBLIC_PATHS.has(path)) {
+        const id = sessions.userId(sessionToken(request.headers.get('cookie')));
+        const user = id === null ? null : await users.get(id);
+        if (!user) return fail(401, { error: 'unauthenticated' });
+        if (!user.active && !INACTIVE_PATHS.has(path)) return fail(403, { error: 'account_inactive' });
+        signedIn.set(request, user);
       }
       set.headers['cache-control'] = 'no-store'; // results carry employee names
       set.headers['x-content-type-options'] = 'nosniff';
@@ -132,6 +160,7 @@ export function createApp({
     })
     .onError(({ code, error }) => {
       if (error instanceof SourceError) return fail(SOURCE_STATUS[error.code], { error: error.code });
+      if (error instanceof AccessError) return fail(ACCESS_STATUS[error.code], { error: error.code });
       if (error instanceof JobError) {
         return fail(JOB_STATUS[error.code], { error: error.code, ...(error.jobId ? { jobId: error.jobId } : {}) });
       }
@@ -146,7 +175,9 @@ export function createApp({
       console.error(`request failed: ${error instanceof Error ? error.name : 'unknown'}${detail}`);
       return fail(500, { error: 'internal_error' });
     })
-    // Mock sign-in (no password; see modules/auth/sessions.ts): the first sign-in of an email adds it to the User table.
+    // Mock sign-in (no password; see modules/auth/sessions.ts): the first sign-in of an email adds it to the User table as
+    // an inactive reviewer, and every sign-in sets its last login. An inactive user gets a session all the same, so the
+    // page can say the account waits for an admin.
     .post(
       '/api/auth/login',
       async ({ body, request, set }): Promise<AuthSession | Response> => {
@@ -164,11 +195,35 @@ export function createApp({
       set.headers['set-cookie'] = sessionCookie(null, new URL(request.url).protocol === 'https:');
       return { ok: true };
     })
-    .get('/api/auth/me', async ({ request }): Promise<AuthSession | Response> => {
-      const id = sessions.userId(sessionToken(request.headers.get('cookie')));
-      const user = id === null ? null : await users.get(id);
+    .get('/api/auth/me', ({ request }): AuthSession | Response => {
+      const user = signedIn.get(request);
       return user ? { user: publicUser(user) } : fail(401, { error: 'unauthenticated' });
     })
+    // The User page: admins only, checked here and again by the store.
+    .get('/api/users', async ({ request }): Promise<UserList | Response> => {
+      const actor = admin(request);
+      if (actor instanceof Response) return actor;
+      return { users: (await users.list()).map(managedUser) };
+    })
+    .patch(
+      '/api/users/:id',
+      async ({ params, body, request }): Promise<ManagedUser | Response> => {
+        const actor = admin(request);
+        if (actor instanceof Response) return actor;
+        if (body.role === undefined && body.active === undefined) return fail(400, { error: 'bad_request' });
+        const row = await users.setAccess(actor.id, params.id, body);
+        // an audit line with ids only: names and emails are personal data
+        console.info(`access: user ${actor.id} set user ${row.id} to ${row.role}, ${row.active ? 'active' : 'inactive'}`);
+        return managedUser(row);
+      },
+      {
+        params: t.Object({ id: USER_ID }),
+        body: t.Object({
+          role: t.Optional(t.Union([t.Literal('reviewer'), t.Literal('admin')])),
+          active: t.Optional(t.Boolean()),
+        }),
+      },
+    )
     .get(
       '/api/health',
       (): Health => ({ extractor: extractor.status(), claude: claudeState(claude, extractor), rootName: source.rootName }),
@@ -255,8 +310,7 @@ export function createApp({
       async ({ body, request, set }) => {
         const selection = { folders: body.folders ?? [], files: body.files ?? [], mode: body.mode ?? 'ocr', unreadOnly: body.unreadOnly ?? false };
         if (selection.folders.length + selection.files.length === 0) return fail(400, { error: 'bad_request' });
-        const id = userId(request);
-        const row = id === null ? null : await users.get(id);
+        const row = signedIn.get(request);
         if (!row) return fail(401, { error: 'unauthenticated' });
         // the signed-in user is saved as the run's starter; the run waits in the queue behind the runs ahead of it
         const starter: RunUser = { id: row.id, name: row.name, email: row.email };

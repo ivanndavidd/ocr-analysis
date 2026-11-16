@@ -71,6 +71,10 @@ export interface PositionInfo {
   value: string | null;
   confidence: number | null; // pattern: lowest OCR word confidence over the title (1 from a text layer); Claude: its own
   agreement: 'same' | 'different' | null; // Claude's title against the local pattern reading; null when not compared
+  // The local reading Claude was compared with came from an unclear scan. Claude reads the same OCR text, so its
+  // agreement does not confirm that title.
+  fromUnclearScan?: boolean;
+  fixedByClaude?: boolean; // Claude fixed an OCR misread in the title, so it is not printed letter for letter
   source: 'claude' | 'pattern' | null; // who read the title shown; null when there is none
   // A low-confidence title from a scan, read again by the second local OCR (RapidOCR): the same title, another, or none
   secondReader?: 'same' | 'different' | 'unreadable' | null;
@@ -259,20 +263,46 @@ export interface Health {
   rootName: string;
 }
 
-/** A row of the `User` table: whoever signed in with that email. */
+/** What a user may do. Both read contracts and run OCR; an admin also manages users on the User page. */
+export type Role = 'reviewer' | 'admin';
+
+/** A row of the `User` table: whoever signed in with that email. A first sign-in adds an inactive reviewer. */
 export interface User {
   id: number;
   email: string;
   name: string;
+  role: Role;
+  active: boolean; // false: signed in, but every route except /api/auth/* answers 403 `account_inactive`
   createdAt: string; // ISO date-time of the first sign-in
+  lastLoginAt: string | null; // ISO date-time of the latest sign-in; null if none since the column was added
 }
 
-/** `GET /api/auth/me` and `POST /api/auth/login`. Every other route answers 401 `unauthenticated` without a session;
- *  a refused login answers 400 with `bad_email` or `bad_name`. Any email domain is accepted: Apps Gateway, which
- *  replaces the mock sign-in, lets only company accounts through itself. */
+/** `GET /api/auth/me` and `POST /api/auth/login`. Every other route answers 401 `unauthenticated` without a session,
+ *  and 403 `account_inactive` while the user is inactive; a refused login answers 400 with `bad_email` or `bad_name`.
+ *  Any email domain is accepted: Apps Gateway, which replaces the mock sign-in, lets only company accounts through. */
 export interface AuthSession {
   user: User;
 }
+
+/** A user on the User page. `adminFromConfig`: the email is in the backend's ADMIN_EMAILS, so every sign-in makes
+ *  it an active admin again; the page cannot change it (409 `admin_from_config`). */
+export interface ManagedUser extends User {
+  adminFromConfig: boolean;
+}
+
+/** `GET /api/users` (admins only, else 403 `admin_only`): every user, latest sign-in first. */
+export interface UserList {
+  users: ManagedUser[];
+}
+
+/** `PATCH /api/users/:id` (admins only): the new role, active state, or both. Answers the changed `ManagedUser`; an
+ *  admin's own row answers 403 `cannot_change_self`, an unknown id 404 `user_not_found`. */
+export interface UserAccessChange {
+  role?: Role;
+  active?: boolean;
+}
+
+export type UserAccessErrorCode = 'admin_only' | 'cannot_change_self' | 'admin_from_config' | 'user_not_found';
 
 /** `POST /api/auth/login`: mock sign-in (no password) until the website sits behind Apps Gateway. */
 export interface LoginRequest {

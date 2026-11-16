@@ -4,6 +4,7 @@ It uses the website the Ctrl+Shift+B task starts (backend on http://127.0.0.1:30
 and Claude login read the files, and the job also shows up on the website under "Hasil OCR terakhir". The PDFs must
 already be in the website's folder: run copy_to_onedrive.py after generating. The script signs in to the website
 (mock sign-in, no password) as a made-up benchmark user, BENCH_EMAIL below, so its runs are told apart in the history.
+Like every new user it starts inactive: an admin activates it once on the website's User page.
 
 Run it with the contract-ocr venv (from the contract-ocr folder; `rich`, for the tables, comes with that venv):
     .venv/Scripts/python contract-pdf-generator/compare_accuracy.py
@@ -15,9 +16,10 @@ Run it with the contract-ocr venv (from the contract-ocr folder; `rich`, for the
 
 Claude check: when the website has Claude switched on but its workers cannot reach it, a run would quietly read with
 the text patterns only and look like a Claude run, so the script refuses to start one (--allow-without-claude starts it
-anyway). A run with Claude is stopped and cancelled on the website when none of the first 10 files read reached Claude,
-or 10 files in a row did not (the sign-in expired midway). With CLAUDE_MODE=off on the website, it reads with the text
-patterns only, as asked. CLAUDE_BENCHMARK.md next to this script is the checklist for a full run with Claude.
+anyway). A run with Claude is stopped and cancelled on the website when none of the first 10 files that called Claude
+got an answer, or 10 such files in a row did not (the sign-in expired midway); a file the laptop settles makes no
+call. With CLAUDE_MODE=off on the website, it reads with the text patterns only, as asked. CLAUDE_BENCHMARK.md next to
+this script is the checklist for a full run with Claude.
 
 Every field of the Excel row is scored against the ground truth: correct, wrong value, not found (nothing read where
 the contract has a value), or, for the signature, undecided. A wrong value the website did not mark for checking
@@ -91,7 +93,7 @@ ACTIVE = ("queued", "running")  # a job still waiting in the website's queue or 
 # The website's mock sign-in takes any email and name; the benchmark signs in as this made-up user (example.com is a
 # reserved domain), never as a real person, so its runs show up in the shared history as the benchmark's.
 BENCH_EMAIL, BENCH_NAME = "accuracy-check@example.com", "Accuracy check"
-CLAUDE_FIRST = 10  # stop a Claude run when none of the first this many files read reached Claude
+CLAUDE_FIRST = 10  # stop a Claude run when none of the first this many files that called Claude got an answer
 CLAUDE_STREAK = 10  # or when this many files in a row did not
 
 
@@ -131,10 +133,15 @@ class Website:
             raise ApiError(error.code, str(payload.get("error", "http_error")), payload) from None
 
     def sign_in(self) -> None:
-        """The website asks every caller to sign in (since 2026-11-05); the benchmark signs in as its own user."""
-        self.call("POST", "/api/auth/login", {"email": BENCH_EMAIL, "name": BENCH_NAME})
+        """The website asks every caller to sign in (since 2026-11-05); the benchmark signs in as its own user. Since
+        2026-11-16 a new user is an inactive reviewer until an admin activates it, once, on the User page."""
+        user = self.call("POST", "/api/auth/login", {"email": BENCH_EMAIL, "name": BENCH_NAME}).get("user", {})
         if not self.session:
             sys.exit("The website did not hand out a sign-in cookie; check the backend terminal.")
+        if user.get("active") is False:  # a backend from before roles sends no `active`
+            sys.exit(f"The benchmark user {BENCH_EMAIL} is signed in but not active yet. Sign in to the website as an "
+                     "admin, open User, and set the Status of 'Accuracy check' to Aktif (once; it stays active), "
+                     "then run this again.")
 
     def health(self) -> dict:
         return self.call("GET", "/api/health")
@@ -182,10 +189,9 @@ def claude_problem(state: str, mode: str, allow_without: bool) -> str | None:
             "To read with the text patterns only on purpose, add --allow-without-claude.")
 
 
-def reached_claude(file: dict) -> bool:
-    """A file read with at least one Claude call and no failed one."""
-    row = file.get("row") or {}
-    return bool(row.get("claudeCalls")) and not any(r.startswith("extractor_error") for r in row.get("reasons") or [])
+def call_errors(file: dict) -> list[str]:
+    """The failed Claude calls of a file read, by kind (extractor_error:<kind>, no PII)."""
+    return [r for r in (file.get("row") or {}).get("reasons") or [] if r.startswith("extractor_error")]
 
 
 class ClaudeStopped(Exception):
@@ -193,36 +199,38 @@ class ClaudeStopped(Exception):
 
 
 class ClaudeWatch:
-    """Watches a run that is meant to use Claude, file by file as they finish: it stops the run when none of the first
-    CLAUDE_FIRST files read reached Claude, or CLAUDE_STREAK files in a row did not. With Claude working nearly every
-    file makes a call (800 of 800 on 2026-11-04), so either means Claude is not answering."""
+    """Watches a run that is meant to use Claude, file by file as they finish, and stops it when none of the first
+    CLAUDE_FIRST files that called Claude got an answer, or CLAUDE_STREAK such files in a row did not. Since Claude
+    became a fallback (owner 2026-11-11) a file the laptop settles makes no call, so only files with calls count."""
 
     def __init__(self) -> None:
         self.seen: set[str] = set()
-        self.reached = 0
+        self.calling = 0  # files read that made a Claude call
+        self.answered = 0  # of those, files with no failed call
         self.streak = 0
-        self.failures: Counter = Counter()  # the kinds of failed calls, e.g. extractor_error:cli:exit_1 (no PII)
+        self.failures: Counter = Counter()
 
     def update(self, job: dict) -> None:
         for file in job["files"]:
             if file["state"] != "done" or file["path"] in self.seen:
                 continue
             self.seen.add(file["path"])
-            if reached_claude(file):
-                self.reached += 1
+            if not (file.get("row") or {}).get("claudeCalls"):
+                continue  # settled on the laptop: nothing was sent
+            self.calling += 1
+            failed = call_errors(file)
+            if not failed:
+                self.answered += 1
                 self.streak = 0
                 continue
             self.streak += 1
-            reasons = (file.get("row") or {}).get("reasons") or []
-            self.failures.update(r for r in reasons if r.startswith("extractor_error"))
-        if len(self.seen) >= CLAUDE_FIRST and self.reached == 0:
-            raise ClaudeStopped(f"none of the first {len(self.seen)} files read reached Claude")
+            self.failures.update(failed)
+        if self.calling >= CLAUDE_FIRST and self.answered == 0:
+            raise ClaudeStopped(f"none of the first {self.calling} files that called Claude got an answer")
         if self.streak >= CLAUDE_STREAK:
-            raise ClaudeStopped(f"the last {self.streak} files read in a row did not reach Claude")
+            raise ClaudeStopped(f"the last {self.streak} files that called Claude in a row got no answer")
 
     def detail(self) -> str:
-        if not self.failures:
-            return "no Claude call was made"
         return "failed calls: " + ", ".join(f"{kind} x{count}" for kind, count in self.failures.most_common(3))
 
 
@@ -464,7 +472,12 @@ def analyse(job: dict, workers: int, gt: Path, scored: list[Scored], extra: list
     total = sum(grand.values())
 
     decisions = Counter(s.row["decision"] for s in read)
+    # A failed call falls back to the patterns without a sign on the row, so a run with Claude can quietly be mostly
+    # patterns: count the files whose calls failed, and how (the extractor_error kind, e.g. cli:exit_1; no PII).
+    call_errors = [[r for r in s.row.get("reasons") or [] if r.startswith("extractor_error")] for s in read]
     return {
+        "claude_failed": {"files": sum(1 for e in call_errors if e),
+                          "kinds": dict(Counter(r for e in call_errors for r in e).most_common())},
         "run": {
             "job": job["id"], "claude": job["claude"], "mode": job.get("mode", "ocr"), "ground_truth": str(gt),
             "started": started.isoformat(timespec="seconds"),
@@ -1055,6 +1068,12 @@ def main() -> None:
     write_csvs(out, scored)
     console.export_text()  # drop the progress lines; the saved report starts at its title
     print_report(console, results, out)
+    if results["claude_failed"]["files"]:
+        failed = results["claude_failed"]
+        kinds = ", ".join(f"{kind} x{count}" for kind, count in failed["kinds"].items())
+        console.print(f"\n[bold red]{failed['files']} of {results['run']['files']} files had a failed Claude call ({kinds}): "
+                      "those parts were read with the text patterns only, so this is not a full Claude run. Check "
+                      "`claude --version` against your organization's minimum and `claude auth status`.[/]")
     console.save_text(str(out / "report.txt"), styles=False)
 
 

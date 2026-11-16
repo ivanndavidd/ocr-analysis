@@ -11,8 +11,9 @@ export const FLOW_LABEL: Record<ClaudeState, string> = {
 
 const PATTERNS =
   'Dibaca di laptop ini: nama dan periode dari nama file serta vendor dari nama folder, dicocokkan dengan teks dokumen; NIK dan tanda tangan diperiksa di sini dulu.';
+// Claude is a fallback (owner 2026-11-11): the identity page's text goes out only for a field the laptop leaves unsure.
 const WITH_CLAUDE =
-  ' Claude membantu: membaca posisi dan perusahaan pemberi kerja dari teks halaman identitas yang sudah disamarkan, nama dan periode bila pola teks tidak bisa memastikannya, potongan gambar baris NIK bila pemeriksaan di laptop ini ragu, serta potongan area tanda tangan untuk setiap scan dan foto (PDF teks bila ragu) sebagai pemeriksa kedua.';
+  ' Claude hanya cadangan: teks halaman identitas yang sudah disamarkan dikirim hanya bila nama, periode, posisi, atau vendor belum bisa dipastikan di laptop ini, dan jawabannya dipakai untuk kolom itu saja; potongan gambar baris NIK bila pemeriksaan di laptop ini ragu, serta potongan area tanda tangan untuk setiap scan dan foto (PDF teks bila ragu) sebagai pemeriksa kedua.';
 
 export function flowDescription(state: ClaudeState | null): string {
   return state === 'on' || state === 'starting' ? PATTERNS + WITH_CLAUDE : PATTERNS;
@@ -28,7 +29,7 @@ export const CLAUDE_HINT: Partial<Record<ClaudeState, string>> = {
 /** The warning in the run confirmation when Claude may be sent something; null when nothing leaves the laptop. */
 export function claudeConsent(state: ClaudeState | null, pdfs: number): string | null {
   if (state !== 'on' && state !== 'starting') return null;
-  return `Dari ${pdfs} PDF, yang dikirim ke Claude: teks halaman identitas yang sudah disamarkan (tanpa NIK, alamat, dan gaji), potongan gambar baris NIK bila NIK ragu, dan potongan area tanda tangan untuk setiap scan dan foto (PDF teks bila tanda tangannya ragu); tidak pernah satu halaman utuh. Setiap panggilan dikenai biaya pemakaian Claude.`;
+  return `Dari ${pdfs} PDF, yang dikirim ke Claude: teks halaman identitas yang sudah disamarkan (tanpa NIK, alamat, dan gaji) hanya bila nama, periode, posisi, atau vendor belum pasti, potongan gambar baris NIK bila NIK ragu, dan potongan area tanda tangan untuk setiap scan dan foto (PDF teks bila tanda tangannya ragu); tidak pernah satu halaman utuh. Setiap panggilan dikenai biaya pemakaian Claude.`;
 }
 
 /** The one line a run confirmation always shows when Claude may be sent something; `claudeConsent` spells it out under

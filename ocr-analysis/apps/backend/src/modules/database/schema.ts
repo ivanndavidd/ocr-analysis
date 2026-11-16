@@ -1,6 +1,9 @@
+import type { Role } from '@contract-ocr/shared-types';
+import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
   boolean,
+  check,
   date,
   doublePrecision,
   index,
@@ -20,13 +23,24 @@ import {
  * `varchar` without a length is unbounded in PostgreSQL (like `text`); it holds the JSON lists, which grow with a run.
  */
 
-/** One row per email, added the first time that email signs in. */
-export const users = pgTable('User', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
-  name: varchar('name', { length: 255 }).notNull(),
-  createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-});
+export const ROLES = ['reviewer', 'admin'] as const satisfies readonly Role[];
+
+/** One row per email, added the first time that email signs in, as an inactive reviewer: an inactive user can sign in
+ *  but use nothing until an admin activates them (emails in ADMIN_EMAILS are active admins on every sign-in). */
+export const users = pgTable(
+  'User',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    name: varchar('name', { length: 255 }).notNull(),
+    role: varchar('role', { length: 20 }).$type<Role>().notNull().default('reviewer'), // reviewer | admin
+    active: boolean('active').notNull().default(false),
+    createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    // every sign-in; null for users who have not signed in since the column was added
+    lastLoginAt: timestamp('lastLoginAt', { withTimezone: true, mode: 'date' }),
+  },
+  (t) => [check('User_role_check', sql`${t.role} in ('reviewer', 'admin')`)],
+);
 
 export type UserRow = typeof users.$inferSelect;
 

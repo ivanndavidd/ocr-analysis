@@ -33,7 +33,7 @@ try {
   console.error(`database: could not open or migrate (${error instanceof Error ? error.name : 'unknown'}${code}); check DATABASE_URL`);
   process.exit(1);
 }
-const users = new UserStore(database.db);
+const users = new UserStore(database.db, config.adminEmails);
 
 const source =
   config.source.kind === 'sharepoint'
@@ -75,6 +75,12 @@ const where = config.source.kind === 'sharepoint' ? 'SharePoint' : 'local folder
 console.info(`Contract OCR API on http://${config.host}:${config.port} (${where}: ${source.rootName}, workers: ${config.workers})`);
 const db = config.database.kind === 'postgres' ? 'PostgreSQL (DATABASE_URL)' : `embedded PostgreSQL in ${config.database.dir}`;
 console.info(`Database (users, OCR runs and results): ${db}; mock sign-in (any email, no password; replace with Apps Gateway)`);
+// counts only: the emails are personal data
+const activeAdmins = await users.countActiveAdmins();
+console.info(`Users: new ones wait as inactive reviewers; ${config.adminEmails.size} email(s) in ADMIN_EMAILS, ${activeAdmins} active admin(s)`);
+if (config.adminEmails.size === 0 && activeAdmins === 0) {
+  console.warn('Users: no active admin and ADMIN_EMAILS is empty, so nobody can activate users; add an admin email to ADMIN_EMAILS');
+}
 if (config.claude) {
   const auth =
     config.claude.auth === 'api_key' ? 'Claude API with an API key' : "the Claude Code login of this computer's user (testing only)";

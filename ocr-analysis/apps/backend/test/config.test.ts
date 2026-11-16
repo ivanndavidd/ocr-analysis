@@ -154,3 +154,18 @@ describe('folder source settings', () => {
     expect(error({ ...LOCAL, ...SHAREPOINT, ...override })).toContain(key);
   });
 });
+
+describe('admin emails', () => {
+  test('ADMIN_EMAILS is a comma-separated list, trimmed and lowercased; empty means none', () => {
+    expect(loadConfig(LOCAL).adminEmails).toEqual(new Set());
+    expect(loadConfig({ ...LOCAL, ADMIN_EMAILS: ' ' }).adminEmails).toEqual(new Set());
+    const listed = loadConfig({ ...LOCAL, ADMIN_EMAILS: ' Penguji.Admin@GDN-Commerce.com, ,penguji.dua@example.com,' });
+    expect(listed.adminEmails).toEqual(new Set(['penguji.admin@gdn-commerce.com', 'penguji.dua@example.com']));
+  });
+
+  test('refuses a value that is not an email without repeating it', () => {
+    const message = error({ ...LOCAL, ADMIN_EMAILS: 'penguji.admin@gdn-commerce.com;penguji.dua' });
+    expect(message).toContain('ADMIN_EMAILS');
+    expect(message).not.toContain('penguji');
+  });
+});

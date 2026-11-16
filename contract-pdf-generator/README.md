@@ -97,7 +97,9 @@ It writes to `accuracy/<time>/` (gitignored):
 - `summary.json`;
 - `job.json`, so `--from <folder>` can redo the report later.
 
-It signs in to the website as a made-up user, "Accuracy check" (`accuracy-check@example.com`). If the website has
+It signs in to the website as a made-up user, "Accuracy check" (`accuracy-check@example.com`). Like every new user,
+it starts inactive: the first time, the script stops and says so, and an admin sets its Status to Aktif once on the
+website's User page. If the website has
 Claude switched on but can't reach it, the script won't start a run. It also cancels a Claude run when Claude stops
 answering. Details are in `CLAUDE_BENCHMARK.md`.
 
@@ -118,6 +120,13 @@ the current reader:
 - first set: 738 of 800 fully correct;
 - v2 set: 735 of 800 fully correct.
 
+Claude-on runs through the website, 2026-11-11, with 4 workers (steps in `CLAUDE_BENCHMARK.md`):
+
+| Set | Flow | Fully correct | Wrong, not marked | Claude tokens | Time |
+| --- | --- | ---: | ---: | ---: | ---: |
+| v2 | Claude as fallback (the flow now) | 767 / 800 | 3 | 2.0 M | 59 min |
+| v2 | Claude on every file | 762 / 800 | 6 | 11.7 M | 119 min |
+| First set | Claude as fallback | 772 / 800 | 2 | 1.9 M | 46 min |
+
 **Still to do:**
-- the Claude-on run with the current reader, waiting for the Claude login;
 - a check on real contracts, which needs approval first.

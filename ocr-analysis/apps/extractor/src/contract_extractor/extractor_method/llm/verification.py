@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from rapidfuzz import fuzz
+from rapidfuzz.distance import Levenshtein
 
 from contract_extractor.common.dates import end_from_duration, months_between
 from contract_extractor.extractor_method.llm.base import ExtractionResult
@@ -21,6 +22,9 @@ from contract_extractor.extractor_method.pattern.period_regex import dates_in_te
 
 EVIDENCE_MIN = 90  # a quote must be found in the source text at least this fuzzily
 SURE = 0.9  # the model's own confidence a field needs before the extraction can be green
+# A job title the model fixed for an OCR misread may differ from its quote by one letter edit per this many letters,
+# at least one: `Kurlr` -> `Kurir` and `Fi inance` -> `Finance` pass, `Kurir` -> `Kasir` and `Gudang` -> `Sales` don't.
+FIX_LETTERS_PER_EDIT = 6
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
 REASON_NAME_NOT_IN_SOURCE = "name_not_in_source"
@@ -42,6 +46,7 @@ class VerifiedExtraction:
     confidence: dict[str, float]  # nama, periode, posisi: the model's own, 0.0 for a dropped field
     reasons: list[str] = field(default_factory=list)
     vendor: str | None = None  # the employer company, inside its quote and the quote inside the source
+    position_fixed: bool = False  # the title is not printed letter for letter: the model fixed an OCR misread
 
 
 def _plain(text: str) -> str:
@@ -67,6 +72,37 @@ def _text_found(value: str, quote: str | None, source: str) -> bool:
         and _quote_found(quote, source)
         and fuzz.partial_ratio(value_norm, _plain(quote or "")) >= EVIDENCE_MIN
     )
+
+
+def _printed(value: str, source: str) -> bool:
+    """The value's words, letter for letter and in order, in the source (case and punctuation aside)."""
+    return f" {_plain(value)} " in f" {_plain(source)} "
+
+
+def _small_fix(value: str, quote: str | None) -> bool:
+    """The value is a few letters away from a run of the quote's words (one word more or fewer than the value has):
+    the model fixed an OCR misread of a word, rather than writing another word."""
+    value_norm, words = _plain(value), _plain(quote or "").split()
+    if not value_norm or not words:
+        return False
+    allowed = max(1, len(value_norm) // FIX_LETTERS_PER_EDIT)
+    size = len(value_norm.split())
+    spans = (
+        " ".join(words[start : start + n])
+        for n in range(max(1, size - 1), size + 2)
+        for start in range(0, max(1, len(words) - n + 1))
+    )
+    return any(Levenshtein.distance(value_norm, span, score_cutoff=allowed) <= allowed for span in spans)
+
+
+def _position_found(value: str, quote: str | None, source: str) -> tuple[bool, bool]:
+    """Whether the job title is backed by its quote and the source, and whether the model fixed an OCR misread in
+    it. A fixed title must still be close to its quote (`_text_found`, or a few letters away by `_small_fix`)."""
+    if not _quote_found(quote, source):
+        return False, False
+    if not (_text_found(value, quote, source) or _small_fix(value, quote)):
+        return False, False
+    return True, not _printed(value, source)
 
 
 def regex_agrees(start: date | None, end: date | None, duration: int | None, regex: RegexPeriod | None) -> bool:
@@ -96,10 +132,12 @@ def verify_extraction(extraction: ExtractionResult, source: str, regex: RegexPer
         name = None
 
     answer = extraction.posisi
-    position = answer.nilai
-    if position and not _text_found(position, answer.kutipan, source):
-        reasons.append(REASON_POSITION_NOT_IN_SOURCE)
-        position = None
+    position, position_fixed = answer.nilai, False
+    if position:
+        found, position_fixed = _position_found(position, answer.kutipan, source)
+        if not found:
+            reasons.append(REASON_POSITION_NOT_IN_SOURCE)
+            position = None
 
     # A vendor that fails verification is only dropped: the folder's vendor is then looked up in the text instead.
     vendor = extraction.vendor.nilai
@@ -149,6 +187,7 @@ def verify_extraction(extraction: ExtractionResult, source: str, regex: RegexPer
         confidence,
         reasons,
         vendor,
+        position_fixed,
     )
 
 

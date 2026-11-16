@@ -122,10 +122,16 @@ function name(row: RowFacts): FieldValue {
 }
 
 function position(row: RowFacts): FieldValue {
-  const { status, value, confidence, agreement, source, secondReader } = row.position;
+  const { status, value, confidence, agreement, fromUnclearScan, fixedByClaude, source, secondReader } = row.position;
   if (status === 'conflict') return doubt(null, 'Ada dua posisi berbeda di dokumen');
   if (!value) return doubt(null, 'Tidak ditemukan di halaman identitas');
+  // Not printed letter for letter: HR checks the fix against the PDF
+  if (fixedByClaude) return doubt(value, 'Claude memperbaiki salah baca OCR pada jabatan ini; cocokkan di dokumen');
   if (agreement === 'different') return doubt(value, 'Pembacaan pola teks berbeda; cek di dokumen');
+  // Claude read the same OCR text, so agreeing with it confirms nothing (2026-11-11: `Cleaning Service 1` went green)
+  if (agreement === 'same' && fromUnclearScan) {
+    return doubt(value, 'Dibaca dari scan yang kurang jelas; Claude membaca teks OCR yang sama, cocokkan di dokumen');
+  }
   if (source === 'pattern' && secondReader === 'same') return sure(value, `${TWO_ENGINES} membaca posisi yang sama`);
   if (unsure(confidence)) {
     if (source === 'claude') return doubt(value, 'Claude kurang yakin membaca posisi ini');
@@ -236,6 +242,10 @@ function signature(row: RowFacts): FieldValue {
     if (row.reasons.includes('signature_from_llm')) {
       const seen = row.signature === 'signed' ? 'melihat coretan tanda tangan' : 'melihat tempat tanda tangan kosong';
       return sure(value, `Pemeriksaan lokal ragu; Claude ${seen} di potongan area tanda tangan`);
+    }
+    if (row.reasons.includes('signature_llm_agrees')) {
+      const seen = row.signature === 'signed' ? 'melihat coretan tanda tangan' : 'melihat tempat tanda tangan kosong';
+      return sure(value, `Pemeriksaan lokal kurang jelas; Claude juga ${seen} di potongan area tanda tangan`);
     }
     if (row.reasons.includes('signature_not_clear')) return doubt(value, `Kurang jelas; lihat sekilas${where}`);
     return sure(

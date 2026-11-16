@@ -92,7 +92,10 @@ function positionInfo(result: ExtractorFileResult): PositionInfo {
     // Claude's verified title replaces the local one; it was compared with it, or the local reading found none
     const source = agreement !== null || result.log.posisi?.sumber === 'llm' ? 'claude' : 'pattern';
     const secondReader = SECOND_READER[result.log.posisi?.pembaca_kedua ?? ''] ?? null;
-    return { status: 'found', value, confidence: confidenceOf(result, 'posisi'), agreement, source, secondReader };
+    const fromUnclearScan = agreement !== null && result.log.posisi?.ocr_ragu === true;
+    const fixedByClaude = source === 'claude' && result.log.posisi?.koreksi_llm === true;
+    const confidence = confidenceOf(result, 'posisi');
+    return { status: 'found', value, confidence, agreement, fromUnclearScan, fixedByClaude, source, secondReader };
   }
   const status = POSITION_STATUS[result.log.posisi?.status ?? ''] ?? 'missing';
   return { status: status === 'found' ? 'missing' : status, value: null, confidence: null, agreement: null, source: null };

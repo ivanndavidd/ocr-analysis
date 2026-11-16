@@ -3,7 +3,8 @@
   import Banner from '../components/Banner.svelte';
   import { api, failureCode } from '../services/api.ts';
   import { errorLabel } from '../utils/labels.ts';
-  import { TEST_ACCOUNTS, initials } from '../utils/testAccounts.ts';
+  import { TEST_ACCOUNTS } from '../utils/testAccounts.ts';
+  import { initials } from '../utils/users.ts';
 
   // Mock sign-in: a stand-in for Apps Gateway (the company SSO). It asks for no password, so nobody types a real one
   // into a page that does not check it.
@@ -135,17 +136,18 @@
               </li>
             {/each}
           </ul>
-          <p class="muted small">Akun fiktif untuk menguji beberapa pengguna. Hanya tampil saat dijalankan lokal (<code>bun run dev</code>).</p>
+          <p class="muted small">Akun fiktif untuk menguji beberapa user. Hanya tampil saat dijalankan lokal (<code>bun run dev</code>).</p>
         {/if}
       </div>
     {/if}
 
     <Banner tone="warning">
       <strong>Login tiruan untuk pengujian.</strong> Tidak ada kata sandi yang diminta atau diperiksa. Nanti diganti
-      Apps Gateway (SSO kantor). Email yang pertama kali masuk dicatat di tabel User.
+      Apps Gateway (SSO kantor). Email yang pertama kali masuk dicatat sebagai Reviewer nonaktif sampai admin
+      mengaktifkannya.
     </Banner>
   </section>
-  <p class="muted small footer">© Blibli · Hanya untuk pengguna internal</p>
+  <p class="muted small footer">© Blibli · Hanya untuk user internal</p>
 </main>
 
 <style>

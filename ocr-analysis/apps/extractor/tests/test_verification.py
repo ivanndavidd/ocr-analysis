@@ -156,6 +156,30 @@ def test_position_must_be_in_its_quote_and_the_source():
     assert verify_extraction(outside_quote, SOURCE, REGEX).position is None
 
 
+@pytest.mark.parametrize(
+    ("printed", "value", "kept", "fixed"),
+    [
+        ("Staff Gudang", "Staff Gudang", True, False),  # copied as printed
+        ("Kurlr", "Kurir", True, True),  # one letter of a short word
+        ("Staff OC/Packing", "Staff QC/Packing", True, True),
+        ("Admin Fi inance", "Admin Finance", True, True),  # a word OCR split
+        ("Sales Executi Cutive", "Sales Executive", True, True),
+        ("Cleaning Service 1", "Cleaning Service", True, False),  # a stray digit dropped: still printed as written
+        ("Kurlr", "Kasir", False, False),  # another word, not a fix
+        ("Staff Gudang", "Staff Packing", False, False),
+        ("Beauty pn Ka Advisor", "Beauty Advisor", False, False),  # too much noise to call it a misread
+    ],
+)
+def test_a_title_may_fix_an_ocr_misread_but_not_become_another_word(printed, value, kept, fixed):
+    """The model may fix a few letters of a title OCR misread (prompt, `posisi`); the fix is flagged, so the website
+    keeps it yellow, and anything further from the printed text is dropped."""
+    source = SOURCE.replace("sebagai Staff Gudang di", f"sebagai {printed} di")
+    quote = f"PIHAK KEDUA sebagai {printed} di Cikarang"
+    verified = verify_extraction(answer(posisi=TextAnswer(kutipan=quote, nilai=value, confidence=0.85)), source, REGEX)
+    assert (verified.position, verified.position_fixed) == ((value, fixed) if kept else (None, False))
+    assert (REASON_POSITION_NOT_IN_SOURCE in verified.reasons) is not kept
+
+
 def test_duration_only_contract_gets_its_end_date_computed():
     source = "Nama : Budi Santoso\nJangka waktu 12 (dua belas) bulan terhitung sejak tanggal 1 Januari 2026."
     quote = "12 (dua belas) bulan terhitung sejak tanggal 1 Januari 2026"

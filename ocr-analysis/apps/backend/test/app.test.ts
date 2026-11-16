@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,7 +11,9 @@ import type {
   Job,
   JobHistory,
   LatestResult,
+  ManagedUser,
   ReadMark,
+  UserList,
 } from '@contract-ocr/shared-types';
 import { createApp } from '../src/app.ts';
 import { SESSION_COOKIE, SessionStore } from '../src/modules/auth/sessions.ts';
@@ -37,12 +39,14 @@ let root = '';
 let database: OpenDatabase;
 let users: UserStore;
 let cookie = ''; // a signed-in session, sent with every request unless a test says otherwise
-// fictitious test user
+// fictitious test users: ADMIN is in ADMIN_EMAILS (an active admin on every sign-in); everyone else starts inactive
 const TESTER = { email: 'penguji.satu@gdn-commerce.com', name: 'Penguji Satu' };
+const ADMIN = { email: 'penguji.admin@gdn-commerce.com', name: 'Penguji Admin' };
+let adminCookie = '';
 
 beforeAll(async () => {
   database = await openDatabase({ kind: 'embedded', dir: null });
-  users = new UserStore(database.db);
+  users = new UserStore(database.db, new Set([ADMIN.email]));
   root = mkdtempSync(join(tmpdir(), 'ocr-app-'));
   const add = (folder: string, names: string[]) => {
     mkdirSync(join(root, folder), { recursive: true });
@@ -74,7 +78,8 @@ beforeAll(async () => {
     users,
     sessions: new SessionStore(),
   });
-  cookie = sessionPair(await post('/api/auth/login', TESTER, {}, null));
+  adminCookie = sessionPair(await post('/api/auth/login', ADMIN, {}, null));
+  cookie = await activeSession(TESTER);
 });
 
 afterAll(async () => {
@@ -100,6 +105,20 @@ function call(path: string, init: RequestInit & { host?: string; cookie?: string
 
 const post = (path: string, body: unknown, headers: Record<string, string> = {}, session?: string | null) =>
   call(path, { method: 'POST', body: JSON.stringify(body), headers, cookie: session });
+
+const patch = (path: string, body: unknown, session: string, headers: Record<string, string> = {}) =>
+  call(path, { method: 'PATCH', body: JSON.stringify(body), headers, cookie: session });
+
+/** Signs in (a new user is an inactive reviewer), then has the admin activate the user, as on the User page. */
+async function activeSession(identity: { email: string; name: string }): Promise<string> {
+  const response = await post('/api/auth/login', identity, {}, null);
+  const { user } = (await response.clone().json()) as AuthSession;
+  if (!user.active) {
+    const activated = await patch(`/api/users/${user.id}`, { active: true }, adminCookie);
+    if (activated.status !== 200) throw new Error(`activation answered ${activated.status}`);
+  }
+  return sessionPair(response);
+}
 
 async function finished(id: string, session: string = cookie): Promise<Job> {
   for (let i = 0; i < 200; i++) {
@@ -339,7 +358,7 @@ describe('API', () => {
   });
 
   test("another user's run waits in the queue and takes the results of PDFs the run ahead reads", async () => {
-    const other = sessionPair(await post('/api/auth/login', { email: 'penguji.dua@gdn-commerce.com', name: 'Penguji Dua' }, {}, null));
+    const other = await activeSession({ email: 'penguji.dua@gdn-commerce.com', name: 'Penguji Dua' });
     const first = (await (await post('/api/jobs', { folders: ['PT A'] })).json()) as Job; // its slow file times out
     const queued = await post('/api/jobs', { folders: ['PT A/Januari 2026 - Maret 2026'] }, {}, other);
     expect(queued.status).toBe(201);
@@ -573,7 +592,7 @@ describe('saving runs to the database', () => {
 
   test("a PDF opened from the folder page shows its newest reading in any user's run, with the full NIK", async () => {
     const budi = `${PERIOD}/Budi Santoso - 1jan-31mar26.pdf`;
-    const other = sessionPair(await post('/api/auth/login', { email: 'penguji.pdf@gdn-commerce.com', name: 'Penguji PDF' }, {}, null));
+    const other = await activeSession({ email: 'penguji.pdf@gdn-commerce.com', name: 'Penguji PDF' });
     const job = await finished(((await (await post('/api/jobs', { files: [budi] }, {}, other)).json()) as Job).id, other);
     await saved(job);
 
@@ -692,12 +711,13 @@ describe('mock sign-in', () => {
     expect((await call('/api/health', { cookie: `${SESSION_COOKIE}=not-a-token` })).status).toBe(401);
   });
 
-  test('the first sign-in adds the user; later ones keep the row and refresh the name', async () => {
+  test('the first sign-in adds an inactive reviewer; later ones keep the row, refresh the name and the last login', async () => {
     const before = await users.count();
     const first = await post('/api/auth/login', ANDI, {}, null);
     expect(first.status).toBe(200);
     const { user } = (await first.json()) as AuthSession;
-    expect(user).toMatchObject({ email: 'andi.uji@gdn-commerce.com', name: 'Andi Uji' });
+    expect(user).toMatchObject({ email: 'andi.uji@gdn-commerce.com', name: 'Andi Uji', role: 'reviewer', active: false });
+    expect(Date.parse(user.lastLoginAt ?? '')).toBeGreaterThanOrEqual(Date.parse(user.createdAt));
     expect(await users.count()).toBe(before + 1);
 
     const set = first.headers.get('set-cookie') ?? '';
@@ -706,13 +726,15 @@ describe('mock sign-in', () => {
     expect(set).toContain('Path=/');
     expect(set).not.toContain('Secure'); // plain http on 127.0.0.1
 
+    await Bun.sleep(5);
     const again = (await (await post('/api/auth/login', { ...ANDI, name: 'Andi Uji Coba' }, {}, null)).json()) as AuthSession;
-    expect(again.user).toEqual({ ...user, name: 'Andi Uji Coba' });
+    expect(again.user).toEqual({ ...user, name: 'Andi Uji Coba', lastLoginAt: again.user.lastLoginAt });
+    expect(Date.parse(again.user.lastLoginAt ?? '')).toBeGreaterThan(Date.parse(user.lastLoginAt ?? ''));
     expect(await users.count()).toBe(before + 1);
   });
 
   test('a session opens the API, says who is signed in, and ends on sign-out', async () => {
-    const session = sessionPair(await post('/api/auth/login', ANDI, {}, null));
+    const session = await activeSession(ANDI);
     expect((await call('/api/health', { cookie: session })).status).toBe(200);
     const me = (await (await call('/api/auth/me', { cookie: session })).json()) as AuthSession;
     expect(me.user.email).toBe('andi.uji@gdn-commerce.com');
@@ -725,7 +747,7 @@ describe('mock sign-in', () => {
   });
 
   test('signing in again replaces the session it was sent with', async () => {
-    const old = sessionPair(await post('/api/auth/login', ANDI, {}, null));
+    const old = await activeSession(ANDI);
     const fresh = sessionPair(await post('/api/auth/login', ANDI, {}, old));
     expect(fresh).not.toBe(old);
     expect((await call('/api/health', { cookie: old })).status).toBe(401);
@@ -755,5 +777,107 @@ describe('mock sign-in', () => {
     const evil = await post('/api/auth/login', ANDI, { origin: 'https://evil.example' }, null);
     expect(evil.status).toBe(403);
     expect(evil.headers.get('set-cookie')).toBeNull();
+  });
+});
+
+describe('users and roles', () => {
+  // fictitious test users
+  const NEW = { email: 'penguji.baru@gdn-commerce.com', name: 'Penguji Baru' };
+  const OTHER = { email: 'penguji.lain@gdn-commerce.com', name: 'Penguji Lain' };
+  const signIn = async (identity: { email: string; name: string }) => {
+    const response = await post('/api/auth/login', identity, {}, null);
+    return { session: sessionPair(response), user: ((await response.json()) as AuthSession).user };
+  };
+  const listed = async (session: string) => ((await (await call('/api/users', { cookie: session })).json()) as UserList).users;
+  const answer = async (response: Promise<Response>) => {
+    const done = await response;
+    return [done.status, await done.json()];
+  };
+
+  test('an inactive user signs in but may only ask who it is until an admin activates it', async () => {
+    const { session, user } = await signIn(NEW);
+    expect(user).toMatchObject({ role: 'reviewer', active: false });
+    expect((await call('/api/auth/me', { cookie: session })).status).toBe(200);
+    for (const path of ['/api/health', '/api/folders', '/api/jobs', '/api/jobs/current', '/api/users']) {
+      expect([path, ...(await answer(call(path, { cookie: session })))]).toEqual([path, 403, { error: 'account_inactive' }]);
+    }
+    expect(await answer(post('/api/jobs', { folders: ['PT B'] }, {}, session))).toEqual([403, { error: 'account_inactive' }]);
+
+    // the admin activates the user: the session already open works, then stops again once deactivated
+    expect((await patch(`/api/users/${user.id}`, { active: true }, adminCookie)).status).toBe(200);
+    expect((await call('/api/health', { cookie: session })).status).toBe(200);
+    expect((await patch(`/api/users/${user.id}`, { active: false }, adminCookie)).status).toBe(200);
+    expect(await answer(call('/api/health', { cookie: session }))).toEqual([403, { error: 'account_inactive' }]);
+    const me = (await (await call('/api/auth/me', { cookie: session })).json()) as AuthSession;
+    expect(me.user.active).toBe(false);
+    expect((await post('/api/auth/logout', {}, {}, session)).status).toBe(200);
+  });
+
+  test('an ADMIN_EMAILS user signs in as an active admin', async () => {
+    const { user } = await signIn(ADMIN);
+    expect(user).toMatchObject({ role: 'admin', active: true });
+  });
+
+  test('only an admin lists and changes users; a reviewer gets 403 however the path is written', async () => {
+    expect(await answer(call('/api/users'))).toEqual([403, { error: 'admin_only' }]); // TESTER is an active reviewer
+    expect((await call('/api/users/')).status).toBe(403);
+    expect(await answer(patch('/api/users/1', { active: true }, cookie))).toEqual([403, { error: 'admin_only' }]);
+    expect((await call('/api/users', { cookie: null })).status).toBe(401);
+
+    const all = await listed(adminCookie);
+    const admin = all.find((u) => u.email === ADMIN.email);
+    expect(admin).toMatchObject({ role: 'admin', active: true, adminFromConfig: true });
+    expect(all.find((u) => u.email === TESTER.email)).toMatchObject({ role: 'reviewer', active: true, adminFromConfig: false });
+    expect(Object.keys(admin!).sort()).toEqual(['active', 'adminFromConfig', 'createdAt', 'email', 'id', 'lastLoginAt', 'name', 'role']);
+    const times = all.map((u) => (u.lastLoginAt ? Date.parse(u.lastLoginAt) : 0));
+    expect(times).toEqual([...times].sort((a, b) => b - a)); // latest sign-in first
+  });
+
+  test('an admin promotes and demotes another user, which opens and closes the User page for them', async () => {
+    const other = await activeSession(OTHER);
+    const { user } = (await (await call('/api/auth/me', { cookie: other })).json()) as AuthSession;
+    const info = spyOn(console, 'info');
+    try {
+      const promoted = await patch(`/api/users/${user.id}`, { role: 'admin' }, adminCookie);
+      expect(promoted.status).toBe(200);
+      expect(await promoted.json()).toMatchObject({ role: 'admin', active: true });
+      const audit = info.mock.calls.map((args) => String(args[0])).filter((line) => line.startsWith('access:'));
+      expect(audit).toEqual([`access: user ${(await listed(adminCookie)).find((u) => u.email === ADMIN.email)!.id} set user ${user.id} to admin, active`]);
+    } finally {
+      info.mockRestore();
+    }
+    expect((await call('/api/users', { cookie: other })).status).toBe(200);
+    // a promoted admin cannot change an ADMIN_EMAILS admin: the next sign-in would undo it
+    const admin = (await listed(other)).find((u) => u.email === ADMIN.email)!;
+    expect(await answer(patch(`/api/users/${admin.id}`, { role: 'reviewer' }, other))).toEqual([409, { error: 'admin_from_config' }]);
+
+    const demoted = (await (await patch(`/api/users/${user.id}`, { role: 'reviewer' }, adminCookie)).json()) as ManagedUser;
+    expect(demoted).toMatchObject({ role: 'reviewer', active: true, adminFromConfig: false });
+    expect(await answer(call('/api/users', { cookie: other }))).toEqual([403, { error: 'admin_only' }]);
+  });
+
+  test('an admin cannot change their own role or active state', async () => {
+    const other = await activeSession(OTHER);
+    const { user } = (await (await call('/api/auth/me', { cookie: other })).json()) as AuthSession;
+    await patch(`/api/users/${user.id}`, { role: 'admin' }, adminCookie);
+    for (const change of [{ role: 'reviewer' }, { active: false }, { role: 'admin', active: true }]) {
+      expect(await answer(patch(`/api/users/${user.id}`, change, other))).toEqual([403, { error: 'cannot_change_self' }]);
+    }
+    expect((await listed(adminCookie)).find((u) => u.id === user.id)).toMatchObject({ role: 'admin', active: true });
+    await patch(`/api/users/${user.id}`, { role: 'reviewer' }, adminCookie);
+  });
+
+  test('refuses unknown users, empty or invalid changes, and cross-origin changes', async () => {
+    expect(await answer(patch('/api/users/999999', { active: true }, adminCookie))).toEqual([404, { error: 'user_not_found' }]);
+    const { user } = await signIn(NEW);
+    for (const body of [{}, { role: 'owner' }, { active: 'yes' }]) {
+      expect(await answer(patch(`/api/users/${user.id}`, body, adminCookie))).toEqual([400, { error: 'bad_request' }]);
+    }
+    for (const id of ['abc', '0', '-1', '99999999999']) {
+      expect([id, (await patch(`/api/users/${id}`, { active: true }, adminCookie)).status]).toEqual([id, 400]);
+    }
+    const evil = await patch(`/api/users/${user.id}`, { active: true }, adminCookie, { origin: 'https://evil.example' });
+    expect([evil.status, await evil.json()]).toEqual([403, { error: 'forbidden_origin' }]);
+    expect((await listed(adminCookie)).find((u) => u.id === user.id)).toMatchObject({ active: false });
   });
 });

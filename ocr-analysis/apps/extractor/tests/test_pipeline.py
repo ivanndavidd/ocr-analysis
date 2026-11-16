@@ -740,10 +740,15 @@ FALLBACK_LINES = [
 ]
 
 
-def _fallback(lines, regex=None, answer=None, local_position=None):
-    """The website's flow (patterns first, the extractor assisting), on a one-page source with a fake answer."""
-    result = FileResult(file=FILE, posisi=local_position)
-    result.log.posisi = PositionLog(status=PositionStatus.FOUND if local_position else PositionStatus.MISSING)
+def _fallback(lines, regex=None, answer=None, local_position=None, *, confidence=None, second=None, status=None,
+              vendor=None):
+    """The website's flow (local reading first, the extractor a fallback), on a one-page source with a fake answer.
+    `confidence` and `second` are the local title's OCR confidence and what the second OCR read of it."""
+    result = FileResult(file=FILE, posisi=local_position, vendor=vendor)
+    status = status or (PositionStatus.FOUND if local_position else PositionStatus.MISSING)
+    result.log.posisi = PositionLog(status=status, pembaca_kedua=second)
+    if confidence is not None:
+        result.confidence["posisi"] = confidence
     result.log.periode_regex = regex
     result.log.p_id = [1]
     extractor = FakeExtractor(answer or llm_answer())
@@ -752,15 +757,63 @@ def _fallback(lines, regex=None, answer=None, local_position=None):
     return levels, result, extractor
 
 
+CONFIRMED = ["Nama : Budi Santoso", "berlaku mulai tanggal 1 Januari 2026 sampai dengan tanggal 31 Desember 2026"]
+
+
+def test_nothing_is_sent_when_the_local_reading_settles_every_field():
+    """Owner 2026-11-11: with Claude on, the local reading is the main one and Claude only a fallback."""
+    levels, result, extractor = _fallback(CONFIRMED, YEAR_2026, local_position="Staff Gudang")
+    assert levels == {"extraction": Level.GREEN} and extractor.payloads == []
+    assert result.log.alasan == ["extractor_not_needed"] and result.log.panggilan_llm == []
+    assert (result.log.pembaca, result.log.extractor, result.log.teks_keluar_karakter) == (Reader.PATTERN, None, 0)
+    assert (result.nama_karyawan, result.posisi) == ("Budi Santoso", "Staff Gudang")
+
+
+@pytest.mark.parametrize(
+    "local, confidence, second, status, sent",
+    [
+        ("Staff Gudang", None, None, None, False),  # read from a text layer
+        ("Staff Gudang", 0.95, None, None, False),
+        ("Staff Gudang", 0.6, None, None, True),  # an unsure scan reading, not read again
+        ("Staff Gudang", 0.6, "sama", None, False),  # the second OCR read the same title
+        ("Staff Gudang", 0.6, "beda", None, True),
+        ("Staff Gudang", 0.6, "tidak_terbaca", None, True),
+        (None, None, None, None, True),  # no title found
+        (None, None, None, PositionStatus.CONFLICT, True),  # two different titles
+    ],
+)
+def test_the_text_goes_out_for_a_title_the_website_would_colour(local, confidence, second, status, sent):
+    titled = [*CONFIRMED, "bekerja sebagai Admin Gudang di Cikarang"]
+    answer = llm_answer(position="Admin Gudang", position_quote="bekerja sebagai Admin Gudang di Cikarang")
+    levels, result, extractor = _fallback(
+        titled, YEAR_2026, answer, local, confidence=confidence, second=second, status=status
+    )
+    assert len(extractor.payloads) == (1 if sent else 0) and levels == {"extraction": Level.GREEN}
+    assert result.posisi == (answer.posisi.nilai if sent else local)  # the extractor's title replaces only an unsure one
+    assert result.log.pembaca is Reader.PATTERN  # the name and period stay the patterns' either way
+
+
+def test_a_vendor_folder_the_pages_do_not_print_sends_the_text():
+    """Only an employer the pages do not name as the folder does needs the extractor's reading (`_check_vendor`)."""
+    abbreviated = [*CONFIRMED, "atas nama BSI"]
+    employer = llm_answer(vendor="BSI", vendor_quote="atas nama BSI")
+    _, result, extractor = _fallback(abbreviated, YEAR_2026, employer, "Staff Gudang", vendor="PT Bina Semesta")
+    assert len(extractor.payloads) == 1 and result.vendor_dokumen == "BSI"
+    assert result.posisi == "Staff Gudang"  # a sure title stays
+
+    printed = [*CONFIRMED, "atas nama PT BINA SEMESTA"]
+    _, result, extractor = _fallback(printed, YEAR_2026, employer, "Staff Gudang", vendor="PT Bina Semesta")
+    assert extractor.payloads == [] and result.vendor_dokumen is None
+
+
 def test_the_patterns_keep_a_name_and_period_they_settle():
-    confirmed = ["Nama : Budi Santoso", "berlaku mulai tanggal 1 Januari 2026 sampai dengan tanggal 31 Desember 2026"]
-    levels, result, extractor = _fallback(confirmed, YEAR_2026)
-    assert levels == {"extraction": Level.GREEN} and len(extractor.payloads) == 1  # sent for the position all the same
+    levels, result, extractor = _fallback(CONFIRMED, YEAR_2026)
+    assert levels == {"extraction": Level.GREEN} and len(extractor.payloads) == 1  # sent for the missing title
     assert (result.log.pembaca, result.log.llm_cadangan, result.log.extractor) == (Reader.PATTERN, False, "fake-llm")
     assert result.nama_karyawan == "Budi Santoso" and result.log.panggilan_llm == ["teks"]
 
     differs = RegexPeriod(tanggal_mulai=date(2026, 1, 1), tanggal_selesai=date(2026, 6, 30))
-    levels, result, extractor = _fallback(confirmed, differs)  # the document states another period: a person decides
+    levels, result, extractor = _fallback(CONFIRMED, differs)  # the document states another period: a person decides
     assert levels == {"extraction": Level.RED} and result.log.llm_cadangan is False
 
 
@@ -769,15 +822,47 @@ def test_the_fallback_reads_what_the_patterns_could_not_confirm():
     answer = llm_answer(end=None, period_quote=quote, position="Staff Gudang",
                         position_quote="bekerja sebagai Staff Gudang di Cikarang")
     answer.durasi_bulan = MonthsAnswer(kutipan=quote, nilai=12, confidence=0.95)
-    levels, result, extractor = _fallback(FALLBACK_LINES, answer=answer, local_position="Kasir")
+    levels, result, extractor = _fallback(FALLBACK_LINES, answer=answer, local_position="Kasir", confidence=0.5)
 
     assert len(extractor.payloads) == 1
     assert (result.log.pembaca, result.log.llm_cadangan) == (Reader.LLM, True)
     assert levels["extraction"] is Level.GREEN  # the written length gives the end the filename names
     assert (result.tanggal_mulai, result.tanggal_selesai) == (date(2026, 1, 1), date(2026, 12, 31))
     assert "period_not_in_source" not in result.log.alasan  # the patterns' reason went with their answer
-    # The extractor's verified title wins; the local reading stays as a check.
+    # An unsure local title: the extractor's verified one wins, and the local reading stays as a check.
     assert (result.posisi, result.log.posisi.cocok_llm) == ("Staff Gudang", False)
+
+    # The text went out for the period only: a sure local title is kept, unchecked.
+    _, result, _ = _fallback(FALLBACK_LINES, answer=answer, local_position="Kasir")
+    assert (result.log.pembaca, result.posisi, result.log.posisi.cocok_llm) == (Reader.LLM, "Kasir", None)
+
+
+@pytest.mark.parametrize(("confidence", "second", "unclear"), [(0.5, None, True), (0.5, "beda", True), (None, None, False)])
+def test_agreeing_with_an_unclear_scan_title_is_logged(confidence, second, unclear):
+    """The extractor reads the same OCR text, so its agreement with an unclear scan reading confirms nothing; the
+    website keeps that title yellow (2026-11-11: `Cleaning Service 1` went green)."""
+    answer = llm_answer(position="Staff Gudang", position_quote="bekerja sebagai Staff Gudang di Cikarang")
+    result = FileResult(file=FILE, posisi="Staff Gudang")
+    result.log.posisi = PositionLog(status=PositionStatus.FOUND, pembaca_kedua=second)
+    if confidence is not None:
+        result.confidence["posisi"] = confidence
+    page = page_text(1, flow(FALLBACK_LINES))
+    pipeline._extract(result, "\n".join(FALLBACK_LINES), True, parse_filename(FILE), FakeExtractor(answer), [page])
+    assert (result.posisi, result.log.posisi.cocok_llm, result.log.posisi.ocr_ragu) == ("Staff Gudang", True, unclear)
+    assert result.log.posisi.koreksi_llm is False  # printed as Claude wrote it
+
+
+def test_a_title_claude_fixed_is_logged():
+    """Claude may fix an OCR misread in the title; it is then not printed letter for letter, and the log says so for
+    the website to keep it yellow."""
+    lines = [line.replace("Staff Gudang", "Staff Gudnag") for line in FALLBACK_LINES]
+    answer = llm_answer(position="Staff Gudang", position_quote="bekerja sebagai Staff Gudnag di Cikarang")
+    result = FileResult(file=FILE, posisi="Staff Gudnag")
+    result.log.posisi = PositionLog(status=PositionStatus.FOUND)
+    result.confidence["posisi"] = 0.6
+    page = page_text(1, flow(lines))
+    pipeline._extract(result, "\n".join(lines), True, parse_filename(FILE), FakeExtractor(answer), [page], assist=True)
+    assert (result.posisi, result.log.posisi.koreksi_llm, result.log.posisi.ocr_ragu) == ("Staff Gudang", True, True)
 
 
 def test_a_failed_fallback_leaves_the_patterns_answer():
@@ -852,6 +937,30 @@ def test_the_extractor_decides_an_unsure_signature_only_when_sure(local, status,
 def test_a_failed_signature_crop_keeps_the_local_status():
     got, result, _ = _signature_crop(SignatureStatus.UNCERTAIN, ExtractorError("refusal", USED))
     assert got is None and "extractor_error:refusal" in result.log.alasan and result.log.token_llm == USED
+
+
+@pytest.mark.parametrize(
+    "local, look, confidence, reasons, settles",
+    [
+        (SignatureStatus.SIGNED, "signed", 0.85, ["signature_not_clear"], True),
+        (SignatureStatus.UNSIGNED, "unsigned", 0.97, ["signature_not_clear"], True),
+        (SignatureStatus.SIGNED, "signed", 0.84, ["signature_not_clear"], False),  # not sure enough
+        (SignatureStatus.SIGNED, "unclear", 0.99, ["signature_not_clear"], False),
+        (SignatureStatus.UNSIGNED, "signed", 0.95, ["signature_not_clear"], False),  # a disagreement, not this rule
+        (SignatureStatus.SIGNED, "signed", 0.95, [], False),  # the ink check was clear already
+        (SignatureStatus.SIGNED, None, None, ["signature_not_clear"], False),  # no crop answer (a failed call)
+    ],
+)
+def test_claude_agreeing_surely_settles_a_signature_the_ink_check_called_not_clear(local, look, confidence, reasons, settles):
+    result = FileResult(file=FILE, status_ttd=local, confidence={"ttd": 0.6})
+    result.log.tanda_tangan = SignatureLog(llm=look, llm_conf=confidence)
+    result.log.alasan = list(reasons)
+    assert pipeline._agreement_settles(result) is settles
+    assert result.status_ttd is local  # the value never changes, only how sure it is
+    if settles:
+        assert result.log.alasan == ["signature_llm_agrees"] and result.confidence["ttd"] == confidence
+    else:
+        assert result.log.alasan == reasons and result.confidence["ttd"] == 0.6
 
 
 def test_an_unsigned_text_layer_contract_is_shown_to_the_extractor(tmp_path):

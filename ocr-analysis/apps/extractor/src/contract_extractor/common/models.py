@@ -105,6 +105,13 @@ class PositionLog(BaseModel):
     sumber: PositionSource | None = None
     # With the extractor: whether its verified title is the one the local reading found; null when either is missing.
     cocok_llm: bool | None = None
+    # With the extractor: whether the local title it was compared with was read from a scan with low confidence that
+    # the second OCR did not read the same. The extractor reads that same OCR text, so agreeing with it confirms
+    # nothing, and the website keeps such a title yellow. Null when there was no local title to compare.
+    ocr_ragu: bool | None = None
+    # With the extractor: its title fixes an OCR misread, so it is not printed letter for letter in the text it was
+    # sent. The website keeps such a title yellow. Null when the extractor gave no verified title.
+    koreksi_llm: bool | None = None
     # A title read from a scan with low confidence, read again by the second local OCR (RapidOCR): the same title
     # ("sama"), another one ("beda"), or none ("tidak_terbaca").
     pembaca_kedua: Literal["sama", "beda", "tidak_terbaca"] | None = None

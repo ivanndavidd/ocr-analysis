@@ -39,13 +39,18 @@ What the benchmark showed:
   - name and date fallbacks;
   - a job title fix;
   - reading only the first and last page.
-- **With Claude.** On 2026-11-04, an earlier reader with Claude got 772 / 800 on the first set.
+- **With Claude.** Claude is now only a fallback (owner decision 2026-11-11). It gets the masked text only for the
+  fields the local reading leaves unsure.
+  - On the v2 set it got 767 / 800 fully correct, against 735 with Claude off and 762 with Claude on every file.
+    On the first set it got 772 / 800, against 738 with Claude off.
+  - It left 3 wrong values unmarked, against 2 with Claude off and 6 with Claude on every file. A rule added after the
+    run keeps a title from a poor scan yellow when Claude only repeats it, which brings it to 2.
+  - It used 2.0 M Claude tokens instead of 11.7 M, and took 59 minutes instead of 2 hours.
+  - The steps are in [contract-pdf-generator/CLAUDE_BENCHMARK.md](contract-pdf-generator/CLAUDE_BENCHMARK.md).
 
 Next:
-1. Run the current reader with Claude on. It waits for the Claude login; the steps are in
-   [contract-pdf-generator/CLAUDE_BENCHMARK.md](contract-pdf-generator/CLAUDE_BENCHMARK.md).
-2. Check on real contracts, after approval.
-3. Before anyone else uses it:
+1. Check on real contracts, after approval.
+2. Before anyone else uses it:
    - complete the go-live dossier, `ocr-analysis/PROJECT.md`;
    - replace the mock sign-in with Apps Gateway;
    - encrypt NIKs at rest.

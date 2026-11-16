@@ -11,12 +11,3 @@ export const TEST_ACCOUNTS: readonly LoginRequest[] = [
   { email: 'penguji.tiga@gdn-commerce.com', name: 'Penguji Tiga' },
   { email: 'penguji.empat@gdn-commerce.com', name: 'Penguji Empat' },
 ];
-
-/** `Penguji Dua` → `PD`: the round avatar in the account list. */
-export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return words
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
-}

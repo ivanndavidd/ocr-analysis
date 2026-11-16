@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { normalEmail } from './modules/auth/sessions.ts';
 import type { DatabaseConfig } from './modules/database/database.ts';
 import { type ClientCredential, clientCertificate } from './modules/folders/graph.ts';
 import type { SharePointConfig } from './modules/folders/sharepoint.ts';
@@ -35,6 +36,7 @@ export interface Config {
   maxFileBytes: number;
   claude: ClaudeConfig | null; // null: CLAUDE_MODE=off
   database: DatabaseConfig;
+  adminEmails: Set<string>; // lowercased; active admins on every sign-in
 }
 
 export class ConfigError extends Error {}
@@ -191,6 +193,20 @@ function databaseConfig(env: Record<string, string | undefined>): DatabaseConfig
   return { kind: 'embedded', dir: dir ? resolve(dir) : DEFAULT_DATABASE_DIR };
 }
 
+/** ADMIN_EMAILS: comma-separated emails that become active admins on every sign-in, so the first admin exists (every
+ *  other user starts as an inactive reviewer) and an admin who lost access gets it back. The message never repeats a
+ *  value: emails are personal data. */
+function adminEmails(env: Record<string, string | undefined>): Set<string> {
+  const emails = new Set<string>();
+  for (const raw of (env.ADMIN_EMAILS ?? '').split(',')) {
+    if (!raw.trim()) continue;
+    const email = normalEmail(raw);
+    if (email === null) throw new ConfigError('ADMIN_EMAILS must be email addresses separated by commas');
+    emails.add(email);
+  }
+  return emails;
+}
+
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const source = sourceConfig(env);
   const python = env.EXTRACTOR_PYTHON ?? '';
@@ -233,5 +249,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maxFileBytes: int(env, 'MAX_FILE_MB', 50, 1, 500) * 1024 * 1024,
     claude,
     database: databaseConfig(env),
+    adminEmails: adminEmails(env),
   };
 }

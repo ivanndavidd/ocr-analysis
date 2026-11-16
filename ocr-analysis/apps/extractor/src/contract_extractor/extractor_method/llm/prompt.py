@@ -57,8 +57,15 @@ nama_karyawan
 posisi
 - Jabatan atau posisi kerja karyawan, dari baris `Jabatan :`/`Posisi :` di blok karyawan, atau dari kalimat seperti
   "dipekerjakan sebagai ...", "bekerja sebagai ...", "ditempatkan sebagai ...", "memberikan pekerjaan ... sebagai".
-- Tulis jabatannya saja, persis seperti di teks: tanpa kata "sebagai", tanpa nama perusahaan atau lokasi penempatan,
-  tanpa tanda baca di ujung. Contoh: "sebagai Picker di gudang PT X" menjadi "Picker".
+- Tulis jabatannya saja: tanpa kata "sebagai", tanpa nama perusahaan atau lokasi penempatan, tanpa tanda baca di
+  ujung. Contoh: "sebagai Picker di gudang PT X" menjadi "Picker".
+- Teks scan/foto bisa salah OCR. Putuskan dulu apakah jabatan itu salah baca OCR. Bila ya, dan jelas kata
+  Indonesia atau Inggris yang dimaksud, tulis jabatan yang benar: huruf yang tertukar ("Adrnin Gudang" menjadi
+  "Admin Gudang", "0perator Produksi" menjadi "Operator Produksi"), kata yang terpecah atau tergabung ("Securi ty"
+  menjadi "Security"), atau angka dan huruf nyasar di ujung. Bila bukan salah baca, atau kamu tidak yakin, tulis
+  persis seperti di teks.
+- Perbaiki hanya beberapa huruf. Jangan mengganti kata dengan kata lain, jangan menerjemahkan, dan jangan mengubah
+  ejaan yang memang benar ("Staf" tetap "Staf"). Kutipannya tetap disalin persis, dengan salah OCR-nya.
 - Bukan jabatan perwakilan perusahaan, bukan nama departemen atau divisi kecuali itu memang ditulis sebagai
   jabatan, dan bukan status kerja seperti "karyawan kontrak" atau "tenaga kerja waktu tertentu".
 - Bila jabatan karyawan tidak disebut, atau disebut dua jabatan berbeda tanpa jelas mana yang berlaku, isi null.
@@ -94,7 +101,7 @@ vendor
 
 - Setiap nilai yang diisi wajib disertai kutipan: potongan teks yang bersambung, disalin huruf demi huruf dari teks
   dokumen (termasuk salah ketik dan salah OCR-nya), paling banyak 25 kata, dan memuat nilai itu. Untuk nama, kutip
-  baris atau kalimat tempat nama karyawan ditulis.
+  baris atau kalimat tempat nama karyawan ditulis. Untuk posisi yang kamu perbaiki, kutipan memuat ejaan OCR-nya.
 - Jangan merangkum, menerjemahkan, menormalisasi, atau menggabungkan bagian yang berjauhan. Kutipan dicocokkan
   dengan teks sumber oleh program; kutipan yang tidak ditemukan membuat nilainya dibuang.
 - Bila nilai null, kutipan juga null.
@@ -115,7 +122,7 @@ perusahaan dan bukan tanggal lain.
 
 Periksa sekali lagi: nama dan posisi berasal dari blok karyawan, bukan perwakilan perusahaan; tanggal berasal dari
 kalimat masa kontrak, bukan pembukaan atau tanggal lahir; tanggal selesai setelah tanggal mulai; setiap kutipan
-disalin persis dari teks dan memuat nilainya.
+disalin persis dari teks dan memuat nilainya (untuk posisi yang diperbaiki: memuat ejaan OCR-nya).
 
 ## Contoh
 
@@ -185,8 +192,9 @@ OUTPUT_SCHEMA: dict[str, object] = {
         ),
         "posisi": _answer(
             {"type": "string"},
-            "Jabatan karyawan persis seperti tertulis, tanpa kata 'sebagai', nama perusahaan, atau lokasi. Bukan "
-            "jabatan perwakilan perusahaan. Null bila tidak disebut atau ada dua jabatan berbeda.",
+            "Jabatan karyawan seperti tertulis, tanpa kata 'sebagai', nama perusahaan, atau lokasi; huruf yang jelas "
+            "salah baca OCR diperbaiki, selain itu persis. Bukan jabatan perwakilan perusahaan. Null bila tidak "
+            "disebut atau ada dua jabatan berbeda.",
         ),
         "tanggal_mulai": _answer(
             {"type": "string", "format": "date"},

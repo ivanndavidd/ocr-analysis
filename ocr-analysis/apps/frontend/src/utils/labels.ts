@@ -39,6 +39,7 @@ const REASONS: Record<string, string> = {
   signature_not_clear: 'Tanda tangan perlu dilihat sekilas',
   extractor_error: 'Satu panggilan Claude gagal; bagian itu dibaca dengan pola teks saja',
   extractor_not_sent: 'Hasil OCR kurang jelas untuk dikirim ke Claude; nama dan periode dibaca dengan pola teks',
+  extractor_not_needed: 'Pembacaan di laptop ini sudah pasti untuk nama, periode, posisi, dan vendor; teks tidak dikirim ke Claude',
   identity_page_not_found: 'Halaman pertama tidak terlihat seperti halaman identitas (nama, NIK); tidak dibaca',
   signature_page_not_found: 'Halaman tanda tangan tidak ditemukan',
   signature_page_guessed: 'Halaman terakhir tidak terlihat seperti halaman tanda tangan; tetap dibaca, cek halaman itu',
@@ -58,6 +59,7 @@ const REASONS: Record<string, string> = {
   nik_from_llm: 'NIK dibaca Claude dari potongan baris NIK, karena pembacaan di laptop ini ragu',
   nik_llm_differs: 'Claude membaca angka NIK lain dari potongan baris NIK',
   signature_from_llm: 'Tanda tangan dipastikan Claude dari potongan area tanda tangan',
+  signature_llm_agrees: 'Pemeriksaan lokal kurang jelas; Claude melihat hal yang sama di potongan area tanda tangan',
   signature_llm_differs: 'Pemeriksaan lokal tidak menemukan coretan, tetapi Claude melihat tanda tangan',
   signature_llm_sees_none: 'Pemeriksaan lokal melihat coretan, tetapi Claude tidak melihat tanda tangan',
   name_not_in_source: 'Nama tidak ditemukan di dokumen',
@@ -119,6 +121,11 @@ const ERRORS: Record<string, string> = {
   unauthenticated: 'Sesi berakhir. Silakan masuk lagi.',
   bad_email: 'Masukkan alamat email yang valid',
   bad_name: 'Masukkan nama lengkap (minimal 2 huruf)',
+  account_inactive: 'Akun Anda belum aktif. Minta admin mengaktifkannya di halaman User',
+  admin_only: 'Hanya admin yang bisa membuka halaman User',
+  cannot_change_self: 'Anda tidak bisa mengubah peran atau status akun sendiri',
+  admin_from_config: 'Akun ini admin tetap dari pengaturan ADMIN_EMAILS di backend, jadi tidak bisa diubah di sini',
+  user_not_found: 'User tidak ditemukan',
 };
 
 // `extractor_error:<kind>` carries the kind of failure (`timeout`, `api:RateLimitError`); the label is the same.

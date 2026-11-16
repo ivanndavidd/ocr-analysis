@@ -121,7 +121,7 @@
 <section class="card history" aria-labelledby="history-title">
   <div class="head">
     <h1 id="history-title">Riwayat OCR</h1>
-    <span class="muted">Proses semua pengguna, terbaru dulu</span>
+    <span class="muted">Proses semua user, terbaru dulu</span>
   </div>
 
   <div class="filters" role="search" aria-label="Cari dan saring riwayat">
@@ -136,8 +136,8 @@
         oninput={typed}
         onkeydown={searchKey}
         maxlength={MAX_SEARCH}
-        placeholder="Cari folder, nama, atau email pengguna"
-        aria-label="Cari folder, nama, atau email pengguna"
+        placeholder="Cari folder, nama, atau email user"
+        aria-label="Cari folder, nama, atau email user"
         autocomplete="off"
         spellcheck="false"
       />
@@ -171,12 +171,12 @@
         {#each MODE_OPTIONS as [value, label] (value)}<option {value}>{label}</option>{/each}
       </select>
       <select
-        aria-label="Pengguna"
+        aria-label="User"
         class:set={view.mine}
         value={view.mine ? 'mine' : ''}
         onchange={(e) => go({ mine: e.currentTarget.value === 'mine' })}
       >
-        <option value="">Semua pengguna</option>
+        <option value="">Semua user</option>
         <option value="mine">Proses saya</option>
       </select>
     </div>

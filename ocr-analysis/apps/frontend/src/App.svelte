@@ -4,11 +4,13 @@
   import Banner from './components/Banner.svelte';
   import BrowsePage from './pages/BrowsePage.svelte';
   import HistoryPage from './pages/HistoryPage.svelte';
+  import InactivePage from './pages/InactivePage.svelte';
   import JobPage from './pages/JobPage.svelte';
   import LoginPage from './pages/LoginPage.svelte';
-  import { SIGNED_OUT_EVENT, api, failureCode } from './services/api.ts';
+  import UsersPage from './pages/UsersPage.svelte';
+  import { ACCESS_CHANGED_EVENT, SIGNED_OUT_EVENT, api, failureCode } from './services/api.ts';
   import { errorLabel } from './utils/labels.ts';
-  import { folderHref, historyHref, parseRoute } from './utils/routes.ts';
+  import { USERS_HREF, folderHref, historyHref, parseRoute } from './utils/routes.ts';
 
   const HEALTH_READY_MS = 15_000;
   const HEALTH_WAITING_MS = 3_000;
@@ -20,7 +22,9 @@
   let user = $state<User | null | undefined>(undefined);
   let loginNotice = $state<string | null>(null);
   let signingOut = $state(false);
-  const signedIn = $derived(user != null);
+  // signed in with an active account: an inactive one only sees the page that says it waits for an admin
+  const signedIn = $derived(user != null && user.active);
+  const isAdmin = $derived(user?.active === true && user.role === 'admin');
   // The folder and the history list last open, so each tab returns to where it was.
   let lastFolder = $state('');
   let lastHistory = $state('');
@@ -37,6 +41,9 @@
       user = null;
     };
     addEventListener(SIGNED_OUT_EVENT, onSignedOut);
+    // deactivated, or no longer an admin, while signed in: ask again who this is, so the page follows
+    const onAccessChanged = () => void refreshUser();
+    addEventListener(ACCESS_CHANGED_EVENT, onAccessChanged);
     api.me().then(
       (session) => (user = session.user),
       (error: unknown) => {
@@ -48,8 +55,19 @@
     return () => {
       removeEventListener('hashchange', onHash);
       removeEventListener(SIGNED_OUT_EVENT, onSignedOut);
+      removeEventListener(ACCESS_CHANGED_EVENT, onAccessChanged);
     };
   });
+
+  /** Asks the backend who is signed in again; true when the account is active. A 401 signs out through the event. */
+  async function refreshUser(): Promise<boolean> {
+    try {
+      user = (await api.me()).user;
+    } catch {
+      // 401: SIGNED_OUT_EVENT already took the page back to sign-in; anything else: try again later
+    }
+    return user?.active === true;
+  }
 
   // The backend's state, polled only while someone is signed in (every other route answers 401 before that).
   $effect(() => {
@@ -91,15 +109,24 @@
   }
 
   const routeKey = $derived(
-    route.page === 'job' ? `job:${route.id}` : route.page === 'history' ? 'history' : `folder:${route.path}`,
+    route.page === 'job'
+      ? `job:${route.id}`
+      : route.page === 'history'
+        ? 'history'
+        : route.page === 'users'
+          ? 'users'
+          : `folder:${route.path}`,
   );
-  const section = $derived(route.page === 'browse' ? 'folder' : 'history'); // a run belongs to the history
+  // a run belongs to the history
+  const section = $derived(route.page === 'browse' ? 'folder' : route.page === 'users' ? 'users' : 'history');
   const rootName = $derived(health?.rootName ?? 'Folder');
   const extractor = $derived(health?.extractor ?? null);
 </script>
 
 {#if user === null}
   <LoginPage onSignedIn={signedInAs} notice={loginNotice} />
+{:else if user && !user.active}
+  <InactivePage {user} oncheck={refreshUser} onsignout={signOut} />
 {:else if user}
 <header class="topbar">
   <div class="topbar-inner">
@@ -122,6 +149,11 @@
       <a href={historyHref(lastHistory)} class:active={section === 'history'} aria-current={route.page === 'history' ? 'page' : undefined}>
         Riwayat OCR
       </a>
+      {#if isAdmin}
+        <a href={USERS_HREF} class:active={section === 'users'} aria-current={route.page === 'users' ? 'page' : undefined}>
+          User
+        </a>
+      {/if}
     </nav>
     <span class="status" class:ok={!offline && extractor?.state === 'ready'} class:bad={offline || extractor?.state === 'unavailable'}>
       <span class="dot" aria-hidden="true"></span>
@@ -136,7 +168,7 @@
       {/if}
     </span>
     <div class="account">
-      <span class="who" title={user.email}>
+      <span class="who" title={`${user.email} · ${user.role === 'admin' ? 'Admin' : 'Reviewer'}`}>
         <span class="avatar" aria-hidden="true">{user.name.charAt(0).toUpperCase()}</span>
         <span class="name">{user.name}</span>
       </span>
@@ -161,6 +193,12 @@
       <JobPage id={route.id} {rootName} userId={user.id} />
     {:else if route.page === 'history'}
       <HistoryPage {rootName} query={route.query} />
+    {:else if route.page === 'users'}
+      {#if isAdmin}
+        <UsersPage signedInId={user.id} />
+      {:else}
+        <Banner tone="warning">{errorLabel('admin_only')}.</Banner>
+      {/if}
     {:else}
       <BrowsePage path={route.path} {rootName} {extractor} claude={health?.claude ?? null} />
     {/if}

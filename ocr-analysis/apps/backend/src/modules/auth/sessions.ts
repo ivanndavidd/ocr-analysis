@@ -5,7 +5,8 @@ import { createHash, randomBytes } from 'node:crypto';
  * password and asks for none: anyone who can reach the backend signs in as any email. Any domain is accepted, as
  * behind the gateway, which lets only company accounts through itself. It exists so the website has a signed-in user
  * and the `User` table fills up the way it will behind the gateway; it is not access control and must be replaced
- * before anyone else uses the website.
+ * before anyone else uses the website. The roles and the active switch (see modules/users/store.ts) only become access
+ * control once the identity behind them is the gateway's.
  */
 
 export const SESSION_COOKIE = 'contract_ocr_session';
@@ -18,10 +19,17 @@ export type LoginErrorCode = 'bad_email' | 'bad_name';
 const EMAIL = /^[a-z0-9._%+-]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
-/** The email (lowercased) and name to sign in with, or why they are refused. */
+/** The email trimmed and lowercased, as the `User` table and ADMIN_EMAILS keep it, or null if it is not an email. */
+export function normalEmail(raw: string): string | null {
+  const email = raw.trim().toLowerCase();
+  return email.length <= 255 && EMAIL.test(email) ? email : null;
+}
+
+/** The email (lowercased) and name to sign in with, or why they are refused. Whoever signs in is recorded by
+ *  `UserStore.signIn`; when Apps Gateway replaces this form, its verified identity goes through the same call. */
 export function loginIdentity(raw: { email: string; name: string }): { email: string; name: string } | LoginErrorCode {
-  const email = raw.email.trim().toLowerCase();
-  if (email.length > 255 || !EMAIL.test(email)) return 'bad_email';
+  const email = normalEmail(raw.email);
+  if (email === null) return 'bad_email';
   const name = raw.name.trim().replace(/\s+/g, ' ');
   if (name.length < 2 || name.length > 255 || CONTROL.test(name)) return 'bad_name';
   return { email, name };

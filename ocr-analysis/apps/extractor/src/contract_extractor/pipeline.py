@@ -112,6 +112,8 @@ REASON_SIGNATURE_NOT_CLEAR = "signature_not_clear"  # anchored by a label only, 
 REASON_EXTRACTOR_ERROR = "extractor_error"
 # The P_id OCR failed its quality check, so its text was not sent; the file is read the local way instead.
 REASON_EXTRACTOR_NOT_SENT = "extractor_not_sent"
+# The website's flow with Claude on: the local reading settled every field the text call reads, so nothing was sent.
+REASON_EXTRACTOR_NOT_NEEDED = "extractor_not_needed"
 REASON_SIGNATURE_PAGE_UNREADABLE = "signature_page_unreadable"
 REASON_SIGNATURE_ANCHOR_NOT_FOUND = "signature_anchor_not_found"
 REASON_SIGNATURE_UNCERTAIN = "signature_uncertain"
@@ -139,6 +141,8 @@ REASON_SIGNATURE_LLM_DIFFERS = "signature_llm_differs"  # the local check read u
 # A scan or photo the local check read signed; the extractor saw no signature in the crop. On the 800-contract website
 # run (2026-11-04) the ink check read a black-and-white scan with only a meterai as signed, and nothing marked it.
 REASON_SIGNATURE_LLM_SEES_NONE = "signature_llm_sees_none"
+# A local signed or unsigned the ink check called not clear; the extractor's look at the crop saw the same, sure enough.
+REASON_SIGNATURE_LLM_AGREES = "signature_llm_agrees"
 COMPONENT_NIK = "nik"
 COMPONENT_VENDOR = "vendor"
 REASON_VENDOR_NOT_IN_SOURCE = "vendor_not_in_source"  # the vendor folder's name is not printed on the read pages
@@ -163,6 +167,11 @@ SIGNATURE_DPI = 300  # native pages; scans reuse the OCR read resolution so word
 # one wrong answer (a signed crop half under a black meterai) came at 0.80, every right one at 0.87 or more.
 LLM_SIGNED_CONF = 0.8
 LLM_UNSIGNED_CONF = 0.85
+# How sure the extractor must be to settle a local signed or unsigned that the ink check called not clear (ink near
+# its threshold): the same answer this surely makes it sure. On the 973 synthetic scans and photos of both datasets
+# (benchmark, 2026-11-13, Haiku 5.5) Claude agreed at 0.85 or more with 371 such signatures and 370 were right; the
+# wrong one was a signed contract both read as unsigned. Below 0.85 it agreed 6 times, all right, too few to judge.
+LLM_AGREE_CONF = 0.85
 CROP_MAX_SIDE = 1568  # pixels; an image costs about width x height / 750 tokens, and this is plenty to read ink
 # A title read below this confidence is coloured on the website (LOW_CONFIDENCE in apps/backend jobs/fields.ts), so
 # the second reader reads it again.
@@ -762,9 +771,13 @@ def _extract(
     """Tahap 3, cloud part: send the masked payload and verify the answer locally. Whenever nothing is sent or the
     call fails, the file is read the local way (pattern mode), so the extractor never leaves a file worse off.
 
-    `assist` is the website's flow: the patterns check the name and period first and keep their answer when it is
-    green or red; the extractor's reading fills in only a file they leave yellow (name or period not confirmed). Every
-    sent file still gets the extractor's position and employer company, which the patterns cannot read as well."""
+    `assist` is the website's flow, where the local reading is the main one and the extractor only a fallback (owner
+    2026-11-11). The patterns check the name and period first, and both local OCR engines have read the position;
+    the masked text goes out only when something the text call reads is still unsure: the name or period not confirmed
+    (yellow), the title unsure (`_position_unsure`), or the vendor folder not printed on the pages read. The answer
+    then fills only those fields: the name and period when the patterns left them yellow, the title when the local one
+    is unsure, and the employer company for the vendor check (`_check_vendor`). On the 800 synthetic v2 contracts with
+    the reader of 2026-11-10, 31 files had such a field, against a text call for every file before."""
     if payload is None:  # selection ambiguous, mask_leak, or no P_id text: nothing to send
         return {"extraction": Level.RED}
     if extractor is None:
@@ -775,6 +788,11 @@ def _extract(
         _add_reason(result, REASON_EXTRACTOR_NOT_SENT)
         return {"extraction": _check_without_extractor(result, parsed, p_id_pages, p_ttd_page, second_pages)}
     pattern_level = _check_without_extractor(result, parsed, p_id_pages, p_ttd_page, second_pages) if assist else None
+    title_unsure = assist and _position_unsure(result)
+    if assist and pattern_level is not Level.YELLOW and not title_unsure:
+        if _vendor_printed(result, p_id_pages, p_ttd_page) is not False:
+            _add_reason(result, REASON_EXTRACTOR_NOT_NEEDED)
+            return {"extraction": pattern_level}
 
     result.log.teks_keluar_karakter = len(payload)  # counted on send: a failed call may still have delivered it
     for number in result.log.p_id:
@@ -788,8 +806,9 @@ def _extract(
         return {"extraction": level}
     _count_call(result, extractor, "teks", extraction.usage)
     verified = verify_extraction(extraction, payload, result.log.periode_regex)
-    result.vendor_dokumen = verified.vendor
-    _merge_position(result, verified)
+    result.vendor_dokumen = verified.vendor  # decides only a vendor folder the pages do not print (`_check_vendor`)
+    if not assist or title_unsure:
+        _merge_position(result, verified)
     if pattern_level is not None and pattern_level is not Level.YELLOW:
         return {"extraction": pattern_level}
     if pattern_level is not None:
@@ -843,14 +862,44 @@ def _merge_position(result: FileResult, verified: VerifiedExtraction) -> None:
     local = result.log.posisi or PositionLog()
     if result.posisi is not None:
         local.cocok_llm = fuzz.token_set_ratio(result.posisi.casefold(), title.casefold()) >= SAME_POSITION
+        local.ocr_ragu = _unclear_scan_title(result)
     elif local.status is PositionStatus.CONFLICT:
         local.cocok_llm = False  # the local reading found two titles; the extractor picked one of them
     else:
         local.sumber = PositionSource.LLM
     local.status = PositionStatus.FOUND
+    local.koreksi_llm = verified.position_fixed
     result.posisi = title
     result.log.posisi = local
     result.confidence["posisi"] = round(verified.confidence["posisi"], 3)
+
+
+def _position_unsure(result: FileResult) -> bool:
+    """Whether the website colours the local title (backend `fields.ts`, `position`): none read, two different titles,
+    or a title read from a scan with low confidence that the second OCR did not read the same."""
+    log = result.log.posisi
+    if result.posisi is None or log is None or log.status is PositionStatus.CONFLICT:
+        return True
+    return _unclear_scan_title(result)
+
+
+def _unclear_scan_title(result: FileResult) -> bool:
+    """A local title read from a scan with low confidence that the second OCR did not read the same.
+
+    The extractor reads the same OCR text, so its agreement does not confirm such a title (`log.posisi.ocr_ragu`). On
+    the 2026-11-11 v2 run (800 synthetic contracts, Claude as fallback) it agreed with 5 of them: 4 right and
+    `Cleaning Service 1`, which went green."""
+    log, confidence = result.log.posisi, result.confidence.get("posisi")
+    return log is not None and confidence is not None and confidence < POSITION_SURE and log.pembaca_kedua != "sama"
+
+
+def _vendor_printed(result: FileResult, p_id_pages: list[PageText], p_ttd_page: PageText | None) -> bool | None:
+    """Whether the vendor folder's name is printed on the identity or signature page; None when there is no vendor
+    folder or no page text."""
+    if not result.vendor or not p_id_pages:
+        return None
+    texts = [page.text for page in p_id_pages] + ([p_ttd_page.text] if p_ttd_page else [])
+    return vendor_in_text(result.vendor, PAGE_SEPARATOR.join(texts))
 
 
 def _check_vendor(result: FileResult, pages: _PagesRead) -> Level | None:
@@ -860,10 +909,10 @@ def _check_vendor(result: FileResult, pages: _PagesRead) -> Level | None:
 
     The lookup goes first because it checks a known value: on 300 synthetic contracts it confirmed 259 of 259 vendor
     folders and matched no wrong one. The extractor's employer only decides a file the lookup could not confirm."""
-    if not result.vendor or not pages.p_id_pages:
+    printed = _vendor_printed(result, pages.p_id_pages, pages.p_ttd_page)
+    if printed is None:
         return None
-    texts = [page.text for page in pages.p_id_pages] + ([pages.p_ttd_page.text] if pages.p_ttd_page else [])
-    same, reason = vendor_in_text(result.vendor, PAGE_SEPARATOR.join(texts)), REASON_VENDOR_NOT_IN_SOURCE
+    same, reason = printed, REASON_VENDOR_NOT_IN_SOURCE
     result.log.vendor_dari = "teks"
     if not same and result.vendor_dokumen:
         same, reason = vendor_in_text(result.vendor, result.vendor_dokumen), REASON_VENDOR_MISMATCH
@@ -903,6 +952,21 @@ def _signature_crop(
     return SignatureStatus.UNCERTAIN if signed else None  # read unsigned locally: two readers disagree
 
 
+def _agreement_settles(result: FileResult) -> bool:
+    """A local signed or unsigned the ink check called not clear (`REASON_SIGNATURE_NOT_CLEAR`) turns sure when the
+    extractor's look at the crop said the same at `LLM_AGREE_CONF` or more (`REASON_SIGNATURE_LLM_AGREES`). Returns
+    whether it did; anything else leaves the result as it was."""
+    look = result.log.tanda_tangan
+    if REASON_SIGNATURE_NOT_CLEAR not in result.log.alasan or look is None or look.llm_conf is None:
+        return False
+    if look.llm not in ("signed", "unsigned") or look.llm != result.status_ttd.value or look.llm_conf < LLM_AGREE_CONF:
+        return False
+    result.log.alasan = [r for r in result.log.alasan if r != REASON_SIGNATURE_NOT_CLEAR]
+    _add_reason(result, REASON_SIGNATURE_LLM_AGREES)
+    result.confidence["ttd"] = look.llm_conf
+    return True
+
+
 def _signature(
     data: bytes,
     doc: DocumentRead,
@@ -915,7 +979,8 @@ def _signature(
     """Tahap 4, local first. With `extractor` (the website's flow), a crop of the signature area goes to it for every
     scan and photo, when the local check is unsure, and when a text-layer PDF reads unsigned (an e-signature can look
     like no ink). Sure enough, it decides an unsure status. When it disagrees with a local signed or unsigned, the
-    status becomes uncertain; when it agrees or is unsure itself, the local status stays."""
+    status becomes uncertain; when it agrees or is unsure itself, the local status stays, and an agreement sure enough
+    also settles a local status the ink check called not clear (`_agreement_settles`)."""
     page = pages.p_ttd_page
     number = result.log.p_ttd
     if page is None or number is None:
@@ -971,7 +1036,7 @@ def _signature(
         return level
     decided = _signature_crop(result, extractor, plain, found.roi, number)
     if decided is None:
-        return level
+        return Level.GREEN if _agreement_settles(result) else level
     result.status_ttd = decided
     result.log.alasan = [r for r in result.log.alasan if r not in (REASON_SIGNATURE_UNCERTAIN, REASON_SIGNATURE_NOT_CLEAR)]
     if decided is SignatureStatus.UNCERTAIN:
@@ -1070,6 +1135,8 @@ def _process(
         _second_period(data, result, parsed, pages, ocr)
         levels[COMPONENT_NIK] = _read_nik(result, pages.p_id_pages)
         _read_position(result, pages.p_id_pages)
+        # Both local OCR engines before the extractor: in the website's flow it is only asked what they leave unsure.
+        levels[COMPONENT_NIK] = _second_read(data, result, pages, ocr, levels[COMPONENT_NIK])
         assist = settings.extractor.assist
         levels.update(
             _extract(
@@ -1077,7 +1144,6 @@ def _process(
                 pages.second,
             )
         )
-        levels[COMPONENT_NIK] = _second_read(data, result, pages, ocr, levels[COMPONENT_NIK])
         if assist:  # crops go to the extractor in the website's flow only; the CLI's extractor mode sends text alone
             levels[COMPONENT_NIK] = _read_nik_crop(data, result, pages, extractor, ocr, levels[COMPONENT_NIK])
         vendor_level = _check_vendor(result, pages)

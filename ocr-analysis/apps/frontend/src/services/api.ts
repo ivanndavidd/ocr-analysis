@@ -10,12 +10,19 @@ import type {
   JobHistory,
   LatestResult,
   LoginRequest,
+  ManagedUser,
   ReadMark,
   ReadMode,
+  UserAccessChange,
+  UserList,
 } from '@contract-ocr/shared-types';
 
 /** Fired on `window` when the backend answers 401: the session ended (sign-out elsewhere, expiry, backend restart). */
 export const SIGNED_OUT_EVENT = 'contract-ocr:signed-out';
+/** Fired on `window` when the backend answers 403 because the user's access changed while signed in (deactivated, or
+ *  no longer an admin): the page asks who is signed in again. */
+export const ACCESS_CHANGED_EVENT = 'contract-ocr:access-changed';
+const ACCESS_CODES = new Set(['account_inactive', 'admin_only']);
 
 /** A refused request. `code` is the backend's fixed error code ('network' when the backend could not be reached). */
 export class ApiFailure extends Error {
@@ -30,7 +37,9 @@ export class ApiFailure extends Error {
   }
 }
 
-async function send(url: string, init: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<Response> {
+type Method = 'GET' | 'POST' | 'PATCH';
+
+async function send(url: string, init: { method?: Method; body?: unknown } = {}): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -51,13 +60,14 @@ async function send(url: string, init: { method?: 'GET' | 'POST'; body?: unknown
       // not JSON, e.g. the dev proxy's error page while the backend is down
     }
     if (response.status === 401) dispatchEvent(new Event(SIGNED_OUT_EVENT));
+    if (response.status === 403 && ACCESS_CODES.has(body.error ?? '')) dispatchEvent(new Event(ACCESS_CHANGED_EVENT));
     const counts = body.unread !== undefined && body.total !== undefined ? { unread: body.unread, total: body.total } : undefined;
     throw new ApiFailure(response.status, body.error ?? (response.status >= 500 ? 'network' : 'internal_error'), body.jobId, counts);
   }
   return response;
 }
 
-async function request<T>(url: string, init: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<T> {
+async function request<T>(url: string, init: { method?: Method; body?: unknown } = {}): Promise<T> {
   return (await (await send(url, init)).json()) as T;
 }
 
@@ -92,6 +102,11 @@ export const api = {
   /** Mock sign-in (no password) until the website sits behind Apps Gateway; adds the email to the User table. */
   login: (identity: LoginRequest) => request<AuthSession>('/api/auth/login', { method: 'POST', body: identity }),
   logout: () => request<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+  /** Every user, latest sign-in first (admins only). */
+  users: () => request<UserList>('/api/users'),
+  /** An admin changes another user's role or active state (never their own). */
+  setUserAccess: (id: number, change: UserAccessChange) =>
+    request<ManagedUser>(`/api/users/${enc(String(id))}`, { method: 'PATCH', body: change }),
   health: () => request<Health>('/api/health'),
   folders: (path: string) => request<FolderListing>(`/api/folders?path=${enc(path)}`),
   /** How far the runs have read each subfolder of a folder, by its path. */

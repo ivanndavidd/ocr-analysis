@@ -64,6 +64,8 @@ class Table:
 # result keeps the whole reading as JSON so any user can reopen a past run as the results page showed it. checks holds one note per column for HR to compare with the PDF, so it stays
 # empty for failed and cancelled files; reasons holds the machine codes for the whole file, a failure's cause included
 # (there is no separate errorCode column).
+# User.role is reviewer or admin, and User.active starts false: a new user can sign in but use nothing until an
+# admin activates it on the User page (emails in ADMIN_EMAILS are active admins on every sign-in).
 # Laid out right to left (User on the right) so the tallest table sits on the left and Visual Paradigm's
 # "Powered By" mark, drawn in the image's bottom-right corner, lands on empty space.
 SCHEMA = [
@@ -71,7 +73,10 @@ SCHEMA = [
         Col("id", "integer", 10, pk=True),
         Col("email", "varchar", 255, unique=True),  # one row per email, added on first sign-in
         Col("name", "varchar", 255),
+        Col("role", "varchar", 20),  # reviewer | admin (check constraint); a new user is a reviewer
+        Col("active", "bit"),  # boolean, false for a new user until an admin activates it
         Col("createdAt", "timestamp"),
+        Col("lastLoginAt", "timestamp", nullable=True),  # every sign-in; null until the first one since 0004
     ]),
     Table("OCRHeader", 420, 40, 260, [
         Col("id", "integer", 10, pk=True),

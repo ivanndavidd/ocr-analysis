@@ -25,6 +25,9 @@ __pycache__/
 sample/
 data/
 output/
+# ...but not the extractor's `output` package (the code that writes results and the website's Excel), which the
+# line above hid from git until 2026-11-11
+!apps/extractor/src/contract_extractor/output/
 # Fase 0 labels name real employees: keep them in data/; only the empty label-template.csv is shared
 labels*.csv
 

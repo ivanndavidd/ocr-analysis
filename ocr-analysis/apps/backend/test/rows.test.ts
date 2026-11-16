@@ -125,6 +125,8 @@ describe('position', () => {
       value: 'Staff Gudang',
       confidence: 0.72,
       agreement: null,
+      fromUnclearScan: false,
+      fixedByClaude: false,
       source: 'pattern',
       secondReader: null,
     });
@@ -281,10 +283,54 @@ describe('read by Claude', () => {
       value: 'Staff Gudang',
       confidence: 0.95,
       agreement: 'different',
+      fromUnclearScan: false,
+      fixedByClaude: false,
       source: 'claude',
       secondReader: null,
     });
     expect(row.fields.position.check).toBe('Pembacaan pola teks berbeda; cek di dokumen');
+  });
+
+  test('Claude agreeing with a title from an unclear scan does not make it sure', () => {
+    // Claude reads the same OCR text, so its agreement repeats the misread (2026-11-11: `Cleaning Service 1`)
+    const agreed = (ocr_ragu: boolean | undefined) =>
+      toRow(
+        claude(
+          { posisi: 'Cleaning Service 1', confidence: { posisi: 0.95 } },
+          { posisi: { status: 'ditemukan', sumber: 'label', cocok_llm: true, ocr_ragu } },
+        ),
+        STANDARD,
+      );
+    const echoed = agreed(true);
+    expect(echoed.position).toMatchObject({ agreement: 'same', fromUnclearScan: true, source: 'claude' });
+    expect(echoed.fields.position).toEqual({
+      value: 'Cleaning Service 1',
+      check: 'Dibaca dari scan yang kurang jelas; Claude membaca teks OCR yang sama, cocokkan di dokumen',
+      basis: null,
+    });
+    const confirmed = { check: null, basis: 'Dibaca Claude dan sama dengan pembacaan pola teks' };
+    expect(agreed(false).fields.position).toMatchObject(confirmed); // a clear local reading Claude confirms
+    expect(agreed(undefined).fields.position).toMatchObject(confirmed); // results saved before 2026-11-11
+  });
+
+  test('a title Claude fixed for an OCR misread is coloured', () => {
+    const fixed = (koreksi_llm: boolean | undefined) =>
+      toRow(
+        claude(
+          { posisi: 'Kurir', confidence: { posisi: 0.9 } },
+          { posisi: { status: 'ditemukan', sumber: 'label', cocok_llm: false, koreksi_llm } },
+        ),
+        STANDARD,
+      );
+    const row = fixed(true);
+    expect(row.position).toMatchObject({ value: 'Kurir', fixedByClaude: true, source: 'claude' });
+    expect(row.fields.position).toEqual({
+      value: 'Kurir',
+      check: 'Claude memperbaiki salah baca OCR pada jabatan ini; cocokkan di dokumen',
+      basis: null,
+    });
+    expect(fixed(false).position.fixedByClaude).toBe(false);
+    expect(fixed(undefined).fields.position.check).toBe('Pembacaan pola teks berbeda; cek di dokumen');
   });
 });
 
@@ -399,6 +445,13 @@ describe('pattern checks and Claude helping', () => {
       check: null,
       basis: 'Pemeriksaan lokal ragu; Claude melihat coretan tanda tangan di potongan area tanda tangan',
     });
+    // the ink check called it not clear and Claude saw the same: sure, with no check
+    expect(toRow(look('signed', 'signature_llm_agrees'), FILENAME).fields.signature).toEqual({
+      value: 'YES',
+      check: null,
+      basis: 'Pemeriksaan lokal kurang jelas; Claude juga melihat coretan tanda tangan di potongan area tanda tangan',
+    });
+    expect(toRow(look('signed', 'signature_not_clear'), FILENAME).fields.signature.check).toContain('Kurang jelas');
     const disputed = toRow(look('uncertain', 'signature_llm_differs'), FILENAME);
     expect(disputed.fields.signature.value).toBeNull();
     expect(disputed.fields.signature.check).toContain('Claude melihat tanda tangan');
