@@ -1,0 +1,165 @@
+/* BLUE DLS values written out as tokens until @blibli/blue-design-tokens is available to this app. */
+:root {
+  --blue-brand: #0095da;
+  --blue-brand-hover: #0083c0;
+  --blue-brand-pressed: #0072a7;
+  --blue-brand-subtle: #e6f4fb;
+  --blue-link: #0072a7;
+  --blue-text: #31353b;
+  --blue-text-muted: #6d7588;
+  --blue-text-inverse: #ffffff;
+  --blue-border: #dbdee2;
+  --blue-border-strong: #c1c6cc;
+  --blue-surface: #ffffff;
+  --blue-surface-muted: #f8f9fa;
+  --blue-background: #f2f4f6;
+  --blue-danger: #e53935;
+  --blue-danger-text: #b71c1c;
+  --blue-danger-subtle: #fdecea;
+  --blue-success: #2e7d32;
+  --blue-success-subtle: #e8f5e9;
+  --blue-warning: #f9a825;
+  --blue-warning-text: #7a4f00;
+  --blue-warning-subtle: #fff8e1;
+  /* A value to check: the Excel's own fill for it (workbook.py), so the page and the file look alike. */
+  --check-fill: #fff2cc;
+  --check-border: #f0d78c;
+
+  --blue-space-1: 4px;
+  --blue-space-2: 8px;
+  --blue-space-3: 12px;
+  --blue-space-4: 16px;
+  --blue-space-5: 24px;
+  --blue-space-6: 32px;
+  --blue-radius-sm: 4px;
+  --blue-radius: 8px;
+  --blue-shadow: 0 1px 2px rgba(49, 53, 59, 0.08), 0 1px 3px rgba(49, 53, 59, 0.06);
+  --blue-font: 'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --blue-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--blue-background);
+  color: var(--blue-text);
+  font: 14px/1.5 var(--blue-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--blue-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue-brand);
+  outline-offset: 2px;
+}
+
+.muted {
+  color: var(--blue-text-muted);
+}
+
+.mono {
+  font-family: var(--blue-mono);
+  font-size: 12px;
+}
+
+.card {
+  background: var(--blue-surface);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--blue-radius);
+  box-shadow: var(--blue-shadow);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--blue-space-2);
+  min-height: 36px;
+  padding: 0 var(--blue-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--blue-radius);
+  font: 700 14px/1 var(--blue-font);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn:hover {
+  text-decoration: none;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.btn-primary {
+  background: var(--blue-brand);
+  color: var(--blue-text-inverse);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--blue-brand-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--blue-brand-pressed);
+}
+
+.btn-outline {
+  background: var(--blue-surface);
+  border-color: var(--blue-brand);
+  color: var(--blue-link);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--blue-brand-subtle);
+}
+
+.btn-danger {
+  background: var(--blue-surface);
+  border-color: var(--blue-danger);
+  color: var(--blue-danger-text);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--blue-danger-subtle);
+}
+
+.btn-sm {
+  min-height: 28px;
+  padding: 0 var(--blue-space-3);
+  font-size: 12px;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--blue-link);
+  padding: 0 var(--blue-space-2);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--blue-brand-subtle);
+}

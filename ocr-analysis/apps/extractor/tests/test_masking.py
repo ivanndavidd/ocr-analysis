@@ -1,0 +1,181 @@
+import re
+
+import pytest
+
+from contract_extractor.extractor_method.llm.masking import (
+    PAGE_SEPARATOR,
+    REDACTED_LINE,
+    MaskLeakError,
+    assert_no_leak,
+    mask_pages,
+    mask_text,
+)
+
+# Leak corpus: synthetic NIK, account, phone, and salary values in many separator formats.
+LEAK_CORPUS = [
+    "NIK : 3171012345670001",
+    "NIK : 3171 0123 4567 0001",
+    "NIK : 3171.0123.4567.0001",
+    "NIK : 3171-0123-4567-0001",
+    "No. KTP 3201234567890123",
+    "No. Rekening 1234567890",
+    "Rekening BCA 123-456-7890",
+    "Hubungi 0812-3456-7890",
+    "Hubungi +62 812 3456 7890",
+    "dibayar Rp 7.500.000,-",
+    "dibayar Rp7.500.000",
+    "dibayar Rp. 7.500.000",
+    "dibayar Rp  7.500.000",
+    "dibayar IDR 7,500,000",
+]
+
+
+@pytest.mark.parametrize("line", LEAK_CORPUS)
+def test_leak_corpus_leaves_no_long_digit_run_or_amount(line):
+    masked = mask_text(line).text
+    assert not re.search(r"\d{5,}", masked.replace(" ", "").replace(".", "").replace("-", ""))
+    assert_no_leak(masked)
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["Gaji pokok sebesar tujuh juta rupiah", "Tunjangan transport diberikan", "THR dibayarkan", "Bonus tahunan"],
+)
+def test_sensitive_keyword_lines_are_replaced_whole(line):
+    assert mask_text(line).text == REDACTED_LINE
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Alamat : Jl. Mawar No. 1, Bandung",
+        "Tempat/Tgl Lahir : Bandung, 1 Januari 1990",
+        "Tempat dan tanggal lahir : Bandung, 1 Januari 1990",
+        "Tempat, Tanggal Lahir : Bandung, 01-01-1990",
+        "TTL : Bandung, 1 Januari 1990",
+        "Telepon : 022-1234567",
+    ],
+)
+def test_unneeded_identity_lines_are_replaced_whole(line):
+    assert mask_text(line).text == REDACTED_LINE
+
+
+def test_labels_needed_to_tell_parties_apart_are_kept():
+    masked = mask_text("Nama : Budi Santoso\nJabatan : Staff Gudang\nNIK : 3171012345670001").text
+    assert masked == "Nama : Budi Santoso\nJabatan : Staff Gudang\nNIK : [REDACTED-ID]"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "berlaku efektif mulai tanggal 1 Januari 2026 sampai dengan tanggal 31 Desember 2026",
+        "periode 01-01-2024 - 31-03-2024",
+        "periode 01.01.2024 31.03.2024",
+        "dimulai sejak tanggal 29-12-2023",
+        "Dua Puluh Sembilan bulan Desember tahun Dua Ribu Dua Puluh Tiga",
+    ],
+)
+def test_dates_survive_masking(line):
+    assert mask_text(line).text == line
+
+
+def test_money_words_are_masked():
+    assert mask_text("sebesar 7,5 juta per bulan").text == "sebesar [REDACTED] per bulan"
+    assert mask_text("sejumlah tujuh juta lima ratus ribu rupiah").text == "sejumlah [REDACTED]"
+
+
+def test_counts_are_reported_for_the_log():
+    result = mask_text("NIK : 3171012345670001\nAlamat : Jl. Mawar\nGaji Rp 5.000.000")
+    assert result.counts["deret_angka"] == 1
+    assert result.counts["baris_identitas"] == 1
+    assert result.counts["baris_sensitif"] == 1
+    assert result.total == 3
+
+
+@pytest.mark.parametrize("leaky", ["NIK 3171012345670001", "sebesar Rp 5.000.000", "HP 0812 3456 7890"])
+def test_recheck_fails_closed_on_unmasked_text(leaky):
+    with pytest.raises(MaskLeakError):
+        assert_no_leak(leaky)
+
+
+def test_input_nul_bytes_cannot_smuggle_digits_through_date_placeholders():
+    masked = mask_text("NIK 3171\x00012345670001").text
+    assert "3171" not in masked
+
+
+def test_pages_are_masked_before_the_cut_so_no_partial_nik_survives():
+    page = "x" * 3990 + "NIK 3171012345670001"  # a cut-first approach would keep "317101"
+    masked = mask_pages([page], max_chars_per_page=4000).text
+    assert len(masked) == 4000
+    assert "317101" not in masked
+
+
+def test_each_page_is_cut_separately_and_counts_add_up():
+    pages = ["NIK : 3171012345670001\n" + "a" * 5000, "Alamat : Jl. Mawar\n" + "b" * 5000]
+    result = mask_pages(pages, max_chars_per_page=1000)
+    first, second = result.text.split(PAGE_SEPARATOR)
+    assert len(first) == len(second) == 1000
+    assert first.startswith("NIK : [REDACTED-ID]") and second.startswith(REDACTED_LINE)
+    assert result.counts["deret_angka"] == 1 and result.counts["baris_identitas"] == 1
+
+
+def test_digits_at_page_edges_do_not_join_across_the_separator():
+    result = mask_pages(["kode 12345", "67890 lanjut"], max_chars_per_page=4000)
+    assert result.text == "kode 12345" + PAGE_SEPARATOR + "67890 lanjut"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "NIK : 3171O1234567OOO1",  # OCR read zeros as letters: no 10-digit run is left for the digit rule
+        "No. KTP: 3171 0123 456 7 0001",
+        "No. Rekening : 123-456 7890 BCA",
+        "NPWP : 01.234.567.8-901.000",
+    ],
+)
+def test_id_lines_lose_their_whole_value_but_keep_the_label(line):
+    masked = mask_text(line).text
+    label = line.split(":")[0]
+    assert masked == f"{label}: [REDACTED-ID]" or masked == f"{label} : [REDACTED-ID]"
+    assert not re.search(r"\d{3,}", masked)
+
+
+def test_id_value_rule_counts_only_values_the_digit_rule_missed():
+    result = mask_text("NIK : 3171O1234567OOO1\nNIK : 3171012345670001")
+    assert (result.counts["nilai_identitas"], result.counts["deret_angka"]) == (1, 1)
+
+
+def test_words_that_merely_start_like_an_id_label_are_kept():
+    assert mask_text("Status nikah : belum").text == "Status nikah : belum"
+    assert mask_text("Nikah : belum").text == "Nikah : belum"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "No. Induk Kependudukan : 3171O1234567OOO1",
+        "Nomor Induk Kependudukan 3171 0123 456 7 0001",
+    ],
+)
+def test_long_form_nik_label_loses_its_whole_value(line):
+    masked = mask_text(line).text
+    assert masked.endswith("[REDACTED-ID]")
+    assert not re.search(r"\d{3,}", masked)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Budi, laki-laki, pemegang NIK 3171O1234567OOO1, bertempat tinggal di Bandung",
+        "Budi, pemegang No. KTP : 3171 0123 456 7 0001; bertempat tinggal di Bandung",
+        "Budi, pemegang Nomor Induk Kependudukan 3171O12345 67OOO1, bertempat tinggal di Bandung",
+    ],
+)
+def test_nik_inside_a_sentence_loses_its_value_even_when_ocr_broke_the_digits(sentence):
+    masked = mask_text(sentence).text
+    assert "[REDACTED-ID]" in masked and "bertempat tinggal di Bandung" in masked
+    assert not re.search(r"\d{3,}", masked)
+
+
+def test_nik_mentioned_without_a_number_is_kept():
+    assert mask_text("menyerahkan fotokopi NIK dan KTP, serta").text == "menyerahkan fotokopi NIK dan KTP, serta"

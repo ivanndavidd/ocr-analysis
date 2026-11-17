@@ -1,0 +1,10 @@
+{
+  "name": "contract-ocr",
+  "private": true,
+  "workspaces": ["apps/backend", "apps/frontend", "packages/shared-types"],
+  "scripts": {
+    "dev": "bun run --filter '@contract-ocr/backend' --filter '@contract-ocr/frontend' dev",
+    "test": "bun run --filter '@contract-ocr/backend' --filter '@contract-ocr/frontend' test",
+    "typecheck": "bun run --filter '@contract-ocr/backend' --filter '@contract-ocr/frontend' typecheck"
+  }
+}

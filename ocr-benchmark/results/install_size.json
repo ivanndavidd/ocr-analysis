@@ -1,0 +1,97 @@
+{
+ "rapidocr": {
+  "packages": {
+   "colorlog": 0.0,
+   "flatbuffers": 0.2,
+   "omegaconf": 2.0,
+   "onnxruntime": 46.0,
+   "protobuf": 2.6,
+   "pyclipper": 0.2,
+   "rapidocr": 31.8,
+   "shapely": 6.6,
+   "six": 0.1,
+   "tqdm": 0.6
+  },
+  "packages_mb": 90.1
+ },
+ "doctr": {
+  "packages": {
+   "anyascii": 0.3,
+   "click": 0.9,
+   "filelock": 1.2,
+   "fsspec": 1.9,
+   "h5py": 8.6,
+   "hf-xet": 9.4,
+   "huggingface-hub": 7.1,
+   "jinja2": 1.2,
+   "langdetect": 2.3,
+   "markupsafe": 0.1,
+   "ml-dtypes": 1.6,
+   "mpmath": 4.6,
+   "networkx": 15.8,
+   "onnx": 22.9,
+   "protobuf": 2.6,
+   "pyclipper": 0.2,
+   "python-doctr": 2.8,
+   "scipy": 132.4,
+   "setuptools": 5.9,
+   "shapely": 6.6,
+   "six": 0.1,
+   "sympy": 72.1,
+   "torch": 511.6,
+   "torchvision": 7.1,
+   "tqdm": 0.6,
+   "validators": 0.2
+  },
+  "packages_mb": 820.1
+ },
+ "easyocr": {
+  "packages": {
+   "easyocr": 15.6,
+   "filelock": 1.2,
+   "fsspec": 1.9,
+   "imageio": 2.7,
+   "jinja2": 1.2,
+   "lazy-loader": 0.0,
+   "markupsafe": 0.1,
+   "mpmath": 4.6,
+   "networkx": 15.8,
+   "pyclipper": 0.2,
+   "scikit-image": 22.9,
+   "scipy": 132.4,
+   "setuptools": 5.9,
+   "shapely": 6.6,
+   "sympy": 72.1,
+   "tifffile": 2.5,
+   "torch": 511.6,
+   "torchvision": 7.1
+  },
+  "packages_mb": 804.4
+ },
+ "tesseract": {
+  "packages": {
+   "Tesseract 5.4 program (without language data)": 223.5
+  },
+  "note": "pytesseract is already an extractor dependency; the program is installed separately (apt in the image)",
+  "packages_mb": 223.5
+ },
+ "models_mb": {
+  "tesseract_fast (ind+eng)": 5.0,
+  "tesseract_best (ind+eng)": 22.6,
+  "rapidocr ch_PP-OCRv4_det_mobile": 4.5,
+  "rapidocr ch_PP-OCRv5_det_server": 84.0,
+  "rapidocr en_PP-OCRv4_rec_mobile": 7.3,
+  "rapidocr latin_PP-OCRv5_rec_mobile": 7.5,
+  "rapidocr PP-OCRv6_det_medium": 59.2,
+  "rapidocr PP-OCRv6_det_small": 9.5,
+  "rapidocr PP-OCRv6_det_tiny": 1.7,
+  "rapidocr PP-OCRv6_rec_medium": 73.1,
+  "rapidocr PP-OCRv6_rec_small": 20.3,
+  "rapidocr PP-OCRv6_rec_tiny": 4.3,
+  "doctr crnn_vgg16_bn-0417f351": 60.4,
+  "doctr db_resnet50-79bd7d70": 97.3,
+  "doctr parseq-56125471": 91.0,
+  "easyocr craft_mlt_25k": 79.3,
+  "easyocr latin_g2": 14.7
+ }
+}

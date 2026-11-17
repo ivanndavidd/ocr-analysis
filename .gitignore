@@ -1,42 +1,37 @@
-# Dependencies
+# Repository root is contract-ocr. ocr-analysis/ and contract-pdf-generator/ keep their own .gitignore as well.
+
+# Real contracts with personal data (names, NIK): never commit
+**/Contract Example/
+**/sample/
+
+# Generated data: synthetic NIKs and names, large files
+contract-pdf-generator/output/
+contract-pdf-generator/output-*/
+contract-pdf-generator/output.zip
+contract-pdf-generator/accuracy/
+ocr-benchmark/runs/
+ocr-benchmark/models/
+
+# Environments and caches
+.venv/
 node_modules/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
 
-# Build output
-dist/
-build/
-coverage/
-*.tsbuildinfo
-
-# Environment and secrets — never commit these
+# Secrets: never commit
 .env
 .env.*
 !.env.example
 *.pem
 *.key
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-.pytest_cache/
-*.egg-info/
-
-# Real contract samples and pipeline data contain PII (NIK, payroll) — never commit
-sample/
-data/
-output/
-# Fase 0 labels name real employees: keep them in data/; only the empty label-template.csv is shared
-labels*.csv
+# Local machine settings (paths on this laptop)
+/.claude/
+/.vscode/
 
 # Logs and OS noise
 *.log
-logs/
 .DS_Store
 Thumbs.db
-
-# Local agent settings
-.claude/settings.local.json
-
-# Local run configs (machine paths, extractor choices); only the example is shared
-apps/extractor/config*.yaml
-!apps/extractor/config.example.yaml

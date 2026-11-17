@@ -1,0 +1,8 @@
+output/
+output-*/
+output.zip
+fonts/
+.ipynb_checkpoints/
+
+# Real contracts with personal data: never commit
+Contract Example/
