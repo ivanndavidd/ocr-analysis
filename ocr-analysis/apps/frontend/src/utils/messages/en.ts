@@ -187,7 +187,7 @@ export const en: Messages = {
     counts: (folders, n) => `${plural(folders, 'folder', 'folders')} · ${pdfs(n)} in this folder`,
     downloadHint: "Excel from each PDF's latest OCR result; PDFs not read yet are read first",
     download: (n) => `Download Excel (${n})`,
-    run: (n, fullPage) => `${fullPage ? 'Run without OCR' : 'Run OCR'} (${n})`,
+    run: (n) => `Run OCR (${n})`,
     preparing: 'Preparing the Excel…',
     startingUnread: (n) => `Starting OCR for ${n === 1 ? 'the PDF' : `the ${n} PDFs`} not read yet…`,
     readingUnread: (n) => `Reading ${n === 1 ? 'the PDF' : `the ${n} PDFs`} not read yet`,
@@ -218,9 +218,8 @@ export const en: Messages = {
     selectFolder: (name) => `Select folder ${name}`,
     selectFile: (name) => `Select ${name}`,
     openPdf: 'View the PDF and its latest OCR result',
-    confirmRun: (n, fullPage) => (fullPage ? `Send ${pdfs(n)} to Claude without OCR?` : `Run OCR on ${pdfs(n)}?`),
+    confirmRun: (n) => `Run OCR on ${pdfs(n)}?`,
     starting: 'Starting…',
-    yesSendPages: 'Yes, send whole pages',
     yesRun: 'Yes, run',
     whatIsRead: 'What is read',
     whatIsDownloaded: 'What is downloaded',
@@ -304,7 +303,21 @@ export const en: Messages = {
       { terms: ['Signature'], text: ': Claude is sure it is there, or sure the space is empty, on the last page.' },
     ],
     fullPageNote:
-      'Without OCR (trial): the first and last page of every PDF go to Claude whole and unmasked, including name, NIK, address and birth date. No other page is read, so data found only on the pages in between is not read.',
+      'Whole pages (old trial): the first and last page of every PDF went to Claude whole and unmasked, including name, NIK, address and birth date. No other page was read, so data found only on the pages in between was not read. This mode can no longer run.',
+    rulesPage: [
+      {
+        terms: ['Name', 'contract period'],
+        text: ': Claude read them with confidence from the identity page image and they match the filename.',
+      },
+      {
+        terms: ['NIK'],
+        text: ": read on this laptop and matches the birth date and gender in the contract, comes from the PDF's digital text, or both OCR engines or this laptop and Claude read the same digits.",
+      },
+      { terms: ['Position'], text: ': Claude read it with confidence from the identity page image.' },
+      { terms: ['Signature'], text: ": clearly there, or clearly empty, above the employee's name." },
+    ],
+    pageNote:
+      'Claude reads page: Claude receives the identity page as an image with the NIK blacked out and reads the name, contract dates, position and employer; the name, address and birth date on that page are sent too. The NIK and signature are read on this laptop; a crop of the NIK line or the signature area goes to Claude only as With OCR does. When the NIK cannot be found to black it out, the image is not sent and that PDF is read from the masked text.',
     rules: [
       {
         terms: ['Name'],
@@ -451,21 +464,24 @@ export const en: Messages = {
       text: 'identity page text',
       nik: 'NIK line crop',
       signature: 'signature area crop',
+      page: 'identity page (NIK blacked out)',
       pages: 'whole first and last page',
     },
     callTokens: (call, tokens) => `${call} (${tokens} tokens)`,
-    jobFullPage: 'no OCR, whole pages to Claude',
+    jobPage: 'Claude reads the identity page',
+    jobFullPage: 'whole pages to Claude (old trial)',
     jobClaude: 'helped by Claude',
     jobPatterns: 'text patterns only',
-    modes: { ocr: 'With OCR', full_page: 'Without OCR' },
-    fullPageFlow: 'Whole pages to Claude (trial)',
-    fullPageDescription:
-      "Uses no OCR on this laptop. The first page (taken as the identity page) and the last page (taken as the signature page) of every PDF go whole, as images, to Claude, which reads the name, NIK, position, period, employer and signature. This laptop then checks the NIK against the printed birth date and gender, the name and period against the filename, and the employer against the vendor folder.",
-    fullPageConsent: (n) =>
-      `Of the ${pdfs(n)}, the first and last page go to Claude WHOLE and unmasked: the name, NIK, address, birth date and everything else on those pages is sent. This method is not approved for use yet; use it for trials only. Each PDF is one Claude call (about 15 thousand tokens) and is charged as usage.`,
-    fullPageNotice: 'The first and last page go to Claude WHOLE and unmasked, NIK included. Not approved: trials only.',
-    fullPageWait: 'Wait until Claude is ready to read without OCR.',
-    fullPageNeedsClaude: 'Without OCR needs Claude, which this backend does not have. Pick With OCR.',
+    modes: { ocr: 'With OCR', claude_page: 'Claude reads page', full_page: 'Whole pages (old trial)' },
+    pageFlow: 'OCR for NIK and signature; Claude reads the identity page (NIK blacked out)',
+    pageDescription:
+      'OCR on this laptop still reads every PDF: the NIK, signature and vendor are checked here as With OCR does. The identity page goes to Claude as an image with the NIK blacked out, and Claude reads the name, contract dates, position and employer; this laptop then checks the name and period against the filename, and the employer against the vendor folder. When the NIK cannot be found to black it out, the image is not sent and that PDF is read from the masked text.',
+    pageConsent: (n) =>
+      `Of the ${pdfs(n)}, the identity page of each PDF goes to Claude as an image with the NIK blacked out: the name, address, birth date and everything else on that page is sent. A crop of the NIK line when the NIK is unsure and a crop of the signature area go as With OCR sends them. Every call is charged as Claude usage.`,
+    pageNotice:
+      'Claude reads the identity page as an image with the NIK blacked out; the name, address and birth date on that page are sent too. The NIK and signature are still read locally.',
+    pageWait: 'Wait until Claude is ready to read the identity page.',
+    pageNeedsClaude: 'Claude reads page needs Claude, which this backend does not have. Pick With OCR.',
   },
   labels: {
     decision: { auto: 'Automatic', review: 'Review', review_priority: 'Priority review' },
@@ -486,7 +502,11 @@ export const en: Messages = {
     },
     reasons: {
       extractor_disabled: 'AI reading of the content is off: the name and period are matched from the filename and text patterns',
-      read_full_pages: 'Read without OCR: the first and last page went to Claude whole',
+      read_full_pages: 'Read without OCR (old trial): the first and last page went to Claude whole',
+      read_identity_image: 'Name, dates and job title read by Claude from the identity page image (NIK blacked out)',
+      read_identity_text: "Name, dates and job title read by Claude from the identity page's PDF text (personal data masked)",
+      identity_image_not_sent:
+        'Identity page image not sent: the NIK could not be found to black it out; read from the text instead',
       period_conflict: 'The document holds several different periods',
       page_selection_low_margin: 'The identity or signature page is uncertain',
       signature_not_clear: 'The signature needs a quick look',
@@ -545,7 +565,7 @@ export const en: Messages = {
       bad_reply: 'The OCR reader gave an invalid answer',
       extractor_unavailable: 'The OCR reader is unavailable',
       config_invalid: "The backend's Claude settings are not valid",
-      ocr_unavailable: 'Tesseract could not run',
+      ocr_unavailable: 'The local OCR engine could not run',
       exited_before_ready: 'The OCR reader stopped before it was ready',
       too_large: 'The file is too large',
       not_pdf: 'Not a PDF file',
@@ -559,7 +579,8 @@ export const en: Messages = {
       job_not_found: 'Run not found.',
       file_not_found: 'The file is not in this run',
       not_retryable: 'This file does not need another try',
-      claude_unavailable: 'Claude is not ready, so reading without OCR cannot run',
+      claude_unavailable: 'Claude is not ready, so Claude reads page cannot run',
+      mode_retired: 'A whole-pages run (old trial) cannot run again. Read this folder again with OCR',
       claude_failed: 'Claude could not read the pages of this PDF',
       job_not_finished: 'Wait for the run to finish before downloading the Excel',
       export_busy: 'Another Excel is being created. Try again in a moment',

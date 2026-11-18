@@ -1,0 +1,53 @@
+1. All setups on the digital PDFs of both datasets (627): accuracy, check load and cost                                                                                                           
+┌───────────────┬──────────────────────────────────────────────────────────────┬───────────┬─────────┬───────────┬──────────────────┬──────────────┬──────────────┬──────────┬────────┬──────────┐
+│               │                                                              │           │   Fully │     Cells │   Contracts with │ Wrong cells, │ Wrong cells, │   Claude │  CPU s │ Peak RAM │
+│ Dataset       │ Setup                                                        │ Contracts │ correct │   correct │ nothing to check │   not marked │       marked │   tokens │ / file │ / worker │
+├───────────────┼──────────────────────────────────────────────────────────────┼───────────┼─────────┼───────────┼──────────────────┼──────────────┼──────────────┼──────────┼────────┼──────────┤
+│ Both datasets │ Tesseract alone                                              │       627 │     623 │    99.93% │              589 │          0 * │            0 │        0 │    1.1 │   195 MB │
+│               │ RapidOCR alone                                               │       627 │     623 │    99.93% │              589 │          0 * │            0 │        0 │    1.1 │   211 MB │
+│               │ Tesseract → RapidOCR                                         │       627 │     623 │    99.93% │              589 │          0 * │            0 │        0 │    1.1 │   212 MB │
+│               │ RapidOCR → Tesseract                                         │       627 │     623 │    99.93% │              589 │          0 * │            0 │        0 │    1.2 │   211 MB │
+│               │ Tesseract → RapidOCR → Claude                                │       627 │   627 * │ 100.00% * │            596 * │          0 * │            0 │   0.53 M │    1.8 │   490 MB │
+│               │ Approach 1: RapidOCR → Tesseract → Claude                    │       627 │   627 * │ 100.00% * │            596 * │          0 * │            0 │   0.53 M │    1.9 │   543 MB │
+│               │ Approach 2: Claude baca halaman (R→T, identity page as text) │       627 │   627 * │ 100.00% * │            596 * │          0 * │            0 │   8.47 M │    3.9 │   590 MB │
+│               │ Approach 3: Full Claude (first page as text, last as image)  │       627 │     621 │    99.89% │              451 │            1 │            0 │   8.35 M │    2.8 │   501 MB │
+└───────────────┴──────────────────────────────────────────────────────────────┴───────────┴─────────┴───────────┴──────────────────┴──────────────┴──────────────┴──────────┴────────┴──────────┘
+* best / worst in the column.  Fully correct: all 9 fields right (yellow or not).  Contracts with nothing to check: no yellow cell.                                                               
+CPU s / file: the same 50 digital PDFs per dataset for every setup, taken from the full runs (8 workers); it includes Tesseract's and the Claude CLI's own processes.                             
+Peak RAM / worker: the most memory one worker held, its own process plus the program it started for that contract (Tesseract or the Claude CLI); N workers need about N times this.               
+
+2. Correct values per field                                                                                                                                              
+┌──────────────────────┬──────────────────────────────────────────────────────────────┬───────┬───────┬──────────┬───────┬───────┬────────┬───────────┬────────┬────────┐
+│ Dataset              │ Setup                                                        │  name │   nik │ position │ start │   end │ months │ signature │ vendor │ entity │
+├──────────────────────┼──────────────────────────────────────────────────────────────┼───────┼───────┼──────────┼───────┼───────┼────────┼───────────┼────────┼────────┤
+│ First dataset (327)  │ Tesseract alone                                              │   327 │   327 │      327 │   327 │   327 │    327 │       326 │    327 │    327 │
+│                      │ RapidOCR alone                                               │   327 │   327 │      327 │   327 │   327 │    327 │       326 │    327 │    327 │
+│                      │ Tesseract → RapidOCR                                         │   327 │   327 │      327 │   327 │   327 │    327 │       326 │    327 │    327 │
+│                      │ RapidOCR → Tesseract                                         │   327 │   327 │      327 │   327 │   327 │    327 │       326 │    327 │    327 │
+│                      │ Tesseract → RapidOCR → Claude                                │   327 │   327 │      327 │   327 │   327 │    327 │     327 * │    327 │    327 │
+│                      │ Approach 1: RapidOCR → Tesseract → Claude                    │   327 │   327 │      327 │   327 │   327 │    327 │     327 * │    327 │    327 │
+│                      │ Approach 2: Claude baca halaman (R→T, identity page as text) │   327 │   327 │      327 │   327 │   327 │    327 │     327 * │    327 │    327 │
+│                      │ Approach 3: Full Claude (first page as text, last as image)  │   327 │   327 │      327 │   327 │   327 │    327 │       323 │    327 │    327 │
+├──────────────────────┼──────────────────────────────────────────────────────────────┼───────┼───────┼──────────┼───────┼───────┼────────┼───────────┼────────┼────────┤
+│ Second dataset (300) │ Tesseract alone                                              │   300 │   300 │      300 │   300 │   300 │    300 │       297 │    300 │    300 │
+│                      │ RapidOCR alone                                               │   300 │   300 │      300 │   300 │   300 │    300 │       297 │    300 │    300 │
+│                      │ Tesseract → RapidOCR                                         │   300 │   300 │      300 │   300 │   300 │    300 │       297 │    300 │    300 │
+│                      │ RapidOCR → Tesseract                                         │   300 │   300 │      300 │   300 │   300 │    300 │       297 │    300 │    300 │
+│                      │ Tesseract → RapidOCR → Claude                                │   300 │   300 │      300 │   300 │   300 │    300 │     300 * │    300 │    300 │
+│                      │ Approach 1: RapidOCR → Tesseract → Claude                    │   300 │   300 │      300 │   300 │   300 │    300 │     300 * │    300 │    300 │
+│                      │ Approach 2: Claude baca halaman (R→T, identity page as text) │   300 │   300 │      300 │   300 │   300 │    300 │     300 * │    300 │    300 │
+│                      │ Approach 3: Full Claude (first page as text, last as image)  │   300 │   300 │      300 │   300 │   300 │    300 │       298 │    300 │    300 │
+└──────────────────────┴──────────────────────────────────────────────────────────────┴───────┴───────┴──────────┴───────┴───────┴────────┴───────────┴────────┴────────┘
+* best / worst in the column, within each dataset.                                                                                                                       
+
+3. Wrong values without a yellow mark (HR would not see them), and what every setup read                                                      
+┌───────────────┬──────────────────────────────────┬───────────┬──────────┬────┬────┬─────┬─────┬───────┬────────────┬───────────┬───────────┐
+│ Dataset       │ Contract                         │ Field     │ Expected │  T │  R │ T→R │ R→T │ T→R→C │ R→T→C (A1) │ Page (A2) │ Full (A3) │
+├───────────────┼──────────────────────────────────┼───────────┼──────────┼────┼────┼─────┼─────┼───────┼────────────┼───────────┼───────────┤
+│ First dataset │ Dian - 1 Feb - 30 Apr 2048 - ARL │ signature │ NO       │ ok │ ok │  ok │  ok │    ok │         ok │        ok │     YES ✗ │
+└───────────────┴──────────────────────────────────┴───────────┴──────────┴────┴────┴─────┴─────┴───────┴────────────┴───────────┴───────────┘
+ok = right; (y) = wrong or undecided but marked yellow; ✗ = wrong and not marked; - = not run.                                                
+T = Tesseract alone, R = RapidOCR alone, T→R = Tesseract → RapidOCR, R→T = RapidOCR → Tesseract, T→R→C = Tesseract → RapidOCR → Claude, R→T→C 
+(A1) = Approach 1: RapidOCR → Tesseract → Claude, Page (A2) = Approach 2: Claude baca halaman (R→T, identity page as text), Full (A3) =       
+Approach 3: Full Claude (first page as text, last as image)                                                                                   
+

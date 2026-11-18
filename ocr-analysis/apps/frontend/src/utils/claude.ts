@@ -1,4 +1,4 @@
-import type { ClaudeCall, ClaudeState, ReadMode } from '@contract-ocr/shared-types';
+import type { ClaudeCall, ClaudeState, ReadMode, StartMode } from '@contract-ocr/shared-types';
 import { formatCount, totalTokens } from './format.ts';
 import { t } from './i18n.ts';
 
@@ -42,43 +42,46 @@ export function callsLabel(calls: ClaudeCall[]): string {
 /** A job in the lists: how it read, and whether Claude was helping when it ran. */
 export function jobFlowLabel(claude: boolean, mode: ReadMode = 'ocr'): string {
   const m = t().claude;
-  return mode === 'full_page' ? m.jobFullPage : claude ? m.jobClaude : m.jobPatterns;
+  if (mode === 'claude_page') return m.jobPage;
+  if (mode === 'full_page') return m.jobFullPage; // the old no-OCR trial, for runs saved before
+  return claude ? m.jobClaude : m.jobPatterns;
 }
 
-// The two ways a run reads. The OCR mode is the main flow; the no-OCR mode sends the first and last page of every PDF
-// whole and unmasked to Claude, a backup the owner and mentor test while sending whole pages is not approved yet
-// (2026-11-04). The switch shows until they decide.
-export const MODES: ReadMode[] = ['ocr', 'full_page'];
+// The two ways a run reads (owner 2026-11-16). The OCR mode is the main flow. In the page mode the same local OCR reads
+// the NIK, the signature and the vendor, while Claude reads the name, period and title from the identity page as an
+// image with the NIK blacked out. The old no-OCR trial ('full_page', whole pages unmasked) can no longer be started;
+// its saved runs keep their label in the history.
+export const MODES: StartMode[] = ['ocr', 'claude_page'];
 export const modeLabel = (mode: ReadMode) => t().claude.modes[mode];
 
-export const fullPageFlow = () => t().claude.fullPageFlow;
-export const fullPageDescription = () => t().claude.fullPageDescription;
+export const pageFlow = () => t().claude.pageFlow;
+export const pageDescription = () => t().claude.pageDescription;
 
-/** The warning in the run confirmation of the no-OCR mode, which sends whole, unmasked pages. */
-export const fullPageConsent = (pdfs: number) => t().claude.fullPageConsent(pdfs);
+/** What the page mode sends to Claude, in the run confirmation. */
+export const pageConsent = (pdfs: number) => t().claude.pageConsent(pdfs);
 
-/** The no-OCR mode's warning in one line, always shown; `fullPageConsent` spells it out under "Detail". */
-export const fullPageNotice = () => t().claude.fullPageNotice;
+/** The page mode's warning in one line, always shown; `pageConsent` spells it out under "Detail". */
+export const pageNotice = () => t().claude.pageNotice;
 
-/** Why the no-OCR mode cannot run now; null when it can. Claude is its only reader, so it needs Claude ready. */
-export function fullPageBlocked(state: ClaudeState | null): string | null {
+/** Why the page mode cannot run now; null when it can. Claude reading the identity page is the point of the mode. */
+export function pageBlocked(state: ClaudeState | null): string | null {
   if (state === 'on') return null;
-  if (state === 'starting') return t().claude.fullPageWait;
-  return t().claude.fullPageNeedsClaude;
+  if (state === 'starting') return t().claude.pageWait;
+  return t().claude.pageNeedsClaude;
 }
 
 const MODE_KEY = 'contract-ocr.read-mode';
 
-/** The mode picked in this tab; a new tab starts with the OCR mode. */
-export function loadMode(): ReadMode {
+/** The mode picked in this tab; a new tab, or one that last picked the old no-OCR trial, starts with the OCR mode. */
+export function loadMode(): StartMode {
   try {
-    return sessionStorage.getItem(MODE_KEY) === 'full_page' ? 'full_page' : 'ocr';
+    return sessionStorage.getItem(MODE_KEY) === 'claude_page' ? 'claude_page' : 'ocr';
   } catch {
     return 'ocr'; // storage blocked
   }
 }
 
-export function saveMode(mode: ReadMode): void {
+export function saveMode(mode: StartMode): void {
   try {
     sessionStorage.setItem(MODE_KEY, mode);
   } catch {

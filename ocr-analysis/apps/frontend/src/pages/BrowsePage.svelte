@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ClaudeState, FolderListing, FolderMark, Health, Job, LatestResult, ReadMark, ReadMode } from '@contract-ocr/shared-types';
+  import type { ClaudeState, FolderListing, FolderMark, Health, Job, LatestResult, ReadMark, StartMode } from '@contract-ocr/shared-types';
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import Badge from '../components/Badge.svelte';
@@ -29,13 +29,13 @@
     claudeNotice,
     flowDescription,
     flowLabel,
-    fullPageBlocked,
-    fullPageConsent,
-    fullPageDescription,
-    fullPageFlow,
-    fullPageNotice,
     loadMode,
     modeLabel,
+    pageBlocked,
+    pageConsent,
+    pageDescription,
+    pageFlow,
+    pageNotice,
     saveMode,
   } from '../utils/claude.ts';
   import { filePath, folderHref, jobHref } from '../utils/routes.ts';
@@ -67,7 +67,7 @@
   let marks = $state<Record<string, ReadMark>>({}); // this folder's PDFs that some run has read, by path
   let folderMarks = $state<Record<string, FolderMark>>({}); // how far the runs have read each subfolder, by path
   // "Unduh Excel": the selection's newest readings, after a run of the PDFs no run has read yet
-  type Blocked = 'mine' | 'unavailable' | 'full_page'; // why the unread PDFs cannot be read now; worded at render
+  type Blocked = 'mine' | 'unavailable' | 'claude_page'; // why the unread PDFs cannot be read now; worded at render
   type Download =
     | { step: 'checking' | 'saving' }
     | { step: 'confirm' | 'starting'; unread: number; total: number }
@@ -83,9 +83,9 @@
   const downloading = $derived(
     download !== null && ['checking', 'saving', 'starting', 'reading'].includes(download.step),
   );
-  let mode = $state<ReadMode>(loadMode()); // kept for this tab, so it holds while moving between folders
-  const fullPage = $derived(mode === 'full_page');
-  const flow = $derived(fullPage ? fullPageFlow() : flowLabel(claude ?? 'off'));
+  let mode = $state<StartMode>(loadMode()); // kept for this tab, so it holds while moving between folders
+  const page = $derived(mode === 'claude_page');
+  const flow = $derived(page ? pageFlow() : flowLabel(claude ?? 'off'));
 
   onMount(async () => {
     try {
@@ -135,7 +135,7 @@
   );
   const runTotal = $derived(selectedCount > 0 ? selectedTotal : currentTotal);
   // The confirmations' one-line warning; the full wording sits under their "Detail".
-  const notice = $derived(fullPage ? fullPageNotice() : claudeNotice(claude));
+  const notice = $derived(page ? pageNotice() : claudeNotice(claude));
 
   $effect(() => {
     if (selectAll) selectAll.indeterminate = someSelected && !allSelected;
@@ -247,8 +247,8 @@
         ? 'mine'
         : extractor?.state === 'unavailable'
           ? 'unavailable'
-          : fullPage && fullPageBlocked(claude)
-            ? 'full_page'
+          : page && pageBlocked(claude)
+            ? 'claude_page'
             : null;
       download = reason ? { step: 'blocked', unread, total, reason } : { step: 'confirm', unread, total };
       if (!reason) refreshQueue();
@@ -336,13 +336,13 @@
         ? t().browse.readerUnavailable
         : runTotal === 0
           ? t().browse.noPdfs
-          : fullPage
-            ? fullPageBlocked(claude)
+          : page
+            ? pageBlocked(claude)
             : null,
   );
   /** Why "Unduh Excel" cannot read the unread PDFs first, in the current language. */
   const blockedText = (reason: Blocked) =>
-    reason === 'mine' ? t().browse.blockedMine : reason === 'unavailable' ? t().browse.readerUnavailable : fullPageBlocked(claude);
+    reason === 'mine' ? t().browse.blockedMine : reason === 'unavailable' ? t().browse.readerUnavailable : pageBlocked(claude);
   const selected = $derived(selectionLabel(selectedFolders.size, selectedFiles.size));
   const scope = $derived(
     selectedCount > 0
@@ -415,7 +415,7 @@
             {/each}
           </div>
         </fieldset>
-        <span class="flow" class:risky={fullPage}>{flow}</span>
+        <span class="flow">{flow}</span>
         <div class="actions">
           <button
             class="btn btn-outline"
@@ -437,7 +437,7 @@
               refreshQueue();
             }}
           >
-            {t().browse.run(runTotal, fullPage)}
+            {t().browse.run(runTotal)}
           </button>
         </div>
         <span class="hint muted">{blockedReason ?? scope ?? ''}</span>
@@ -663,8 +663,8 @@
 
 <ConfirmDialog
   open={confirming && blockedReason === null}
-  title={t().browse.confirmRun(runTotal, fullPage)}
-  confirmLabel={starting ? t().browse.starting : fullPage ? t().browse.yesSendPages : t().browse.yesRun}
+  title={t().browse.confirmRun(runTotal)}
+  confirmLabel={starting ? t().browse.starting : t().browse.yesRun}
   busy={starting}
   onconfirm={start}
   oncancel={() => (confirming = false)}
@@ -675,7 +675,7 @@
     <dt>{t().browse.whatIsRead}</dt>
     <dd>{scope ?? t().browse.everyPdf}</dd>
     <dt>{t().common.readMode}</dt>
-    <dd><strong>{modeLabel(fullPage ? 'full_page' : 'ocr')}: {flow}</strong></dd>
+    <dd><strong>{modeLabel(mode)}: {flow}</strong></dd>
   </dl>
   {@render warnings()}
   {@render detail(runTotal, [t().browse.canCancel])}
@@ -697,7 +697,7 @@
       <dt>{t().browse.whatIsDownloaded}</dt>
       <dd>{scope ?? t().browse.everyPdf}</dd>
       <dt>{t().common.readMode}</dt>
-      <dd><strong>{modeLabel(fullPage ? 'full_page' : 'ocr')}: {flow}</strong></dd>
+      <dd><strong>{modeLabel(mode)}: {flow}</strong></dd>
     </dl>
     {@render warnings()}
     {@render detail(download.unread, [t().browse.newRunIsYours, t().browse.leaveAnyway])}
@@ -706,7 +706,7 @@
 
 <!-- What the two run confirmations always show: the data warning and the queue, one line each. -->
 {#snippet warnings()}
-  {#if notice}<Banner tone={fullPage ? 'danger' : 'warning'}>{notice}</Banner>{/if}
+  {#if notice}<Banner tone="warning">{notice}</Banner>{/if}
   {#if active > 0}<Banner>{t().browse.queueAhead(active)}</Banner>{/if}
 {/snippet}
 
@@ -715,9 +715,9 @@
   <details class="more">
     <summary>{notice ? t().browse.detailWithData : t().browse.detail}</summary>
     <div class="more-body">
-      {#if fullPage}
-        <p>{fullPageDescription()}</p>
-        <p>{fullPageConsent(pdfs)}</p>
+      {#if page}
+        <p>{pageDescription()}</p>
+        <p>{pageConsent(pdfs)}</p>
       {:else}
         {@const ask = claudeConsent(claude, pdfs)}
         {@const hint = claudeHint(claude)}
@@ -809,10 +809,6 @@
   }
   .flow {
     font-size: 13px;
-  }
-  .flow.risky {
-    color: var(--blue-danger-text);
-    font-weight: 600;
   }
   .modes {
     display: flex;

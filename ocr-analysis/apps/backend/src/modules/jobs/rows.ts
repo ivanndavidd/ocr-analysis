@@ -107,7 +107,14 @@ const NAME_MATCH = { cocok: 'same', mirip: 'similar', tidak_cocok: 'different' }
 
 const VENDOR_CHECK: Record<string, boolean> = { cocok: true, tidak_cocok: false };
 const VENDOR_BASIS: Record<string, 'text' | 'claude'> = { teks: 'text', llm: 'claude' };
-const CALLS: Record<string, ClaudeCallKind> = { teks: 'text', nik: 'nik', ttd: 'signature', halaman: 'pages' };
+// `halaman` is the old no-OCR trial's call (first and last page whole), kept for the runs saved before
+const CALLS: Record<string, ClaudeCallKind> = {
+  teks: 'text',
+  nik: 'nik',
+  ttd: 'signature',
+  halaman_identitas: 'page',
+  halaman: 'pages',
+};
 const SIGNATURE_LOOK = new Set(['signed', 'unsigned', 'unclear']);
 
 function claudeCalls(result: ExtractorFileResult): ClaudeCall[] {

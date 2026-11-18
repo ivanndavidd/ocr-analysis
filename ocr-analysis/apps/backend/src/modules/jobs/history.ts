@@ -31,7 +31,8 @@ export interface StoredRun {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const STATUSES = new Set<JobStatus>(['queued', 'running', 'done', 'cancelled', 'interrupted']);
 
-const readMode = (mode: string): ReadMode => (mode === 'full_page' ? 'full_page' : 'ocr');
+// 'full_page' is the old no-OCR trial: its saved runs still load, though none can start any more
+const readMode = (mode: string): ReadMode => (mode === 'claude_page' || mode === 'full_page' ? mode : 'ocr');
 const runStatus = (status: string): JobStatus => (STATUSES.has(status as JobStatus) ? (status as JobStatus) : 'interrupted');
 const iso = (date: Date | null) => (date ? date.toISOString() : null);
 const runUser = (user: { id: number; name: string; email: string }): RunUser => ({ id: user.id, name: user.name, email: user.email });

@@ -92,9 +92,9 @@ for (;;) {
         nik: hasNik
           ? { status: 'ditemukan', tanggal_lahir: 'cocok', jenis_kelamin: 'tidak_ada' }
           : { status: 'tidak_ditemukan', tanggal_lahir: 'tidak_ada', jenis_kelamin: 'tidak_ada' },
-        // the header's read mode comes back as a reason; the no-OCR mode adds its own, as the real worker does
+        // the header's read mode comes back as a reason; Claude reading the page adds its own, as the real worker does
         alasan: [
-          ...(mode === 'full_page' ? ['read_full_pages'] : ['extractor_disabled']),
+          ...(mode === 'claude_page' ? ['read_identity_image'] : ['extractor_disabled']),
           ...(hasNik ? [] : ['nik_not_found']),
           `mode:${mode}`,
         ],

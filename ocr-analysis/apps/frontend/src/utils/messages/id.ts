@@ -183,7 +183,7 @@ export const id = {
     counts: (folders: number, pdfs: number) => `${folders} folder · ${pdfs} PDF di folder ini`,
     downloadHint: 'Excel dari hasil OCR terakhir tiap PDF; PDF yang belum di-OCR dibaca dulu',
     download: (n: number) => `Unduh Excel (${n})`,
-    run: (n: number, fullPage: boolean) => `${fullPage ? 'Jalankan tanpa OCR' : 'Jalankan OCR'} (${n})`,
+    run: (n: number) => `Jalankan OCR (${n})`,
     preparing: 'Menyiapkan Excel…',
     startingUnread: (n: number) => `Memulai OCR untuk ${n} PDF yang belum di-OCR…`,
     readingUnread: (n: number) => `Membaca ${n} PDF yang belum di-OCR`,
@@ -214,9 +214,8 @@ export const id = {
     selectFolder: (name: string) => `Pilih folder ${name}`,
     selectFile: (name: string) => `Pilih ${name}`,
     openPdf: 'Lihat PDF dan hasil OCR terakhirnya',
-    confirmRun: (n: number, fullPage: boolean) => (fullPage ? `Kirim ${n} PDF ke Claude tanpa OCR?` : `Jalankan OCR untuk ${n} PDF?`),
+    confirmRun: (n: number) => `Jalankan OCR untuk ${n} PDF?`,
     starting: 'Memulai…',
-    yesSendPages: 'Ya, kirim halaman utuh',
     yesRun: 'Ya, jalankan',
     whatIsRead: 'Yang dibaca',
     whatIsDownloaded: 'Yang diunduh',
@@ -299,7 +298,21 @@ export const id = {
       { terms: ['Tanda tangan'], text: ': Claude yakin ada atau yakin kosong di halaman terakhir.' },
     ],
     fullPageNote:
-      'Tanpa OCR (uji coba): halaman pertama dan terakhir setiap PDF dikirim utuh ke Claude tanpa disamarkan, termasuk nama, NIK, alamat, dan tanggal lahir. Halaman lain tidak dibaca, jadi data yang hanya ada di halaman tengah tidak terbaca.',
+      'Halaman utuh (uji lama): halaman pertama dan terakhir setiap PDF dikirim utuh ke Claude tanpa disamarkan, termasuk nama, NIK, alamat, dan tanggal lahir. Halaman lain tidak dibaca, jadi data yang hanya ada di halaman tengah tidak terbaca. Cara ini tidak bisa dijalankan lagi.',
+    rulesPage: [
+      {
+        terms: ['Nama', 'masa kontrak'],
+        text: ': dibaca Claude dengan yakin dari gambar halaman identitas dan sama dengan nama file.',
+      },
+      {
+        terms: ['NIK'],
+        text: ': dibaca di laptop ini dan cocok dengan tanggal lahir dan jenis kelamin di kontrak, diambil dari teks digital PDF, atau dibaca sama oleh dua mesin OCR atau oleh laptop ini dan Claude.',
+      },
+      { terms: ['Posisi'], text: ': dibaca Claude dengan yakin dari gambar halaman identitas.' },
+      { terms: ['Tanda tangan'], text: ': jelas ada atau jelas kosong di atas nama karyawan.' },
+    ],
+    pageNote:
+      'Claude baca halaman: Claude menerima gambar halaman identitas dengan NIK ditutup, lalu membaca nama, tanggal kontrak, posisi, dan perusahaan pemberi kerja; nama, alamat, dan tanggal lahir di halaman itu ikut terkirim. NIK dan tanda tangan dibaca di laptop ini; potongan baris NIK atau area tanda tangan ke Claude hanya seperti pada Dengan OCR. Bila NIK tidak ditemukan untuk ditutup, gambar tidak dikirim dan PDF itu dibaca lewat teks yang sudah disamarkan.',
     rules: [
       {
         terms: ['Nama'],
@@ -447,22 +460,24 @@ export const id = {
       text: 'teks halaman identitas',
       nik: 'potongan baris NIK',
       signature: 'potongan area tanda tangan',
+      page: 'halaman identitas (NIK ditutup)',
       pages: 'halaman pertama dan terakhir utuh',
     },
     callTokens: (call: string, tokens: string) => `${call} (${tokens} token)`,
-    jobFullPage: 'tanpa OCR, halaman utuh ke Claude',
+    jobPage: 'Claude baca halaman identitas',
+    jobFullPage: 'halaman utuh ke Claude (uji lama)',
     jobClaude: 'dibantu Claude',
     jobPatterns: 'pola teks saja',
-    modes: { ocr: 'Dengan OCR', full_page: 'Tanpa OCR' },
-    fullPageFlow: 'Halaman utuh ke Claude (uji coba)',
-    fullPageDescription:
-      'Tidak memakai OCR di laptop ini. Halaman pertama (dianggap halaman identitas) dan halaman terakhir (dianggap halaman tanda tangan) setiap PDF dikirim utuh sebagai gambar ke Claude, yang membaca nama, NIK, posisi, periode, perusahaan pemberi kerja, dan tanda tangan. Di laptop ini NIK dicocokkan dengan tanggal lahir dan jenis kelamin yang tercetak, nama dan periode dengan nama file, dan perusahaan dengan folder vendor.',
-    fullPageConsent: (pdfs: number) =>
-      `Dari ${pdfs} PDF, halaman pertama dan halaman terakhir dikirim UTUH ke Claude tanpa disamarkan: nama, NIK, alamat, tanggal lahir, dan isi lain di halaman itu ikut terkirim. Cara ini belum disetujui untuk dipakai; gunakan hanya untuk uji coba. Setiap PDF satu panggilan Claude (sekitar 15 ribu token) dan dikenai biaya pemakaian.`,
-    fullPageNotice:
-      'Halaman pertama dan terakhir dikirim UTUH ke Claude tanpa disamarkan, NIK ikut terkirim. Belum disetujui: hanya untuk uji coba.',
-    fullPageWait: 'Tunggu Claude siap untuk membaca tanpa OCR.',
-    fullPageNeedsClaude: 'Tanpa OCR butuh Claude, yang tidak tersedia di backend ini. Pilih Dengan OCR.',
+    modes: { ocr: 'Dengan OCR', claude_page: 'Claude baca halaman', full_page: 'Halaman utuh (uji lama)' },
+    pageFlow: 'OCR untuk NIK dan tanda tangan; Claude membaca halaman identitas (NIK ditutup)',
+    pageDescription:
+      'OCR di laptop ini tetap membaca setiap PDF: NIK, tanda tangan, dan vendor diperiksa di sini seperti pada Dengan OCR. Halaman identitas dikirim ke Claude sebagai gambar dengan NIK ditutup, lalu Claude membaca nama, tanggal kontrak, posisi, dan perusahaan pemberi kerja; di laptop ini nama dan periode dicocokkan dengan nama file, dan perusahaan dengan folder vendor. Bila NIK tidak ditemukan untuk ditutup, gambar tidak dikirim dan PDF itu dibaca lewat teks yang sudah disamarkan.',
+    pageConsent: (pdfs: number) =>
+      `Dari ${pdfs} PDF, halaman identitas setiap PDF dikirim ke Claude sebagai gambar dengan NIK ditutup: nama, alamat, tanggal lahir, dan isi lain di halaman itu ikut terkirim. Potongan baris NIK bila NIK ragu dan potongan area tanda tangan dikirim seperti pada Dengan OCR. Setiap panggilan dikenai biaya pemakaian Claude.`,
+    pageNotice:
+      'Claude membaca halaman identitas sebagai gambar dengan NIK ditutup; nama, alamat, dan tanggal lahir di halaman itu ikut terkirim. NIK dan tanda tangan tetap dibaca lokal.',
+    pageWait: 'Tunggu Claude siap untuk membaca halaman identitas.',
+    pageNeedsClaude: 'Claude baca halaman butuh Claude, yang tidak tersedia di backend ini. Pilih Dengan OCR.',
   },
   labels: {
     decision: { auto: 'Otomatis', review: 'Review', review_priority: 'Review prioritas' },
@@ -483,7 +498,11 @@ export const id = {
     },
     reasons: {
       extractor_disabled: 'Pembacaan isi dengan AI dimatikan: nama dan periode dicocokkan dari nama file dan pola teks',
-      read_full_pages: 'Dibaca tanpa OCR: halaman pertama dan terakhir dikirim utuh ke Claude',
+      read_full_pages: 'Dibaca tanpa OCR (uji lama): halaman pertama dan terakhir dikirim utuh ke Claude',
+      read_identity_image: 'Nama, tanggal, dan jabatan dibaca Claude dari gambar halaman identitas (NIK ditutup)',
+      read_identity_text: 'Nama, tanggal, dan jabatan dibaca Claude dari teks PDF halaman identitas (data pribadi disamarkan)',
+      identity_image_not_sent:
+        'Gambar halaman identitas tidak dikirim: NIK tidak ditemukan untuk ditutup; dibaca lewat teks',
       period_conflict: 'Dokumen memuat beberapa periode berbeda',
       page_selection_low_margin: 'Halaman identitas atau tanda tangan kurang pasti',
       signature_not_clear: 'Tanda tangan perlu dilihat sekilas',
@@ -542,7 +561,7 @@ export const id = {
       bad_reply: 'Jawaban pembaca OCR tidak valid',
       extractor_unavailable: 'Pembaca OCR tidak tersedia',
       config_invalid: 'Pengaturan Claude di backend tidak valid',
-      ocr_unavailable: 'Tesseract tidak bisa dijalankan',
+      ocr_unavailable: 'Mesin OCR lokal tidak bisa dijalankan',
       exited_before_ready: 'Pembaca OCR berhenti sebelum siap',
       too_large: 'File terlalu besar',
       not_pdf: 'Bukan file PDF',
@@ -556,7 +575,8 @@ export const id = {
       job_not_found: 'Proses tidak ditemukan.',
       file_not_found: 'File tidak ada di proses ini',
       not_retryable: 'File ini tidak perlu dicoba lagi',
-      claude_unavailable: 'Claude belum siap, jadi pembacaan tanpa OCR tidak bisa dijalankan',
+      claude_unavailable: 'Claude belum siap, jadi Claude baca halaman tidak bisa dijalankan',
+      mode_retired: 'Proses halaman utuh (uji lama) tidak bisa dijalankan lagi. Baca ulang folder ini dengan OCR',
       claude_failed: 'Claude gagal membaca halaman PDF ini',
       job_not_finished: 'Tunggu proses selesai sebelum mengunduh Excel',
       export_busy: 'Excel lain sedang dibuat. Coba lagi sebentar lagi',

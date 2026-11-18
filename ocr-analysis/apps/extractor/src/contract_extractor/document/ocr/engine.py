@@ -142,26 +142,39 @@ def _resolve_tesseract(configured: Path | None) -> Path:
     raise OcrUnavailable("tesseract not found: set ocr.tesseract_cmd, TESSERACT_CMD, or add it to PATH")
 
 
-def build_runner(settings: Settings) -> OcrRunner:
+def _tesseract(settings: Settings) -> TesseractOCR:
     ocr = settings.ocr
-    if ocr.cloud_fallback:
-        raise OcrUnavailable("ocr.cloud_fallback is not implemented; keep it false")
-    if OcrEngine.PADDLE in (ocr.primary, ocr.fallback):
-        raise OcrUnavailable("PaddleOCR is not available yet; use tesseract with no fallback")
-
     tesseract = TesseractOCR(_resolve_tesseract(ocr.tesseract_cmd), lang=ocr.lang, timeout_s=ocr.timeout_s)
     try:
         tesseract.check()
     except TesseractUnavailable as exc:
         raise OcrUnavailable(str(exc)) from exc
-    second = None
-    if ocr.second_reader.enabled:
-        try:
-            second = RapidOCRReader(resolve_model_dir(ocr.second_reader.model_dir), ocr.second_reader.threads)
-        except RapidOcrUnavailable as exc:
-            raise OcrUnavailable(str(exc)) from exc
+    return tesseract
+
+
+def _rapidocr(settings: Settings) -> RapidOCRReader:
+    reader = settings.ocr.second_reader
+    try:
+        return RapidOCRReader(resolve_model_dir(reader.model_dir), reader.threads)
+    except RapidOcrUnavailable as exc:
+        raise OcrUnavailable(str(exc)) from exc
+
+
+def build_runner(settings: Settings) -> OcrRunner:
+    """The primary engine reads every page; with the second reader on, the other engine reads an unsure value again.
+    Tesseract first was the only order until the owner chose RapidOCR first on 2026-11-16 (`ocr.primary`)."""
+    ocr = settings.ocr
+    if ocr.cloud_fallback:
+        raise OcrUnavailable("ocr.cloud_fallback is not implemented; keep it false")
+    if OcrEngine.PADDLE in (ocr.primary, ocr.fallback):
+        raise OcrUnavailable("PaddleOCR is not available yet; use tesseract or rapidocr with no fallback")
+
+    build = {OcrEngine.TESSERACT: _tesseract, OcrEngine.RAPIDOCR: _rapidocr}
+    other = OcrEngine.RAPIDOCR if ocr.primary is OcrEngine.TESSERACT else OcrEngine.TESSERACT
+    primary = build[ocr.primary](settings)
+    second = build[other](settings) if ocr.second_reader.enabled else None
     return OcrRunner(
-        providers=[tesseract],
+        providers=[primary],
         scoring_dpi=ocr.scoring_dpi,
         read_dpi=ocr.read_dpi,
         min_mean_conf=ocr.min_mean_conf,

@@ -47,6 +47,7 @@ from contract_extractor.document.pdf.render import PageRenderer
 from contract_extractor.extractor_method.llm.verification import (
     REASON_NAME_NOT_IN_SOURCE,
     REASON_PERIOD_NOT_IN_SOURCE,
+    SURE,
     VerifiedExtraction,
     extraction_level,
     verify_extraction,
@@ -62,6 +63,7 @@ from contract_extractor.extractor_method.pattern.filename import (
     normalize_name,
     parse_filename,
 )
+from contract_extractor.identity_page import masked_jpegs
 from contract_extractor.signature.ink import find_meterai
 from contract_extractor.extractor_method.llm.masking import PAGE_SEPARATOR, MaskLeakError, mask_pages
 from contract_extractor.extractor_method.pattern.nik import check_nik, find_nik, nik_spot
@@ -147,6 +149,13 @@ COMPONENT_NIK = "nik"
 COMPONENT_VENDOR = "vendor"
 REASON_VENDOR_NOT_IN_SOURCE = "vendor_not_in_source"  # the vendor folder's name is not printed on the read pages
 REASON_VENDOR_MISMATCH = "vendor_mismatch"  # the extractor read another employer company than the vendor folder
+# The 'claude_page' mode: the name, period, title and employer came from the identity page image, NIK blacked out ...
+REASON_IDENTITY_IMAGE = "read_identity_image"
+# ... or the image was not sent, since the NIK could not be located to black it out; the masked text was read instead.
+REASON_IDENTITY_IMAGE_NOT_SENT = "identity_image_not_sent"
+# ... or, for a native identity page, they came from its masked text layer instead of an image (owner 2026-11-18).
+REASON_IDENTITY_TEXT = "read_identity_text"
+CALL_IDENTITY_PAGE = "halaman_identitas"
 # `validasi_nama_file` key set when the filename's name was confirmed in the signature block, not on the identity page.
 NAME_PAGE_KEY, NAME_PAGE_SIGNATURE = "nama_halaman", "tanda_tangan"
 # Set when the second OCR's reading completed a period Tesseract's text left a date of unread.
@@ -853,6 +862,80 @@ def _use_extraction(
     return levels
 
 
+def _text_layer_identity(p_id_pages: list[PageText]) -> bool:
+    """Every identity page was read from the PDF's own text layer (a native page), so no image is needed."""
+    return bool(p_id_pages) and all(page.source == "text_layer" for page in p_id_pages)
+
+
+def _read_identity_image(
+    data: bytes,
+    result: FileResult,
+    pages: _PagesRead,
+    parsed: ParsedFilename,
+    extractor: Extractor | None,
+    ocr: OcrRunner | None,
+) -> dict[str, Level] | None:
+    """Tahap 3 in the 'claude_page' mode (owner 2026-11-16): Claude reads the name, period, title and employer from
+    the identity page image with the NIK blacked out (`identity_page`), in place of the patterns and the masked text.
+    None when nothing could be read this way: no extractor, the NIK not located (so the image is never sent), or the
+    call failed. The caller then reads the masked text as in the OCR mode, so a file is never left worse off."""
+    if extractor is None or not pages.p_id_pages:
+        return None
+    with PageRenderer(data, pages.turns) as renderer:
+        jpegs = masked_jpegs(pages.p_id_pages, lambda page: _page_image(renderer, page, ocr))
+    if jpegs is None:
+        _add_reason(result, REASON_IDENTITY_IMAGE_NOT_SENT)
+        return None
+    for number in result.log.p_id:
+        result.log.komponen_halaman.setdefault(number, []).append(f"{extractor.name}:{CALL_IDENTITY_PAGE}")
+    try:
+        answer = extractor.read_page(jpegs)
+    except ExtractorError as exc:
+        _count_call(result, extractor, CALL_IDENTITY_PAGE, exc.usage)
+        _add_reason(result, f"{REASON_EXTRACTOR_ERROR}:{exc.kind}")
+        return None
+    _count_call(result, extractor, CALL_IDENTITY_PAGE, answer.usage)
+    _add_reason(result, REASON_IDENTITY_IMAGE)
+    return _use_page_answer(result, answer, parsed)
+
+
+def _use_page_answer(result: FileResult, answer: ExtractionResult, parsed: ParsedFilename) -> dict[str, Level]:
+    """Claude's reading of the identity page becomes the file's name, period and title. The name and period are green
+    when Claude is sure of them and a second, independent source reads the same period: a standard filename, or the
+    local regex on the OCR text. There is no text sent to find quotes in, so nothing else is verified."""
+    result.log.pembaca = Reader.LLM
+    name, start, end = answer.nama_karyawan.nilai, answer.tanggal_mulai.nilai, answer.tanggal_selesai.nilai
+    if start and end and end <= start:
+        start = end = None  # not a period; a person reads it from the page
+    written = answer.durasi_bulan.nilai
+    result.nama_karyawan = name
+    result.tanggal_mulai, result.tanggal_selesai = start, end
+    result.durasi_bulan = written or (months_between(start, end) if start and end else None)
+    result.log.periode_llm = LlmPeriod(tanggal_mulai=start, tanggal_selesai=end, durasi_bulan=written)
+    result.confidence["nama"] = round(answer.nama_karyawan.confidence, 3) if name else 0.0
+    sure_of_dates = min(answer.tanggal_mulai.confidence, answer.tanggal_selesai.confidence)
+    result.confidence["periode"] = round(sure_of_dates, 3) if start and end else 0.0
+    result.vendor_dokumen = answer.vendor.nilai  # decides only a vendor folder the pages do not print
+    if answer.posisi.nilai:
+        result.posisi = answer.posisi.nilai
+        result.log.posisi = PositionLog(status=PositionStatus.FOUND, sumber=PositionSource.LLM)
+        result.confidence["posisi"] = round(answer.posisi.confidence, 3)
+
+    levels: dict[str, Level] = {}
+    if name:
+        levels[COMPONENT_FILENAME] = _filename_level(result, parsed)
+    if not (name and start and end):
+        levels["extraction"] = Level.YELLOW
+        return levels
+    standard = FLAG_NONSTANDARD not in parsed.flags and FLAG_UNPARSED not in parsed.flags
+    filename_agrees = standard and compare_period(parsed, start, end, written) is Match.COCOK
+    regex = result.log.periode_regex
+    regex_agrees = regex is not None and not regex.ambigu and (regex.tanggal_mulai, regex.tanggal_selesai) == (start, end)
+    sure = min(result.confidence["nama"], result.confidence["periode"]) >= SURE
+    levels["extraction"] = Level.GREEN if sure and (filename_agrees or regex_agrees) else Level.YELLOW
+    return levels
+
+
 def _merge_position(result: FileResult, verified: VerifiedExtraction) -> None:
     """The extractor's verified title wins, since it tells the employee's title from a placement or a department; the
     local reading stays only as a check. Without a verified title from the extractor, the local reading is kept."""
@@ -1067,16 +1150,18 @@ def process_file(
     ocr: OcrRunner | None = None,
     extractor: Extractor | None = None,
     vendor: str | None = None,
+    page_image: bool = False,
 ) -> FileResult:
     """`ocr=None` means local OCR is not available; scan and hybrid pages are then flagged, not guessed.
     `extractor=None` means no text leaves the machine; extraction then counts as red. `vendor` is the vendor folder
-    the file sits in (`root/<vendor>/...`), checked against the document; None skips that check."""
+    the file sits in (`root/<vendor>/...`), checked against the document; None skips that check. `page_image`: see
+    `process_bytes`."""
 
     def load() -> bytes:
         validate_pdf_file(path, _max_bytes(settings))
         return path.read_bytes()
 
-    return _process(path.name, load, settings, ocr, extractor, vendor)
+    return _process(path.name, load, settings, ocr, extractor, vendor, page_image)
 
 
 def process_bytes(
@@ -1086,15 +1171,17 @@ def process_bytes(
     ocr: OcrRunner | None = None,
     extractor: Extractor | None = None,
     vendor: str | None = None,
+    page_image: bool = False,
 ) -> FileResult:
     """`process_file` for a PDF already in memory, such as one streamed from SharePoint; it is never written to
-    disk. `filename` is only used for the filename checks and the result, never opened."""
+    disk. `filename` is only used for the filename checks and the result, never opened. `page_image` is the website's
+    'claude_page' mode: Claude reads the name, period and title from the identity page image, NIK blacked out."""
 
     def load() -> bytes:
         validate_pdf_bytes(data, filename, _max_bytes(settings))
         return data
 
-    return _process(filename, load, settings, ocr, extractor, vendor)
+    return _process(filename, load, settings, ocr, extractor, vendor, page_image)
 
 
 def _max_bytes(settings: Settings) -> int:
@@ -1108,6 +1195,7 @@ def _process(
     ocr: OcrRunner | None,
     extractor: Extractor | None,
     vendor: str | None = None,
+    page_image: bool = False,
 ) -> FileResult:
     result = FileResult(file=filename, vendor=" ".join((vendor or "").split()) or None)
     fid = file_id(filename)
@@ -1138,12 +1226,25 @@ def _process(
         # Both local OCR engines before the extractor: in the website's flow it is only asked what they leave unsure.
         levels[COMPONENT_NIK] = _second_read(data, result, pages, ocr, levels[COMPONENT_NIK])
         assist = settings.extractor.assist
-        levels.update(
-            _extract(
+        read = None
+        if page_image and assist and _text_layer_identity(pages.p_id_pages):
+            # A native identity page goes as its masked text layer, not an image (owner 2026-11-18): the text is exact,
+            # and Claude reads the name, period, title and employer from it for every file, as the CLI's extractor
+            # mode does, its answer checked against that text.
+            read = _extract(
+                result, payload, pages.p_id_trusted, parsed, extractor, pages.p_id_pages, False, pages.p_ttd_page,
+                pages.second,
+            )
+            if result.log.pembaca is Reader.LLM:
+                _add_reason(result, REASON_IDENTITY_TEXT)
+        elif page_image and assist:
+            read = _read_identity_image(data, result, pages, parsed, extractor, ocr)
+        if read is None:  # the OCR mode, or the page image could not be read
+            read = _extract(
                 result, payload, pages.p_id_trusted, parsed, extractor, pages.p_id_pages, assist, pages.p_ttd_page,
                 pages.second,
             )
-        )
+        levels.update(read)
         if assist:  # crops go to the extractor in the website's flow only; the CLI's extractor mode sends text alone
             levels[COMPONENT_NIK] = _read_nik_crop(data, result, pages, extractor, ocr, levels[COMPONENT_NIK])
         vendor_level = _check_vendor(result, pages)

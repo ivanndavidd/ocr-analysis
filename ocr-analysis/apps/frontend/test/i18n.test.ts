@@ -149,7 +149,13 @@ describe('switching the language', () => {
     expect(errorLabel('admin_only')).toBe('Only admins can open the Users page');
     expect(errorLabel('no_such_code')).toBe('no_such_code');
     expect(reasonLabel('extractor_error:timeout')).toBe('One Claude call failed; that part was read with the text patterns only');
-    expect([flowLabel('on'), modeLabel('full_page'), jobFlowLabel(true)]).toEqual(['Text patterns + Claude', 'Without OCR', 'helped by Claude']);
+    expect([flowLabel('on'), modeLabel('claude_page'), modeLabel('full_page'), jobFlowLabel(true)]).toEqual([
+      'Text patterns + Claude',
+      'Claude reads page',
+      'Whole pages (old trial)',
+      'helped by Claude',
+    ]);
+    expect(callsLabel([{ kind: 'page', tokens: null }])).toBe('identity page (NIK blacked out)');
     expect(claudeConsent('on', 1)).toStartWith('Of the 1 PDF,');
     expect(callsLabel([{ kind: 'nik', tokens: { input: 1000, cacheWrite: 10, cacheRead: 0, output: 1 } }])).toBe('NIK line crop (1,011 tokens)');
     expect(runState({ status: 'queued', queueAhead: 1 })).toBe('queued (1 run ahead)');

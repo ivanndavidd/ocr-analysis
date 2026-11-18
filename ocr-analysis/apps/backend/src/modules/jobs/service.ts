@@ -8,16 +8,15 @@ import type {
   JobSummary,
   LatestResult,
   ReadMark,
-  ReadMode,
   RunRef,
   RunUser,
+  StartMode,
 } from '@contract-ocr/shared-types';
 import { type ExtractorClient, ExtractorFailure } from '../workers/protocol.ts';
 import type { ResultArchive, RunArchive } from './archive.ts';
 import { matchesHistory } from './history.ts';
 import { type FolderSource, SourceError, segments } from '../folders/source.ts';
 import { vendorOf } from './export.ts';
-import { FULL_PAGES } from './fields.ts';
 import { fullNik, toRow } from './rows.ts';
 
 const KEEP_JOBS = 20; // finished runs kept in memory; older ones are read back from the database when opened
@@ -39,7 +38,8 @@ export class JobError extends Error {
       | 'not_retryable'
       | 'job_not_finished'
       | 'nothing_to_read' // a run of the unread PDFs only, when every PDF of the selection has been read
-      | 'claude_unavailable',
+      | 'claude_unavailable'
+      | 'mode_retired', // a run of the old no-OCR trial: that mode cannot read any more
     readonly jobId?: string,
   ) {
     super(code);
@@ -64,15 +64,11 @@ function jobFile(path: string): JobFile {
 export interface Selection {
   folders: string[];
   files: string[];
-  mode?: ReadMode; // 'ocr' when left out
+  mode?: StartMode; // 'ocr' when left out
   unreadOnly?: boolean; // only the PDFs no run has read yet (the folder page's download reads those first)
 }
 
 const parent = (path: string) => path.split('/').slice(0, -1).join('/');
-/** In the no-OCR mode Claude is the only reader: a file its call failed for (or a worker without Claude read) has
- *  nothing read, so it fails and can be retried like a worker failure. */
-const unreadByClaude = (reasons: string[]) =>
-  reasons.includes(FULL_PAGES) && reasons.some((r) => r === 'extractor_disabled' || r.startsWith('extractor_error'));
 const retryable = (file: JobFile) => file.state === 'error' || file.state === 'cancelled';
 const isActive = (job: Job) => job.status === 'queued' || job.status === 'running';
 const ref = (job: JobRecord): RunRef => ({ jobId: job.id, by: job.startedBy?.name ?? null });
@@ -122,8 +118,8 @@ export class JobService {
   async start({ folders, files, mode = 'ocr', unreadOnly = false }: Selection, user: RunUser | null = null): Promise<Job> {
     this.ensureFree(user);
     this.client();
-    // The no-OCR mode is Claude's reading alone: without Claude it would read nothing.
-    if (mode === 'full_page' && this.extractor.claude() !== true) throw new JobError('claude_unavailable');
+    // Claude reading the identity page is what this mode is for; without Claude it would be the OCR mode.
+    if (mode === 'claude_page' && this.extractor.claude() !== true) throw new JobError('claude_unavailable');
     const chosen = await this.resolve({ folders, files });
     let paths = chosen.paths;
     if (unreadOnly) {
@@ -314,7 +310,8 @@ export class JobService {
 
   private rerun(job: JobRecord, files: JobFile[]): Job {
     this.client();
-    if (job.mode === 'full_page' && this.extractor.claude() !== true) throw new JobError('claude_unavailable');
+    if (job.mode === 'full_page') throw new JobError('mode_retired'); // the worker no longer reads whole pages
+    if (job.mode === 'claude_page' && this.extractor.claude() !== true) throw new JobError('claude_unavailable');
     for (const file of files) {
       file.state = 'waiting';
       delete file.error;
@@ -454,13 +451,10 @@ export class JobService {
     try {
       const data = await this.source.readPdf(file.path, this.maxFileBytes);
       const vendor = vendorOf(file.path) || null;
-      const reply = await this.client().extract(file.name, data, vendor, job.mode);
-      if (reply.ok && job.mode === 'full_page' && unreadByClaude(reply.result.log.alasan)) {
-        file.state = 'error';
-        file.error = 'claude_failed';
-        delete file.row;
-        job.niks.delete(file.path);
-      } else if (reply.ok) {
+      // a run of the old no-OCR trial is never queued again (`rerun`), so only the current modes reach a worker
+      const mode = job.mode === 'full_page' ? 'claude_page' : job.mode;
+      const reply = await this.client().extract(file.name, data, vendor, mode);
+      if (reply.ok) {
         const nik = fullNik(reply.result);
         if (nik) job.niks.set(file.path, nik);
         else job.niks.delete(file.path);

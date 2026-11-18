@@ -95,7 +95,7 @@ Six setups on the scans and photos of both datasets. Digital PDFs read the same 
   title is unsure, or a date is missing.
 - **RapidOCR → Tesseract:** the same with the roles swapped (`rapid_second`, benchmark only).
 - **… → Claude:** the same, with Claude as the website's fallback (`--claude`: same model, effort and rules as the
-  website). Tesseract → RapidOCR → Claude is the flow now.
+  website). Tesseract → RapidOCR → Claude was the flow until 2026-11-16, when the owner chose RapidOCR first.
 
 | Setup | First dataset (473): fully correct | Nothing to check | Wrong, not marked | Second dataset (500): fully correct | Nothing to check | Wrong, not marked | Claude tokens (both) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -103,7 +103,7 @@ Six setups on the scans and photos of both datasets. Digital PDFs read the same 
 | RapidOCR alone | 430 | 158 | 7 | 464 | 138 | 4 | 0 |
 | Tesseract → RapidOCR | 412 | 248 | 1 | 438 | 247 | 2 | 0 |
 | RapidOCR → Tesseract | 430 | 241 | 7 | 464 | 238 | 4 | 0 |
-| Tesseract → RapidOCR → Claude (the flow now) | **447** | **271** | **1** | 468 | **267** | **2** | 3.5 M |
+| Tesseract → RapidOCR → Claude | **447** | **271** | **1** | 468 | **267** | **2** | 3.5 M |
 | RapidOCR → Tesseract → Claude | 441 | 255 | 6 | **482** | 260 | 3 | 3.0 M |
 
 - **The second reader changes no value**, either way round: Tesseract alone and Tesseract → RapidOCR read the same
@@ -126,8 +126,70 @@ Six setups on the scans and photos of both datasets. Digital PDFs read the same 
   Claude runs above (`-agree` runs, no new calls): contracts with nothing to check 538 to 881 for the flow now and
   515 to 920 for RapidOCR first; wrong cells not marked 3 to 4 and 9 to 10. `tools/comparison.py` shows these.
 
-So Tesseract stays first. A local check that marks a title with an odd letter or an unknown word as unsure would send
-those titles to the second reader and Claude, in either order; it is not built.
+So Tesseract stayed first until 2026-11-16. A local check that marks a title with an odd letter or an unknown word as
+unsure would send those titles to the second reader and Claude, in either order; it is not built.
+
+### "Claude baca halaman" on every scan and photo (2026-11-16)
+
+The website mode the owner chose on 2026-11-16 (`bench.run rapid_second --claude --page-image`, 8 workers like the
+other Claude runs; `rapid_second-img-claude-page`, `rapid_second-v2-img-claude-page`): RapidOCR first and Tesseract
+second for the NIK and the signature, as in RapidOCR → Tesseract → Claude, and Claude reads the name, dates, job title
+and employer from the identity page image with the NIK blacked out, for every file. Compared with the two Claude
+flows above with the signature agreement rule applied (`-agree`), since the page runs had it live:
+
+| Setup | First dataset (473): fully correct | Nothing to check | Wrong, not marked | Second dataset (500): fully correct | Nothing to check | Wrong, not marked | Claude tokens (both) | CPU s / file |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Tesseract → RapidOCR → Claude | 447 | 431 | 2 | 468 | 450 | 2 | 3.5 M | 16.9 |
+| RapidOCR → Tesseract → Claude | 441 | 442 | 7 | 482 | **478** | 3 | 3.0 M | 36.3 |
+| Claude baca halaman | **451** | **435** | **2** | **487** | 465 | **1** | 13.1 M | 34.7 |
+
+- **Most fully correct of every setup:** 938 of 973, against 923 and 915; cells correct 99.54%. Wrong cells marked
+  yellow drop to 7 (46 and 21).
+- **Every job title and every date right** (973 of 973 each): Claude reads the title from the image, so RapidOCR's
+  confident title typos (`Operator Produksl`, `Custoimer Service`) and Tesseract's (`Kurlr`) never reach the row.
+- **3 wrong values not marked:** two signed contracts read unsigned (Jane Mandasari, also in RapidOCR → Tesseract →
+  Claude; Radit Indra Unggul Mariadi, yellow in the other flows) and one NIK. RapidOCR reads `…0524` for `…0824`
+  (SADINA NILAM RINI) in every RapidOCR-first setup: the digit is in the last four, which the birth date and gender
+  cannot check, so it stays green. Tesseract first reads it right.
+- **Cost:** about 4 times the Claude tokens of the fallback flows (13.4k per scan or photo), since every file sends
+  the page. 90 minutes with 8 workers (42.7 and 47.7).
+- **Timeouts:** under 8 workers, 10 of the 973 page calls ran past the 120-second extractor timeout
+  (`extractor.timeout_s`); those files fell back to the masked-text flow, as designed, and were read again with 2
+  workers for this table (`files-with-timeouts.jsonl` keeps the first answers).
+
+### Full Claude on every scan and photo (2026-11-17, NIK prompt 2026-11-18)
+
+The website's removed "Tanpa OCR" mode (2026-11-04 to 2026-11-16), restored for the benchmark only in
+`bench/full_page.py` (`bench.run tesseract_fast --claude --full-page`; the engine only names the run folder, no OCR
+runs): the first and last page go to Claude whole and unmasked, and Claude reads every field, the NIK and the
+signature included; the laptop only checks its NIK against the birth date and gender Claude read, its name and period
+against the filename, and its employer against the vendor folder. The table and `tools/comparison.py` show the run
+with the NIK asked in four groups of four (`*-img-claude-fullpage-groups`, 8 workers, 29 minutes for all 973, no
+failed call); the first run with the original wording is in the last bullet.
+
+| Setup | First dataset (473): fully correct | Nothing to check | Wrong, not marked | Second dataset (500): fully correct | Nothing to check | Wrong, not marked | Claude tokens (both) | CPU s / file | Peak RAM / worker |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Claude baca halaman | 451 | **435** | 2 | **487** | **465** | 1 | 13.1 M | 34.7 | 1,096 MB |
+| Full Claude | **457** | 318 | **0** | 470 | 316 | 4 | 15.6 M | **2.6** | **502 MB** |
+
+- **Fewer fully correct than Claude baca halaman** (927 against 938), behind on the second dataset (470 against
+  487), where contracts run 2 to 6 pages: NIKs 489 against 496 and signatures 481 against 488.
+- **Far more yellow:** 634 contracts with nothing to check against 900. A NIK only turns green when both the
+  printed birth date and gender confirm it, and many pages print only one.
+- **Its 4 unmarked mistakes are worse ones:** three unsigned contracts read as signed (Balangga, Kawaca Adriansyah,
+  Tira Laila), the direction that lets an unsigned contract through, and one NIK digit in the region code (`6333…`
+  for `6332…`), which the birth date and gender cannot check.
+- **Cheapest on the laptop** (no OCR): 2.6 CPU seconds and about 500 MB per worker, measured on the full run;
+  the most Claude tokens (16k per file), and the whole pages leave unmasked.
+- The first dataset agrees with the website run of 2026-11-04 (457 fully correct, 0 unmarked on the same 473).
+- **Why the NIK misses (probe 2026-11-18):** asked again, Claude explained its empty NIKs itself: it read 15 digits,
+  dropping one of a pair or run of the same digit (`…1080 0075` read `…108 0075`), and the prompt forbids guessing.
+  Its wrong NIKs change a repeated digit (`3331…` read `3333…`).
+- **NIK in four groups of four (owner 2026-11-18, `*-img-claude-fullpage-groups`):** on the 18 NIKs it missed, read
+  twice per prompt, right rose from 14 to 20 of 36, but on all 973 it changed almost nothing: fully correct 927
+  (926), NIKs 956 (955; 4 fixed, 3 newly wrong, 14 wrong in both), wrong not marked 4 (3: Claude's signature answer
+  for Tira Laila went from unsure to a wrong "signed"), 15.6 M tokens. Claude's NIK reading varies from run to run,
+  so the targeted gain was mostly that variation.
 
 The flow now was also run through the website on 2026-11-11 (446 and 469 fully correct, 2 and 2 unmarked); Claude
 answers a little differently each run. Three signature calls timed out in RapidOCR → Tesseract → Claude and those
@@ -145,11 +207,57 @@ gives the same figure. Claude adds little CPU on the laptop: its work runs at An
 | RapidOCR alone | 30.1 |
 | Tesseract → RapidOCR | 16.8 |
 | RapidOCR → Tesseract | 31.4 |
-| Tesseract → RapidOCR → Claude (the flow now) | 16.9 |
+| Tesseract → RapidOCR → Claude (the flow until 2026-11-16) | 16.9 |
 | RapidOCR → Tesseract → Claude | 36.3 |
+| "Claude baca halaman" (RapidOCR → Tesseract, Claude reads the identity page image) | 34.7 |
+
+The website mode "Claude baca halaman" (owner 2026-11-16) was measured on the same sample the same day
+(`rapid_second-cpu50-page`, `rapid_second-v2-cpu50-page`: `bench.run rapid_second --claude --page-image`, 4 workers,
+machine CPU 33 to 39%). Its local work is that of RapidOCR → Tesseract → Claude, so its CPU is the same within noise;
+the cost of RapidOCR first is the jump from 16.9. On the 100 contracts:
+
+| Setup | CPU s / file | Peak RAM / worker | Claude tokens / file | Fully correct | Wrong, not marked |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Tesseract → RapidOCR → Claude | 16.9 | 1,009 MB | 3,937 | 96 | 0 |
+| RapidOCR → Tesseract → Claude | 36.3 | 1,025 MB | 2,982 | 98 | 0 |
+| Claude baca halaman | 34.7 | 1,034 MB | 13,489 | 99 | 0 |
+
+The two older rows were read before the signature agreement rule, so their "nothing to check" (58 and 55) is not
+comparable with the page mode's 95, which ran with it. CPU includes the Claude Code process the local login starts per
+call (bench.run counts every child process); with an API key (production) there is none.
 
 All of it, per field and with every unmarked mistake: `.venv/Scripts/python tools/comparison.py`
 (`results/comparison.txt`).
+
+### Every setup on the digital PDFs (2026-11-18)
+
+The 627 native PDFs of both datasets (327 and 300), all eight setups, 8 workers (`runs/digital-all.sh`; run keys
+`<engine>-digital`, `-digital-claude`, `-digital-claude-page`, `-digital-claude-fullpage`, `v2-` before `digital` for
+the second dataset; no failed call). A native PDF has a text layer, so no OCR engine reads it: the four local setups
+are the same reader (text layer plus the patterns), and the engine only names the run. When Claude is in the flow the
+identity page goes as text (owner 2026-11-18): Claude baca halaman sends its masked text layer for every file instead
+of the page image; Full Claude sends the first page's text unmasked and the last page as an image, for the signature.
+
+| Setup | Fully correct (627) | Cells correct | Nothing to check | Wrong, not marked | Claude tokens | CPU s / file | Peak RAM / worker |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Tesseract alone, RapidOCR alone, either order | 623 | 99.93% | 589 | 0 | 0 | 1.1 to 1.2 | 195 to 212 MB |
+| Tesseract → RapidOCR → Claude | **627** | **100%** | **596** | **0** | **0.53 M** | **1.8** | **490 MB** |
+| RapidOCR → Tesseract → Claude | **627** | **100%** | **596** | **0** | **0.53 M** | 1.9 | 543 MB |
+| Claude baca halaman | **627** | **100%** | **596** | **0** | 8.47 M | 3.9 | 590 MB |
+| Full Claude | 621 | 99.89% | 451 | 1 | 8.35 M | 2.8 | 501 MB |
+
+- **Every miss is a signature.** Name, NIK, title, dates, vendor and entity are right in every setup. The four
+  local-only setups leave 4 signatures undecided ("Kurang jelas", yellow); the signature crop to Claude settles them
+  in the three flows that use it.
+- **Claude baca halaman adds nothing on digital PDFs:** the same 627 and 596 as the fallback flows, at 16 times the
+  tokens (13.5k per file against 0.85k), because every file's identity text goes to Claude while the fallback flows
+  send only the signature crops and unsure fields. The text layer is exact, so there is nothing for Claude to correct.
+- **Full Claude is the only setup with a silent mistake:** an unsigned contract read as signed (Dian, first dataset),
+  plus 5 signatures it was unsure of. It also leaves the most yellow: 163 NIKs (green only when both the printed birth
+  date and gender confirm it), 16 job titles and 5 signatures, against 31 signatures in the Claude flows.
+- CPU and RAM are from the full runs (8 workers), on the same 50 digital PDFs per dataset for every setup.
+
+`PYTHONIOENCODING=utf-8 .venv/Scripts/python tools/comparison.py --digital` (`results/comparison-digital.txt`).
 
 ## 2. Reader changes on the full sets (Claude off)
 

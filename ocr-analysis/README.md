@@ -34,7 +34,9 @@ it has not been reviewed for go-live.
      right 39 to 42, unmarked mistakes 2 to 1, yellow titles 12 to 18. The one left, `Kurlr`, was read locally
      at confidence 0.91, so Claude never judged it.
    - It gets a crop of the NIK line or the signature area only when the local check is unsure.
-   - It never gets a whole page, except in the no-OCR test mode, which isn't approved.
+   - It never gets a whole page in the default mode. In the "Claude baca halaman" mode (2026-11-16, approved by
+     the mentor) it gets the identity page as an image with the NIK blacked out (a native PDF's masked text instead,
+     2026-11-18), and reads the name, dates and job title from it; the NIK and signature stay local. If the NIK can't be located, the image isn't sent.
    - With `CLAUDE_MODE=off`, nothing leaves the laptop.
 5. **Signature.** An ink check on the employee's block of the last page. A stroke check decides faint or partly
    hidden signatures. A signature on a meterai always crosses the stamp's edge, so no pen outside the stamp reads as

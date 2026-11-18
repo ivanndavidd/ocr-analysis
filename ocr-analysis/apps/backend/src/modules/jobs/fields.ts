@@ -17,11 +17,12 @@ const doubt = (value: string | number | null, check: Note): FieldValue => ({ val
 /** `2026-03-31` → `31 Mar 2026`, as people write it. */
 export const tanggal = (iso: string): string => noteDate(iso, 'id');
 
-/** The reason the no-OCR mode adds: every value came from Claude reading the whole first and last page. */
+/** The reason the old no-OCR trial added: every value came from Claude reading the whole first and last page. Only
+ *  runs saved before 2026-11-16 carry it; their rows keep the rules below. */
 export const FULL_PAGES = 'read_full_pages';
 const fullPages = (row: RowFacts) => row.reasons.includes(FULL_PAGES);
 
-/** The no-OCR mode: Claude read the NIK from the whole first page, with the birth date and gender printed there; the
+/** The old no-OCR trial: Claude read the NIK from the whole first page, with the birth date and gender printed there; the
  *  NIK is trusted when both confirm it and Claude was sure of its digits. */
 function nikFromPage(row: RowFacts): FieldValue {
   const { status, masked, birthDate, gender } = row.nik;
@@ -195,7 +196,7 @@ function period(row: RowFacts): Pick<ContractFields, 'start' | 'end' | 'months'>
   return { start, end, months };
 }
 
-/** The no-OCR mode: Claude alone looked at the last page, and decided only above the same cutoffs as for a crop. */
+/** The old no-OCR trial: Claude alone looked at the last page, and decided only above the same cutoffs as for a crop. */
 function signatureFromPage(row: RowFacts, at: { page: number | null }): FieldValue {
   if (row.signature === 'signed') return sure('YES', note('signature.page_signed', at));
   if (row.signature === 'unsigned') return sure('NO', note('signature.page_unsigned', at));

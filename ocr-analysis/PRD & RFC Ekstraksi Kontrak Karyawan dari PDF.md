@@ -183,17 +183,17 @@ Hanya panah `S3 → S4` yang melewati batas mesin lokal dalam konfigurasi defaul
 
 Seluruh file dibaca hanya di tahap page selection lokal; setelah itu dua halaman yang hidup berpisah jalur. Dalam konfigurasi default, satu-satunya data yang keluar adalah teks `P_id` yang sudah di-mask (jalur kiri) ke LLM cloud; OCR cloud di jalur yang sama nonaktif kecuali disetujui terpisah. Halaman tanda tangan tidak pernah keluar utuh; di alur website hanya potongan area tanda tangan (scan dan foto, atau PDF teks yang ragu) dan potongan baris NIK yang ragu yang dikirim ke Claude.
 
-### 7.1 Mode tanpa OCR (uji coba, keputusan owner 2026-11-04)
+### 7.1 Mode "Claude baca halaman" (keputusan owner 2026-11-16, disetujui mentor)
 
-Website punya tombol pilihan per proses di halaman folder: **Dengan OCR** (alur di atas, default) dan **Tanpa OCR**. Owner dan mentornya belum mendapat keputusan apakah halaman utuh boleh dikirim ke LLM; mode ini cadangan untuk diuji dan akan diputuskan (dipertahankan atau dihapus) saat alur difinalkan. Dialog konfirmasinya memberi peringatan merah bahwa halaman dikirim utuh dan belum disetujui.
+Website punya tombol pilihan per proses di halaman folder: **Dengan OCR** (alur di atas, default) dan **Claude baca halaman**. Mode ini menggantikan mode uji Tanpa OCR (2026-11-04), yang mengirim halaman pertama dan terakhir utuh tanpa masking dan sudah dihapus; riwayat lamanya tetap bisa dibuka.
 
-- Tesseract tidak dipakai. Page selection tidak dijalankan: halaman pertama dianggap halaman identitas dan halaman terakhir halaman tanda tangan. PDF hanya dibuka untuk jumlah dan jenis halaman, lalu kedua halaman di-render 200 dpi berwarna, diperkecil sampai sisi terpanjang paling banyak 2000 px, dan dikirim sebagai JPEG (kualitas 85) dalam satu panggilan Claude, masing-masing dengan label `Halaman pertama:` dan `Halaman terakhir:`. Kontrak satu halaman mengirim halaman itu sekali.
-- Tanpa masking: nama, NIK, alamat, tempat dan tanggal lahir, dan apa pun yang tercetak di kedua halaman itu ikut terkirim.
-- Claude mengisi semua field (nama, NIK, posisi, tanggal mulai dan selesai, durasi tertulis, perusahaan pemberi kerja, tanda tangan karyawan) dengan confidence, tanpa kutipan, ditambah tanggal lahir dan jenis kelamin yang tercetak untuk mengecek NIK. Model, effort, dan prompt caching sama dengan panggilan teks (Bagian 10).
-- Yang tetap dicek di laptop: NIK harus valid strukturnya dan cocok dengan tanggal lahir dan jenis kelamin yang dibaca dari halaman yang sama (bertentangan → merah; hijau hanya bila keduanya cocok dan keyakinan Claude ≥ 0,8); nama dan periode dibandingkan dengan nama file (hijau hanya bila sama dan keyakinan ≥ ambang verifikasi); perusahaan pemberi kerja dibandingkan dengan folder vendor; tanda tangan diputuskan Claude dengan ambang yang sama dengan potongan (`signed` ≥ 0,8, `unsigned` ≥ 0,85, selain itu `uncertain`).
-- Bila panggilan gagal, tidak ada pola teks cadangan: file itu gagal di website (`claude_failed`) dan bisa dicoba lagi. Mode ini menolak jalan bila Claude tidak siap (`claude_unavailable`).
-- Log per file mencatat alasan `read_full_pages`, panggilan `halaman`, dan komponen `<extractor>:halaman_utuh` untuk kedua halaman.
-- Uji awal (2026-11-04, kontrak sintetis): satu file 28 detik di CLI; dua file lewat website 15 detik dengan 4 worker, sekitar 15 ribu token per file, semua field benar dan siap dipakai.
+- Kedua mode memakai urutan mesin OCR yang sama sejak 2026-11-16: RapidOCR membaca semua halaman, Tesseract pembaca kedua (`OCR_PRIMARY=rapidocr`).
+- NIK, tanda tangan, dan cek vendor tetap alur lokal seperti mode OCR, termasuk potongan baris NIK dan area tanda tangan ke Claude bila ragu.
+- Nama, tanggal mulai dan selesai, durasi tertulis, jabatan, dan perusahaan pemberi kerja dibaca Claude dari gambar halaman identitas saja (bukan halaman tanda tangan) pada scan dan foto, sebagai ganti pola teks dan teks bermasker. Sebelum dikirim, kotak NIK yang ditemukan OCR lokal dan setiap deret 10+ digit dicat hitam; gambar grayscale, sisi terpanjang paling banyak 2000 px, JPEG kualitas 85. Alamat, tempat dan tanggal lahir, dan isi lain halaman identitas ikut terkirim.
+- PDF native (halaman identitas punya text layer, keputusan owner 2026-11-18): yang dikirim bukan gambar, melainkan teks halaman identitas dari text layer yang sudah di-mask, lewat panggilan teks yang sama dengan mode OCR (jawaban diverifikasi terhadap kutipan di teks), untuk setiap file; alasan `read_identity_text`. NIK dan tanda tangan tetap lokal seperti di atas.
+- Bila NIK tidak bisa ditemukan untuk ditutup, gambar tidak dikirim (`identity_image_not_sent`) dan file dibaca lewat teks bermasker seperti mode OCR; panggilan gagal juga jatuh ke alur teks.
+- Nama dan periode hijau bila Claude yakin (≥ ambang verifikasi) dan sumber kedua membaca periode yang sama: nama file standar, atau regex lokal pada teks OCR. Nama tetap dibandingkan dengan nama file; jabatan diwarnai dengan keyakinan Claude (< 0,8 kuning).
+- Log per file mencatat alasan `read_identity_image`, panggilan `halaman_identitas`, dan komponen `<extractor>:halaman_identitas`.
 
 ### 7.2 Pengguna dan peran website (permintaan mentor, 2026-11-16)
 

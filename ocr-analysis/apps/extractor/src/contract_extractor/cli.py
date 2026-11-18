@@ -13,7 +13,7 @@ from typing import Annotated, Optional
 import typer
 from pydantic import ValidationError
 
-from contract_extractor.common.config import ExtractorProvider, ExtractorSettings, Settings, load_settings
+from contract_extractor.common.config import ExtractorProvider, ExtractorSettings, OcrEngine, Settings, load_settings
 from contract_extractor.evaluation import EvaluationError, KelompokFilter, format_report, report_json, write_detail
 from contract_extractor.evaluation import evaluate as evaluate_results
 from contract_extractor.output.export import write_outputs
@@ -135,8 +135,12 @@ def serve_stdio(
         Optional[bool],
         typer.Option(
             "--second-reader/--no-second-reader",
-            help="Timpa ocr.second_reader.enabled: RapidOCR lokal memastikan NIK/posisi yang ragu (website: env SECOND_READER)",
+            help="Timpa ocr.second_reader.enabled: mesin OCR lokal yang lain memastikan NIK/posisi yang ragu (website: env SECOND_READER)",
         ),
+    ] = None,
+    primary: Annotated[
+        Optional[OcrEngine],
+        typer.Option("--primary", help="Timpa ocr.primary: mesin OCR yang membaca semua halaman (website: env OCR_PRIMARY)"),
     ] = None,
 ) -> None:
     """Worker untuk backend website: PDF masuk lewat stdin, hasil JSON keluar lewat stdout (protokol di worker.py)."""
@@ -148,6 +152,8 @@ def serve_stdio(
         settings.decision.allow_auto = allow_auto
     if second_reader is not None:
         settings.ocr.second_reader.enabled = second_reader
+    if primary is not None:
+        settings.ocr.primary = primary
     try:
         _override_extractor(settings, claude, model, effort)
     except (ValidationError, ValueError) as exc:

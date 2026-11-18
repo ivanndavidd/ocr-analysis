@@ -439,7 +439,13 @@ describe('filtering the shared history', () => {
         [check('Budi Uji - b.pdf'), failedFile('rusak.pdf', 'timeout')],
         'done',
       ],
-      ['april', saring, { folders: ['PT Uji/April 2026 - Juni 2026'], startedAt: '2026-11-05T03:00:00.000Z' }, [check('Cici Uji - c.pdf')], 'cancelled'],
+      [
+        'april',
+        saring,
+        { folders: ['PT Uji/April 2026 - Juni 2026'], mode: 'claude_page', startedAt: '2026-11-05T03:00:00.000Z' },
+        [check('Cici Uji - c.pdf')],
+        'cancelled',
+      ],
       ['berjalan', lain, { folders: ['PT Lain/Juli 2026 - September 2026'], startedAt: '2026-11-06T03:00:00.000Z' }, [], 'running'],
     ];
     for (const [name, user, over, files, status] of runs) {
@@ -481,8 +487,9 @@ describe('filtering the shared history', () => {
     expect((await listed({ status: 'cancelled' })).runs).toEqual(['april']);
     expect((await listed({ outcome: 'check' })).runs).toEqual(['april', 'persen']);
     expect((await listed({ outcome: 'failed' })).runs).toEqual(['persen']);
-    expect((await listed({ mode: 'full_page' })).runs).toEqual(['persen']);
-    expect((await listed({ mode: 'ocr' })).runs).toEqual(['berjalan', 'april', 'januari']);
+    expect((await listed({ mode: 'full_page' })).runs).toEqual(['persen']); // the old no-OCR trial still lists
+    expect((await listed({ mode: 'claude_page' })).runs).toEqual(['april']);
+    expect((await listed({ mode: 'ocr' })).runs).toEqual(['berjalan', 'januari']);
     expect((await listed({ mine: true })).runs).toEqual(['april', 'januari']);
     expect(await listed({ mine: true }, null)).toEqual({ runs: [], total: 0, more: false });
     expect((await listed({ from: '2026-11-03T00:00:00.000Z', to: '2026-11-06T00:00:00.000Z' })).runs).toEqual(['april', 'persen']);

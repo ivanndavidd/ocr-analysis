@@ -15,7 +15,6 @@ from contract_extractor.extractor_method.llm.base import (
     ExtractionResult,
     ExtractorError,
     ExtractorUnavailable,
-    FullPageAnswer,
     ImageAnswer,
     ImageTask,
 )
@@ -60,8 +59,8 @@ class GeminiVertexExtractor:
         """Crops are read by Claude only; the pipeline then keeps the local reading."""
         raise ExtractorError("image_unsupported")
 
-    def read_pages(self, first: bytes, last: bytes | None) -> FullPageAnswer:
-        """The no-OCR mode is Claude only."""
+    def read_page(self, jpegs: list[bytes]) -> ExtractionResult:
+        """The 'claude_page' mode is Claude only; the pipeline then reads the masked text instead."""
         raise ExtractorError("image_unsupported")
 
 

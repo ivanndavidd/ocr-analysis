@@ -50,7 +50,7 @@ export const ocrHeaders = pgTable('OCRHeader', {
   jobId: uuid('jobId').notNull().unique().defaultRandom(), // the run's id in the website's links and API
   // queued | running | done | cancelled | interrupted (the backend stopped while the run was queued or running)
   status: varchar('status', { length: 20 }).notNull(),
-  mode: varchar('mode', { length: 20 }).notNull().default('ocr'), // ocr | full_page (no OCR, whole pages to Claude)
+  mode: varchar('mode', { length: 20 }).notNull().default('ocr'), // ocr | claude_page (Claude reads the identity page, NIK blacked out) | full_page (old trial: whole pages, read only)
   claude: boolean('claude').notNull().default(false), // Claude was helping when the run started
   folders: varchar('folders').notNull(), // JSON array of the root-relative folders chosen
   totalFiles: integer('totalFiles').notNull(),

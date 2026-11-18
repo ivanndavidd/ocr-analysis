@@ -43,7 +43,10 @@ from compare_accuracy import CORRECT, FIELDS, UNDECIDED, Truth  # noqa: E402
 from copy_to_onedrive import period_folder, safe_folder  # noqa: E402
 
 OUTPUT_PATH = BENCH_DIR / "results" / "comparison.txt"
+DIGITAL_OUTPUT_PATH = BENCH_DIR / "results" / "comparison-digital.txt"
 IMAGE_FORMS = {"scan", "photo"}
+# The forms compared; `--digital` switches to the digital PDFs and DIGITAL_SETUPS (see the bottom of this file).
+FORMS, FORMS_LABEL = IMAGE_FORMS, "scans and photos"
 SETS = {"output": "First dataset", "output-v2": "Second dataset"}  # output/ and output-v2/
 
 
@@ -70,12 +73,26 @@ SETUPS = [
     # The Claude runs of 2026-11-13 with the signature agreement rule of 2026-11-16 applied to their saved answers
     # (`-agree`: pipeline._agreement_settles replayed, no new Claude calls). The website runs of 2026-11-11 (report
     # folders 20261111-141325 and 20261111-125049, plus runs/web-rerun47-job.json) gave the same flow without a CPU figure.
-    Setup("Tesseract → RapidOCR → Claude (now)", "T→R→C",
+    Setup("Tesseract → RapidOCR → Claude", "T→R→C",
           {"output": "tesseract_second-img-claude-agree", "output-v2": "tesseract_second-v2-img-claude-agree"},
           {"output": "tesseract_second-cpu50-claude", "output-v2": "tesseract_second-v2-cpu50-claude"}),
-    Setup("RapidOCR → Tesseract → Claude", "R→T→C",
+    Setup("Approach 1: RapidOCR → Tesseract → Claude", "R→T→C (A1)",
           {"output": "rapid_second-img-claude-agree", "output-v2": "rapid_second-v2-img-claude-agree"},
           {"output": "rapid_second-cpu50-claude", "output-v2": "rapid_second-v2-cpu50-claude"}),
+    # The website's "Claude baca halaman" mode (owner 2026-11-16): RapidOCR → Tesseract for the NIK and signature,
+    # Claude reads the name, dates and title from the identity page image with the NIK blacked out. Run with the
+    # signature agreement rule live, so no replay.
+    Setup("Approach 2: Claude baca halaman (R→T, page image)", "Page (A2)",
+          {"output": "rapid_second-img-claude-page", "output-v2": "rapid_second-v2-img-claude-page"},
+          {"output": "rapid_second-cpu50-page", "output-v2": "rapid_second-v2-cpu50-page"}),
+    # Full Claude: the website's removed 'Tanpa OCR' mode (2026-11-04 to 2026-11-16, restored for the benchmark only in
+    # bench/full_page.py): no OCR, the first and last page go to Claude whole and unmasked, and Claude reads every
+    # field, the NIK and the signature included. The engine in the run name is not used. CPU from the full run. The
+    # runs of 2026-11-18 ask the NIK in four groups of four digits (bench/full_page.py); the 2026-11-17 runs with the
+    # original wording (`*-img-claude-fullpage`) read 926 fully correct against 927, so only the newer one is shown.
+    Setup("Approach 3: Full Claude (whole pages, no OCR)", "Full (A3)",
+          {"output": "tesseract_fast-img-claude-fullpage-groups",
+           "output-v2": "tesseract_fast-v2-img-claude-fullpage-groups"}),
 ]
 
 # CPU seconds per file are averaged over the same contracts for every setup: bench.run's `--form scan --form photo
@@ -87,11 +104,11 @@ CPU_SAMPLE = 50
 # ================================================================
 
 def load_truths(dataset: str) -> dict[str, Truth]:
-    """The scans and photos of one dataset, keyed by file name, with the path the website gives them."""
+    """The compared contracts of one dataset (FORMS), keyed by file name, with the path the website gives them."""
     records = json.loads((GENERATOR / dataset / "ground_truth.json").read_text(encoding="utf-8"))
     truths = {}
     for r in records:
-        if r["meta"]["form"] in IMAGE_FORMS:
+        if r["meta"]["form"] in FORMS:
             folder = f"{safe_folder(r['meta']['company'])}/{safe_folder(period_folder(r))}"
             truths[r["file_name"]] = Truth(f"{folder}/{r['file_name']}", r)
     return truths
@@ -110,7 +127,7 @@ def cpu_sample(dataset: str) -> list[str]:
     """The contracts bench.run reads with `--form scan --form photo --sample 50`: the same draw, the same seed."""
     records = sorted(json.loads((GENERATOR / dataset / "ground_truth.json").read_text(encoding="utf-8")),
                      key=lambda r: r["file_name"])
-    images = [r for r in records if r["meta"]["form"] in IMAGE_FORMS]
+    images = [r for r in records if r["meta"]["form"] in FORMS]
     return sorted(r["file_name"] for r in random.Random(7).sample(images, min(CPU_SAMPLE, len(images))))
 
 
@@ -330,12 +347,14 @@ def comparison(output_path: Path = OUTPUT_PATH):
                         max(memory[(d, s.label)] for d in SETS) if all((d, s.label) in memory for d in SETS) else None))
             for s in SETUPS if all((d, s.label) in files for d in SETS)]
 
-    cpu_note = (f"CPU s / file: the same {CPU_SAMPLE} scans and photos per dataset for every setup, read with the laptop "
-                "lightly loaded; it includes Tesseract's and the Claude CLI's own processes.\n"
+    load = "read with the laptop lightly loaded" if FORMS is IMAGE_FORMS else "taken from the full runs (8 workers)"
+    cpu_note = (f"CPU s / file: the same {CPU_SAMPLE} {FORMS_LABEL} per dataset for every setup, {load}; it includes "
+                "Tesseract's and the Claude CLI's own processes.\n"
                 "Peak RAM / worker: the most memory one worker held, its own process plus the program it started for "
                 "that contract (Tesseract or the Claude CLI); N workers need about N times this.")
+    total = sum(len(t) for t in truths.values())
     tables = [
-        metric_table("1. All setups on the scans and photos of both datasets (973): accuracy, check load and cost",
+        metric_table(f"1. All setups on the {FORMS_LABEL} of both datasets ({total}): accuracy, check load and cost",
                      [("Both datasets", both)], SUMMARY_COLUMNS,
                      caption="[bold green]* best[/] / [red]worst[/] in the column.  Fully correct: all 9 fields right "
                              "(yellow or not).  Contracts with nothing to check: no yellow cell.\n" + cpu_note),
@@ -355,5 +374,27 @@ def comparison(output_path: Path = OUTPUT_PATH):
     console.print(f"[dim]Saved: {output_path}[/dim]", soft_wrap=True)
 
 
+# The same setups on the digital (native) PDFs (owner 2026-11-18, runs/digital-all.sh). No OCR runs on a native page,
+# so the four local setups read the text layer alike; Claude baca halaman sends the identity page's masked text layer
+# instead of an image, and Full Claude the first page as text and only the signature page as an image.
+DIGITAL_SETUPS = [
+    Setup(label, short, {"output": f"{engine}-{tag}", "output-v2": f"{engine}-v2-{tag}"})
+    for label, short, engine, tag in [
+        ("Tesseract alone", "T", "tesseract_fast", "digital"),
+        ("RapidOCR alone", "R", "rapid_v6_small", "digital"),
+        ("Tesseract → RapidOCR", "T→R", "tesseract_second", "digital"),
+        ("RapidOCR → Tesseract", "R→T", "rapid_second", "digital"),
+        ("Tesseract → RapidOCR → Claude", "T→R→C", "tesseract_second", "digital-claude"),
+        ("Approach 1: RapidOCR → Tesseract → Claude", "R→T→C (A1)", "rapid_second", "digital-claude"),
+        ("Approach 2: Claude baca halaman (R→T, identity page as text)", "Page (A2)", "rapid_second", "digital-claude-page"),
+        ("Approach 3: Full Claude (first page as text, last as image)", "Full (A3)", "tesseract_fast", "digital-claude-fullpage"),
+    ]
+]
+
+
 if __name__ == "__main__":
-    comparison()
+    if "--digital" in sys.argv[1:]:
+        FORMS, FORMS_LABEL, SETUPS = {"digital"}, "digital PDFs", DIGITAL_SETUPS
+        comparison(DIGITAL_OUTPUT_PATH)
+    else:
+        comparison()

@@ -1,5 +1,4 @@
 import type { HistoryFilter, HistoryOutcome, HistoryStatus, ReadMode } from '@contract-ocr/shared-types';
-import { MODES } from './claude.ts';
 import { t } from './i18n.ts';
 
 /** What the history page lists: its search, filters and page. It lives in the address (`#/riwayat?q=…&page=2`), so a
@@ -23,7 +22,7 @@ export const DEFAULT_VIEW: HistoryView = { q: '', status: '', outcome: '', mode:
 // The filters' choices; their labels are in the current language (utils/messages).
 export const STATUS_OPTIONS: readonly HistoryStatus[] = ['active', 'done', 'cancelled', 'interrupted'];
 export const OUTCOME_OPTIONS: readonly HistoryOutcome[] = ['check', 'failed'];
-export const MODE_OPTIONS: readonly ReadMode[] = MODES;
+export const MODE_OPTIONS: readonly ReadMode[] = ['ocr', 'claude_page', 'full_page']; // the old trial's runs stay findable
 export const statusOptionLabel = (status: HistoryStatus) => t().history.statuses[status];
 export const outcomeOptionLabel = (outcome: HistoryOutcome) => t().history.outcomes[outcome];
 

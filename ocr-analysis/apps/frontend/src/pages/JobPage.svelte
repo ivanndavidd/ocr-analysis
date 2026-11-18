@@ -358,13 +358,21 @@
         <details>
           <summary>{t().job.whenMatching}</summary>
           <ul>
-            {#each job.mode === 'full_page' ? t().job.rulesFullPage : t().job.rules as rule, i (i)}
+            {#each job.mode === 'claude_page' ? t().job.rulesPage : job.mode === 'full_page' ? t().job.rulesFullPage : t().job.rules as rule, i (i)}
               <li>
                 {#each rule.terms as term, n (n)}{n ? ` ${t().common.and} ` : ''}<strong>{term}</strong>{/each}{rule.text}
               </li>
             {/each}
           </ul>
-          <p>{job.mode === 'full_page' ? t().job.fullPageNote : job.claude ? t().job.claudeNote : t().job.localNote}</p>
+          <p>
+            {job.mode === 'claude_page'
+              ? t().job.pageNote
+              : job.mode === 'full_page'
+                ? t().job.fullPageNote
+                : job.claude
+                  ? t().job.claudeNote
+                  : t().job.localNote}
+          </p>
         </details>
       </div>
     </div>

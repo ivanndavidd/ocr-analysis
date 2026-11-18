@@ -26,11 +26,12 @@ export function claudeTokens(files: JobFile[]): { used: TokenUsage; files: numbe
 /** Queued or running: it can still change, so its page keeps asking for it. */
 export const isActive = (job: Pick<Job, 'status'>) => job.status === 'queued' || job.status === 'running';
 
-/** Who read a PDF opened from the folder page, and when: `Penguji A · 6 Nov 2026, 11.02 · Tanpa OCR`. */
+/** Who read a PDF opened from the folder page, and when: `Penguji A · 6 Nov 2026, 11.02 · Claude baca halaman`; the OCR
+ *  mode, the usual one, is not named. */
 export function readBy(run: LatestResult['run']): string {
   const m = t().jobs;
   const when = isActive(run) ? m.stillRunning : formatDateTime(run.finishedAt ?? run.startedAt);
-  return [run.by ?? m.noName, when, ...(run.mode === 'full_page' ? [modeLabel('full_page')] : [])].join(' · ');
+  return [run.by ?? m.noName, when, ...(run.mode === 'ocr' ? [] : [modeLabel(run.mode)])].join(' · ');
 }
 
 /** The mark next to a PDF in the folder list that some run has read, with the day; how it came out shows on hover

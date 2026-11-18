@@ -16,6 +16,7 @@ class _Strict(BaseModel):
 
 class OcrEngine(str, Enum):
     TESSERACT = "tesseract"
+    RAPIDOCR = "rapidocr"  # Baidu PP-OCRv6 small through RapidOCR (CPU); its model files come from `second_reader`
     PADDLE = "paddle"
 
 
@@ -43,14 +44,17 @@ class PageSelectionSettings(_Strict):
 
 
 class SecondReaderSettings(_Strict):
-    # RapidOCR (Baidu PP-OCRv6 small) reads a scanned identity page again when the NIK or position Tesseract read is
-    # unsure; the same value from both makes it green, anything else stays as it was. Local only.
+    # The other local engine reads a scanned identity page again when the NIK or position the first one (`primary`)
+    # read is unsure; the same value from both makes it green, anything else stays as it was. Local only. RapidOCR's
+    # model folder and threads are set here whichever role it has.
     enabled: bool = False
     model_dir: Path | None = None  # falls back to RAPIDOCR_MODEL_DIR, then apps/extractor/models/rapidocr
     threads: int = Field(2, ge=1, le=16)
 
 
 class OcrSettings(_Strict):
+    # The engine that reads every page (owner 2026-11-16: RapidOCR first on the website, `--primary`); the other one
+    # is the second reader.
     primary: OcrEngine = OcrEngine.TESSERACT
     fallback: OcrEngine | None = None  # PaddleOCR is planned but not available yet
     tesseract_cmd: Path | None = None  # falls back to TESSERACT_CMD, then PATH

@@ -27,7 +27,7 @@ const months = (n: number) => `${n} ${n === 1 ? 'month' : 'months'}`;
 
 // Two local OCR engines read an unsure scan; the same value from both is trusted, another one is not.
 const DUA_MESIN = 'Dua mesin OCR lokal (Tesseract dan RapidOCR)';
-const MESIN_KEDUA_LAIN = 'mesin OCR kedua (RapidOCR) membaca lain, cocokkan angkanya';
+const MESIN_KEDUA_LAIN = 'mesin OCR kedua membaca lain, cocokkan angkanya';
 const CLAUDE_TANGAN = (seen: string) => `Claude ${seen} di potongan area tanda tangan`;
 
 const id = {
@@ -90,7 +90,7 @@ const id = {
   'position.claude': () => 'Dibaca Claude dari halaman identitas',
   'position.printed': () => 'Tertulis di halaman identitas',
   // START PERIODE and END PERIODE
-  'period.second_reader_same': () => 'Dibaca ulang mesin OCR kedua (RapidOCR); sama dengan nama file',
+  'period.second_reader_same': () => 'Dibaca ulang mesin OCR kedua; sama dengan nama file',
   'period.same': () => 'Sama di dokumen dan di nama file',
   'period.document_only': () => 'Hanya dari dokumen; nama file tidak menyebut tanggal',
   'period.filename_says': (p: { date: string }) => `Nama file menyebut ${noteDate(p.date, 'id')}`,
@@ -137,7 +137,7 @@ export type NoteKey = keyof NoteTexts;
 export type NoteArgs<K extends NoteKey> = Parameters<NoteTexts[K]>;
 
 const TWO_ENGINES = 'Both local OCR engines (Tesseract and RapidOCR)';
-const SECOND_DIFFERS = 'the second OCR engine (RapidOCR) read it differently';
+const SECOND_DIFFERS = 'the second OCR engine read it differently';
 const IN_CROP = 'in a crop of the signature area';
 
 const en: NoteTexts = {
@@ -192,7 +192,7 @@ const en: NoteTexts = {
   'position.claude_agrees': () => "Read by Claude and the same as the text patterns' reading",
   'position.claude': () => 'Read by Claude from the identity page',
   'position.printed': () => 'Written on the identity page',
-  'period.second_reader_same': () => 'Read again by the second OCR engine (RapidOCR); matches the filename',
+  'period.second_reader_same': () => 'Read again by the second OCR engine; matches the filename',
   'period.same': () => 'The same in the document and in the filename',
   'period.document_only': () => 'From the document only; the filename gives no date',
   'period.filename_says': (p) => `The filename says ${noteDate(p.date, 'en')}`,

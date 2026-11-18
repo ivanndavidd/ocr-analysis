@@ -33,17 +33,20 @@ import {
   claudeConsent,
   claudeNotice,
   flowDescription,
-  fullPageBlocked,
-  fullPageNotice,
-  fullPageConsent,
   jobFlowLabel,
   loadMode,
+  pageBlocked,
+  pageConsent,
+  pageDescription,
+  pageFlow,
+  pageNotice,
   saveMode,
 } from '../src/utils/claude.ts';
 import { HISTORY_HREF, USERS_HREF, filePath, folderHref, historyHref, jobHref, parseRoute } from '../src/utils/routes.ts';
 import {
   DEFAULT_VIEW,
   type HistoryView,
+  MODE_OPTIONS,
   dayOf,
   narrows,
   pageList,
@@ -162,31 +165,41 @@ describe('reading flow', () => {
     );
     expect(callsLabel([])).toBe('');
     expect([jobFlowLabel(true), jobFlowLabel(false)]).toEqual(['dibantu Claude', 'pola teks saja']);
-    expect(callsLabel([{ kind: 'pages', tokens: null }])).toBe('halaman pertama dan terakhir utuh');
+    expect(callsLabel([{ kind: 'page', tokens: null }])).toBe('halaman identitas (NIK ditutup)');
+    expect(callsLabel([{ kind: 'pages', tokens: null }])).toBe('halaman pertama dan terakhir utuh'); // old trial runs
   });
 });
 
 describe('read mode', () => {
-  test('the OCR mode comes first and is what a new tab starts with', () => {
-    expect(MODES).toEqual(['ocr', 'full_page']);
-    expect([modeLabel('ocr'), modeLabel('full_page')]).toEqual(['Dengan OCR', 'Tanpa OCR']);
-    saveMode('full_page'); // no session storage under bun test: nothing is kept, and nothing throws
+  test('the OCR mode comes first and is what a new tab starts with; the old no-OCR trial cannot be picked', () => {
+    expect(MODES).toEqual(['ocr', 'claude_page']);
+    expect([modeLabel('ocr'), modeLabel('claude_page')]).toEqual(['Dengan OCR', 'Claude baca halaman']);
+    saveMode('claude_page'); // no session storage under bun test: nothing is kept, and nothing throws
     expect(loadMode()).toBe('ocr');
-    expect(jobFlowLabel(true, 'full_page')).toBe('tanpa OCR, halaman utuh ke Claude');
+    expect(jobFlowLabel(true, 'claude_page')).toBe('Claude baca halaman identitas');
     expect(jobFlowLabel(true, 'ocr')).toBe('dibantu Claude');
+    // runs of the old trial keep a label of their own in the history
+    expect([modeLabel('full_page'), jobFlowLabel(true, 'full_page')]).toEqual(['Halaman utuh (uji lama)', 'halaman utuh ke Claude (uji lama)']);
+    expect(MODE_OPTIONS).toEqual(['ocr', 'claude_page', 'full_page']);
   });
 
-  test('the no-OCR run warns that whole, unmasked pages go to Claude, and needs Claude ready', () => {
-    const consent = fullPageConsent(3);
-    for (const part of ['Dari 3 PDF', 'UTUH', 'tanpa disamarkan', 'NIK', 'belum disetujui', 'uji coba', 'biaya']) {
+  test('Claude reading the page says the NIK is blacked out and what still goes, and needs Claude ready', () => {
+    const consent = pageConsent(3);
+    for (const part of ['Dari 3 PDF', 'halaman identitas', 'NIK ditutup', 'alamat', 'tanggal lahir', 'biaya']) {
       expect(consent).toContain(part);
     }
-    expect(fullPageBlocked('on')).toBeNull();
-    expect(fullPageBlocked('starting')).toContain('Tunggu');
-    for (const state of ['off', 'unavailable', null] as const) expect(fullPageBlocked(state)).toContain('Dengan OCR');
-    expect(reasonLabel('read_full_pages')).toContain('tanpa OCR');
-    expect(errorLabel('claude_failed')).toContain('Claude gagal');
-    expect(errorLabel('claude_unavailable')).toContain('tanpa OCR');
+    expect(consent).not.toContain('UTUH');
+    expect(pageDescription()).toContain('tidak dikirim'); // an unlocated NIK keeps the image on this laptop
+    expect(pageFlow()).toContain('NIK ditutup');
+    expect(pageBlocked('on')).toBeNull();
+    expect(pageBlocked('starting')).toContain('Tunggu');
+    for (const state of ['off', 'unavailable', null] as const) expect(pageBlocked(state)).toContain('Dengan OCR');
+    expect(reasonLabel('read_identity_image')).toContain('NIK ditutup');
+    expect(reasonLabel('identity_image_not_sent')).toContain('tidak dikirim');
+    expect(reasonLabel('read_full_pages')).toContain('uji lama');
+    expect(errorLabel('claude_failed')).toContain('Claude gagal'); // failed files saved by the old trial
+    expect(errorLabel('claude_unavailable')).toContain('Claude baca halaman');
+    expect(errorLabel('mode_retired')).toContain('uji lama');
   });
 });
 
@@ -196,7 +209,8 @@ describe('jobs', () => {
     const ended = formatDateTime(run.finishedAt);
     expect(ended).toContain('2026'); // the date is there, not only the time
     expect(readBy(run)).toBe(`Penguji A · ${ended}`);
-    expect(readBy({ ...run, mode: 'full_page' })).toBe(`Penguji A · ${ended} · Tanpa OCR`);
+    expect(readBy({ ...run, mode: 'claude_page' })).toBe(`Penguji A · ${ended} · Claude baca halaman`);
+    expect(readBy({ ...run, mode: 'full_page' })).toBe(`Penguji A · ${ended} · Halaman utuh (uji lama)`);
     expect(readBy({ ...run, status: 'running', finishedAt: null, by: null })).toBe('Tanpa nama · proses masih berjalan');
     expect(readBy({ ...run, status: 'interrupted', finishedAt: null })).toBe(`Penguji A · ${formatDateTime(run.startedAt)}`);
 
@@ -327,8 +341,8 @@ describe('run confirmation', () => {
       expect(notice).toContain('biaya');
     }
     expect([claudeNotice('off'), claudeNotice('unavailable'), claudeNotice(null)]).toEqual([null, null, null]);
-    for (const part of ['UTUH', 'tanpa disamarkan', 'NIK', 'Belum disetujui', 'uji coba']) {
-      expect(fullPageNotice()).toContain(part);
+    for (const part of ['halaman identitas', 'NIK ditutup', 'alamat', 'tanggal lahir', 'lokal']) {
+      expect(pageNotice()).toContain(part);
     }
   });
 });

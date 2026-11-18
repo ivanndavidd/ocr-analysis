@@ -13,6 +13,7 @@ import type {
   LatestResult,
   ManagedUser,
   ReadMark,
+  StartMode,
   UserList,
 } from '@contract-ocr/shared-types';
 import { createApp } from '../src/app.ts';
@@ -192,17 +193,19 @@ describe('API', () => {
     expect((await post(`/api/jobs/${job.id}/retry`, { file: 'reject - x.pdf' })).status).toBe(404); // a path, not a name
   });
 
-  test('a job reads in the OCR mode unless told otherwise; the no-OCR mode needs Claude', async () => {
+  test('a job reads in the OCR mode unless told otherwise; Claude reading the page needs Claude', async () => {
     const job = await finished(((await (await post('/api/jobs', { folders: ['PT B'] })).json()) as Job).id);
     expect(job.mode).toBe('ocr');
     expect(job.files[0]!.row?.reasons).toContain('mode:ocr');
-    // these workers read without Claude, so the mode that is Claude's reading alone is refused
-    const refused = await post('/api/jobs', { folders: ['PT B'], mode: 'full_page' });
+    // these workers read without Claude, so the mode that has Claude read the identity page is refused
+    const refused = await post('/api/jobs', { folders: ['PT B'], mode: 'claude_page' });
     expect([refused.status, await refused.json()]).toEqual([503, { error: 'claude_unavailable' }]);
+    // the old no-OCR trial (whole pages, unmasked) cannot be started any more
+    expect((await post('/api/jobs', { folders: ['PT B'], mode: 'full_page' })).status).toBe(400);
     expect((await post('/api/jobs', { folders: ['PT B'], mode: 'photo' })).status).toBe(400);
   });
 
-  test('a no-OCR job sends its mode to every file, retries included', async () => {
+  test('a job where Claude reads the page sends its mode to every file, retries included', async () => {
     const withClaude = new WorkerPool({
       cmd: [process.execPath, join(import.meta.dir, 'fixtures', 'fake-worker.ts')],
       size: 1,
@@ -221,26 +224,26 @@ describe('API', () => {
         for (let i = 0; i < 200 && ['queued', 'running'].includes((await service.get(id)).status); i++) await Bun.sleep(25);
         return service.get(id);
       };
-      const job = await done((await service.start({ folders: ['PT A/Januari 2026 - Maret 2026'], files: [], mode: 'full_page' })).id);
-      expect(job.mode).toBe('full_page');
-      expect((await service.history(0, 5)).jobs[0]).toMatchObject({ id: job.id, mode: 'full_page' });
+      const job = await done((await service.start({ folders: ['PT A/Januari 2026 - Maret 2026'], files: [], mode: 'claude_page' })).id);
+      expect(job.mode).toBe('claude_page');
+      expect((await service.history(0, 5)).jobs[0]).toMatchObject({ id: job.id, mode: 'claude_page' });
       const modes = (j: Job) => j.files.flatMap((f) => f.row?.reasons.filter((r) => r.startsWith('mode:')) ?? []);
-      expect(modes(job)).toEqual(['mode:full_page', 'mode:full_page']); // the rejected file has no row
+      expect(modes(job)).toEqual(['mode:claude_page', 'mode:claude_page']); // the rejected file has no row
       const retried = await done((await service.retryFailed(job.id, null)).id);
       expect(retried.files.find((f) => f.name === 'reject - x.pdf')?.state).toBe('error');
-      expect(modes(retried)).toEqual(['mode:full_page', 'mode:full_page']);
+      expect(modes(retried)).toEqual(['mode:claude_page', 'mode:claude_page']);
     } finally {
       await withClaude.close();
     }
   });
 
-  test('in the no-OCR mode a file Claude could not read fails and can be retried; the OCR mode keeps its row', async () => {
-    let claudeFails = true;
+  test('a file whose page Claude could not read keeps the local reading in both modes; an old no-OCR run cannot rerun', async () => {
+    let workerFails = false;
     const stub: ExtractorClient = {
       status: () => ({ state: 'ready', error: null, workers: 1 }),
       claude: () => true,
       close: async () => {},
-      extract: async (filename, _data, _vendor, mode) => ({
+      extract: async (filename, _data, _vendor, mode) => workerFails ? { ok: false, error: 'timeout' } : ({
         ok: true,
         filename: { name: 'Budi Santoso', start: '2026-01-01', end: '2026-03-31', duration_months: null, flags: [] },
         result: {
@@ -257,7 +260,8 @@ describe('API', () => {
             ocr_conf: {},
             periode_regex: null,
             tanda_tangan: null,
-            alasan: [...(mode === 'full_page' ? ['read_full_pages'] : []), ...(claudeFails ? ['extractor_error:timeout'] : [])],
+            // the identity page image failed, so the worker read the file from the masked text instead
+            alasan: [`mode:${mode}`, 'extractor_error:timeout'],
           },
         },
       }),
@@ -267,16 +271,15 @@ describe('API', () => {
       for (let i = 0; i < 200 && ['queued', 'running'].includes((await service.get(id)).status); i++) await Bun.sleep(10);
       return service.get(id);
     };
-    const failed = await done((await service.start({ folders: ['PT B'], files: [], mode: 'full_page' })).id);
-    expect(failed.files[0]).toMatchObject({ state: 'error', error: 'claude_failed' });
-    expect(failed.files[0]?.row).toBeUndefined();
-    claudeFails = false;
-    const retried = await done((await service.retryFailed(failed.id, null)).id);
-    expect(retried.files[0]).toMatchObject({ state: 'done', row: { reasons: ['read_full_pages'] } });
-    // with OCR the patterns still read the file when a Claude call fails
-    claudeFails = true;
+    const page = await done((await service.start({ folders: ['PT B'], files: [], mode: 'claude_page' })).id);
+    expect(page.files[0]).toMatchObject({ state: 'done', row: { reasons: ['mode:claude_page', 'extractor_error:timeout'] } });
     const ocr = await done((await service.start({ folders: ['PT B'], files: [] })).id);
-    expect(ocr.files[0]).toMatchObject({ state: 'done', row: { reasons: ['extractor_error:timeout'] } });
+    expect(ocr.files[0]).toMatchObject({ state: 'done', row: { reasons: ['mode:ocr', 'extractor_error:timeout'] } });
+    // stands in for a run of the old no-OCR trial loaded from the database: the workers no longer read whole pages
+    workerFails = true;
+    const old = await done((await service.start({ folders: ['PT B'], files: [], mode: 'full_page' as StartMode })).id);
+    expect([old.mode, old.files[0]?.state]).toEqual(['full_page', 'error']);
+    await expect(service.retryFailed(old.id, null)).rejects.toMatchObject({ code: 'mode_retired' });
   });
 
   test('retries every failed file of a job at once, and only those', async () => {
