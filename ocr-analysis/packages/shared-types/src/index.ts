@@ -1,5 +1,9 @@
 // Shapes shared by the backend API and the Svelte frontend.
 
+import type { Note } from './notes.ts';
+
+export * from './notes.ts';
+
 export interface Crumb {
   name: string;
   path: string; // relative to the folder root, '/'-separated; '' is the root itself
@@ -59,7 +63,7 @@ export interface NikInfo {
   // Claude's reading of a crop of the NIK line, sent when the local reading was unsure: the same digits ('same'), used
   // in place of the local reading ('used'), other digits that were not used ('different'), or none ('unreadable').
   claude: 'same' | 'used' | 'different' | 'unreadable' | null;
-  // The second local OCR (RapidOCR) reading the same scan again, when the local reading was unsure: the same digits
+  // The second local OCR engine reading the same scan again, when the local reading was unsure: the same digits
   // ('same'), other digits ('different'), or none ('unreadable'). It only ever confirms; it never replaces the NIK.
   secondReader?: 'same' | 'different' | 'unreadable' | null;
 }
@@ -76,7 +80,7 @@ export interface PositionInfo {
   fromUnclearScan?: boolean;
   fixedByClaude?: boolean; // Claude fixed an OCR misread in the title, so it is not printed letter for letter
   source: 'claude' | 'pattern' | null; // who read the title shown; null when there is none
-  // A low-confidence title from a scan, read again by the second local OCR (RapidOCR): the same title, another, or none
+  // A low-confidence title from a scan, read again by the second local OCR engine: the same title, another, or none
   secondReader?: 'same' | 'different' | 'unreadable' | null;
 }
 
@@ -88,11 +92,12 @@ export type Reader = 'claude' | 'pattern';
 export type FieldKey = 'nik' | 'vendor' | 'entity' | 'name' | 'position' | 'start' | 'end' | 'months' | 'signature';
 
 /** One value as it goes into the Excel. When `check` is set a person compares it with the PDF: the cell is yellow, on
- *  the page and in the Excel, with this note. `basis` says why a value without a check can be trusted. */
+ *  the page and in the Excel, with this note. `basis` says why a value without a check can be trusted. Both are keys
+ *  the page renders in the reader's language (see notes.ts). */
 export interface FieldValue {
   value: string | number | null; // NIK masked (the Excel gets the full one); dates ISO; signature 'YES' or 'NO'
-  check: string | null;
-  basis: string | null;
+  check: Note | null;
+  basis: Note | null;
 }
 
 export type ContractFields = Record<FieldKey, FieldValue>;
@@ -106,12 +111,18 @@ export interface TokenUsage {
 }
 
 /** What one Claude call for a file was sent: the masked identity-page text, a crop of the NIK line, a crop of the
- *  signature area, or (the no-OCR mode) the first and last page whole. */
-export type ClaudeCallKind = 'text' | 'nik' | 'signature' | 'pages';
+ *  signature area, the identity page as an image with the NIK blacked out ('page', the claude_page mode), or (old
+ *  trial runs only) the first and last page whole ('pages'). */
+export type ClaudeCallKind = 'text' | 'nik' | 'signature' | 'page' | 'pages';
 
-/** How a job reads its PDFs: 'ocr' (Tesseract on this machine, the patterns, Claude helping with masked text and
- *  crops) or 'full_page' (no OCR: the first and last page go to Claude whole and unmasked; for testing only). */
-export type ReadMode = 'ocr' | 'full_page';
+/** How a job reads its PDFs: 'ocr' (local OCR on this machine, the patterns, Claude helping with masked text and
+ *  crops) or 'claude_page' (the same local OCR for the NIK, signature and vendor, while Claude reads the name, period
+ *  and job title from the identity page as an image with the NIK blacked out). 'full_page' is the old no-OCR trial
+ *  (first and last page whole and unmasked); it can no longer be started, only shown for runs saved before. */
+export type ReadMode = 'ocr' | 'claude_page' | 'full_page';
+
+/** The modes a new run can be started in. */
+export type StartMode = Exclude<ReadMode, 'full_page'>;
 
 /** One Claude call for a file and the tokens it used; null when the provider reported none. */
 export interface ClaudeCall {
@@ -143,7 +154,7 @@ export interface ContractRow {
   position: PositionInfo;
   filenameStandard: boolean; // `Nama - Masa Kontrak` parsed into a name and a period
   periodFromFilename: DateRange | null;
-  // The second OCR (RapidOCR) read the dates Tesseract's text missed, and they are the filename's (with the patterns)
+  // The second OCR engine read the dates the first engine's text missed, and they are the filename's (with the patterns)
   periodFromSecondReader?: boolean;
   periodFromDocument: DateRange | null; // Claude's verified dates, or the local regex's, when both were found
   documentPeriod: DocumentPeriod;

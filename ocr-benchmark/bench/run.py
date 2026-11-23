@@ -36,7 +36,11 @@ from copy_to_onedrive import safe_folder  # noqa: E402  (the vendor folder name,
 _state: dict = {}
 
 
-def _init(engine_key: str, threads: int, binarize: bool, claude: bool = False) -> None:
+def _init(
+    engine_key: str, threads: int, binarize: bool, claude: bool = False, page_image: bool = False, full_page: bool = False
+) -> None:
+    _state["page_image"] = page_image  # the website's 'claude_page' mode
+    _state["full_page"] = full_page  # the removed 'Tanpa OCR' mode (bench/full_page.py): no OCR, Claude reads all
     # below normal: the owner's own apps (Zoom, Word) always come first; Tesseract's processes inherit it
     psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
     _count_child_processes()
@@ -200,7 +204,15 @@ def _one(item: tuple[str, str]) -> dict:
     error = None
     reply = None
     try:
-        result = process_file(PDF_DIR / name, _state["settings"], _state["runner"], _state.get("extractor"), vendor)
+        if _state["full_page"]:
+            from bench.full_page import process_full_pages
+
+            data = (PDF_DIR / name).read_bytes()
+            result = process_full_pages(data, name, _state["settings"], _state.get("extractor"), vendor)
+        else:
+            result = process_file(
+                PDF_DIR / name, _state["settings"], _state["runner"], _state.get("extractor"), vendor, _state["page_image"]
+            )
         reply = {"result": result.model_dump(mode="json"), "filename": parsed_filename_json(parse_filename(name))}
     except Exception as exc:  # noqa: BLE001 - one contract failing is a result, not the end of the run
         error = f"{type(exc).__name__}: {str(exc)[:200]}"
@@ -278,6 +290,10 @@ def main() -> None:
     parser.add_argument("--form", action="append", choices=["digital", "scan", "photo"])
     parser.add_argument("--gray", action="store_true", help="full read on grayscale, not thresholded, pages")
     parser.add_argument("--claude", action="store_true", help="Claude as the website's fallback (sends text and crops)")
+    parser.add_argument("--page-image", action="store_true",
+                        help="with --claude: the website's 'claude_page' mode (identity page image, NIK blacked out)")
+    parser.add_argument("--full-page", action="store_true",
+                        help="with --claude: the removed 'Tanpa OCR' mode, whole first and last page to Claude, no OCR")
     parser.add_argument("--tag", default="", help="suffix for the run folder")
     parser.add_argument("--fresh", action="store_true")
     parser.add_argument("--stop-at", help="HH:MM local time: start no new contract after it (the run can resume)")
@@ -343,7 +359,9 @@ def main() -> None:
     paused_s = 0.0
     stopped_early = False
     with files_path.open("a", encoding="utf-8") as sink, Pool(
-        args.workers, initializer=_init, initargs=(args.engine, args.threads, not args.gray, args.claude)
+        args.workers,
+        initializer=_init,
+        initargs=(args.engine, args.threads, not args.gray, args.claude, args.page_image, args.full_page),
     ) as pool:
         pending: list = []
         queue = list(items)
@@ -388,6 +406,8 @@ def main() -> None:
         "family": spec.family,
         "gray_input": args.gray,
         "claude": {"model": CLAUDE_MODEL, "effort": CLAUDE_EFFORT} if args.claude else None,
+        "page_image": args.page_image,
+        "full_page": args.full_page,
         "workers": args.workers,
         "threads_per_worker": args.threads,
         "files_this_session": count,

@@ -2,6 +2,8 @@
   import type { User } from '@contract-ocr/shared-types';
   import { onMount } from 'svelte';
   import Banner from '../components/Banner.svelte';
+  import LanguageSwitch from '../components/LanguageSwitch.svelte';
+  import { t } from '../utils/i18n.ts';
 
   // A signed-in user an admin has not activated (a new user, or one deactivated later). The backend answers every
   // other route with 403 `account_inactive`, so this page is all there is until an admin activates the account; it
@@ -45,9 +47,10 @@
         </svg>
       </span>
       <span>
-        <span class="product">Contract OCR</span>
-        <span class="muted small">Pemeriksaan kontrak PKWT</span>
+        <span class="product">{t().common.product}</span>
+        <span class="muted small">{t().common.tagline}</span>
       </span>
+      <span class="lang"><LanguageSwitch /></span>
     </div>
 
     <div class="icon" aria-hidden="true">
@@ -58,36 +61,33 @@
     </div>
 
     <div class="heading">
-      <h1 id="waiting-title">Menunggu aktivasi admin</h1>
-      <p class="muted">
-        Akun Anda sudah tercatat, tetapi belum aktif. Minta admin Contract OCR mengaktifkannya di halaman User.
-        Halaman ini memeriksa lagi otomatis setiap 30 detik.
-      </p>
+      <h1 id="waiting-title">{t().inactive.title}</h1>
+      <p class="muted">{t().inactive.body}</p>
     </div>
 
     <dl class="account">
       <div>
-        <dt>Nama</dt>
+        <dt>{t().inactive.name}</dt>
         <dd>{user.name}</dd>
       </div>
       <div>
-        <dt>Email</dt>
+        <dt>{t().inactive.email}</dt>
         <dd>{user.email}</dd>
       </div>
     </dl>
 
     {#if stillWaiting}
-      <Banner tone="info">Akun Anda masih belum aktif.</Banner>
+      <Banner tone="info">{t().inactive.stillInactive}</Banner>
     {/if}
 
     <div class="actions">
       <button class="btn btn-primary" type="button" onclick={() => check(true)} disabled={checking}>
-        {checking ? 'Memeriksa…' : 'Periksa lagi'}
+        {checking ? t().inactive.checking : t().inactive.checkAgain}
       </button>
-      <button class="btn btn-ghost" type="button" onclick={onsignout}>Keluar</button>
+      <button class="btn btn-ghost" type="button" onclick={onsignout}>{t().common.signOut}</button>
     </div>
   </section>
-  <p class="muted small footer">© Blibli · Hanya untuk user internal</p>
+  <p class="muted small footer">{t().common.footer}</p>
 </main>
 
 <style>
@@ -113,6 +113,9 @@
     display: flex;
     align-items: center;
     gap: var(--blue-space-3);
+  }
+  .lang {
+    margin-left: auto;
   }
   .mark {
     display: grid;

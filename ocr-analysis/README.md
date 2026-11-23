@@ -34,7 +34,9 @@ it has not been reviewed for go-live.
      right 39 to 42, unmarked mistakes 2 to 1, yellow titles 12 to 18. The one left, `Kurlr`, was read locally
      at confidence 0.91, so Claude never judged it.
    - It gets a crop of the NIK line or the signature area only when the local check is unsure.
-   - It never gets a whole page, except in the no-OCR test mode, which isn't approved.
+   - It never gets a whole page in the default mode. In the "Claude baca halaman" mode (2026-11-16, approved by
+     the mentor) it gets the identity page as an image with the NIK blacked out (a native PDF's masked text instead,
+     2026-11-18), and reads the name, dates and job title from it; the NIK and signature stay local. If the NIK can't be located, the image isn't sent.
    - With `CLAUDE_MODE=off`, nothing leaves the laptop.
 5. **Signature.** An ink check on the employee's block of the last page. A stroke check decides faint or partly
    hidden signatures. A signature on a meterai always crosses the stamp's edge, so no pen outside the stamp reads as
@@ -50,8 +52,8 @@ it has not been reviewed for go-live.
 | --- | --- |
 | `apps/extractor` | Python 3.11 package `contract-extractor`: the reader. It is a batch CLI (`run`, `evaluate`) and also runs as the website's workers (`serve-stdio`). |
 | `apps/backend` | Bun + Elysia API on 127.0.0.1:3000: folders, the OCR run queue, shared run history, Excel export, mock sign-in, users and roles, PostgreSQL through Drizzle. |
-| `apps/frontend` | Svelte 5 + Vite on 127.0.0.1:5173: pick folders or PDFs, run OCR, check each contract beside its PDF, download the Excel. |
-| `packages/shared-types` | Types shared by the API and the frontend. |
+| `apps/frontend` | Svelte 5 + Vite on 127.0.0.1:5173: pick folders or PDFs, run OCR, check each contract beside its PDF, download the Excel. In Indonesian or English. |
+| `packages/shared-types` | Types shared by the API and the frontend, and the cell notes in both languages. |
 
 ## Results so far
 
@@ -125,6 +127,14 @@ Users and roles: a first sign-in adds the user as an inactive reviewer, who only
 until an admin activates them. Admins (the emails in `ADMIN_EMAILS`, and anyone an admin promotes) open the User
 page to activate, deactivate, and switch users between reviewer and admin, but never their own account. The backend
 enforces all of it. The table shows each user's last sign-in.
+
+Languages: the website speaks Indonesian (the default, worded as HR already knows it) and English. The ID | EN switch
+sits in the top bar of every page, and on the sign-in and waiting pages; each browser remembers its own choice. Dates
+and numbers follow it (`1 Jan 2045`, `12.475` or `12,475`). The backend sends each yellow-cell note as a key with its
+values, and the page words it in the reader's language. The Excel export always stays Indonesian, notes included, as
+HR's template is (owner decision 2026-11-16). Texts live in `apps/frontend/src/utils/messages/` (`id.ts`, `en.ts`)
+and, for the cell notes the Excel shares, in `packages/shared-types/src/notes.ts`. A test fails when a key is missing
+in either language or a text is written straight into a component.
 
 Tests: `bun run test` and `bun run typecheck` for the website. For the extractor, run
 `../../../.venv/Scripts/python -m pytest` from `apps/extractor`.

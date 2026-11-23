@@ -272,7 +272,7 @@ describe('the run queue', () => {
   test('runs that read differently never share results', async () => {
     const { service, calls, release, status } = setup();
     const a = await service.start(X, A);
-    const b = await service.start({ ...X, mode: 'full_page' }, B);
+    const b = await service.start({ ...X, mode: 'claude_page' }, B);
     expect(b.files.every((f) => !f.waitingFor && !f.readIn)).toBe(true);
     release('x1.pdf', 'x2.pdf');
     await until(async () => (await status(a)) === 'done' && calls.length === 3);

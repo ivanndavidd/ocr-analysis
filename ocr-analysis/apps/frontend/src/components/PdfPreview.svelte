@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, failureCode } from '../services/api.ts';
+  import { t } from '../utils/i18n.ts';
   import { errorLabel } from '../utils/labels.ts';
 
   // A contract shown over the page instead of in a new tab: the list behind it keeps its selection and scroll, and the
@@ -66,7 +67,7 @@
       <h2 id="pdf-preview-title" title={name}>{name}</h2>
       {#if note}<p class="note">{note}</p>{/if}
     </div>
-    <button class="close" aria-label="Tutup pratinjau" title="Tutup (Esc)" onclick={onclose}>
+    <button class="close" aria-label={t().preview.close} title={t().common.closeEsc} onclick={onclose}>
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <path fill="none" stroke="currentColor" stroke-width="2" d="M6 6l12 12M18 6 6 18" />
       </svg>
@@ -76,9 +77,9 @@
     {#if error}
       <p class="state error">{errorLabel(error)}.</p>
     {:else if url}
-      <iframe src={url} title="Isi {name}"></iframe>
+      <iframe src={url} title={t().common.pdfOf(name)}></iframe>
     {:else if path}
-      <p class="state muted">Memuat PDF…</p>
+      <p class="state muted">{t().common.loadingPdf}</p>
     {/if}
   </div>
 </dialog>

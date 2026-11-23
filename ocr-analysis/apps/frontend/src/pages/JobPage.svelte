@@ -8,12 +8,14 @@
   import { ApiFailure, api, failureCode } from '../services/api.ts';
   import {
     FIELD_GROUPS,
-    FIELD_LABEL,
-    GROUP_LABEL,
     type FieldGroup,
     type RowState,
+    basisNote,
+    checkNote,
     displayValue,
+    fieldLabel,
     fullNik,
+    groupLabel,
     groupsToCheck,
     periodCell,
     rowState,
@@ -21,7 +23,8 @@
   } from '../utils/fields.ts';
   import { saveBlob } from '../utils/download.ts';
   import { formatNik, formatTime, formatTokens } from '../utils/format.ts';
-  import { FILE_STATE, JOB_STATUS, errorLabel } from '../utils/labels.ts';
+  import { t } from '../utils/i18n.ts';
+  import { errorLabel, fileStateLabel, jobStatusLabel } from '../utils/labels.ts';
   import { matches } from '../utils/listing.ts';
   import { jobFlowLabel } from '../utils/claude.ts';
   import { claudeTokens, groupByFolder, isActive, jobHome, jobTitle, relativeTo } from '../utils/jobs.ts';
@@ -155,15 +158,9 @@
     return at >= 0 && next ? () => (checking = next.path) : null;
   };
 
-  const TABS: Array<{ key: Tab; label: string; hint: string }> = [
-    { key: 'all', label: 'Semua', hint: 'Semua file di proses ini' },
-    { key: 'ready', label: 'Siap dipakai', hint: 'Semua kolom terbaca dan cocok' },
-    { key: 'check', label: 'Perlu dicek', hint: 'Ada kolom kuning: cocokkan dengan PDF' },
-    { key: 'failed', label: 'Gagal dibaca', hint: 'File tidak terbaca; coba lagi' },
-    { key: 'pending', label: 'Belum selesai', hint: 'Masih antre, sedang dibaca, atau dibatalkan' },
-  ];
+  const TABS: Tab[] = ['all', 'ready', 'check', 'failed', 'pending']; // worded in t().job.tabs
   const tabCount = (key: Tab) => (key === 'all' ? total : counts[key]);
-  const visibleTabs = $derived(TABS.filter((t) => t.key !== 'pending' || counts.pending > 0));
+  const visibleTabs = $derived(TABS.filter((key) => key !== 'pending' || counts.pending > 0));
 
   function pick(next: Tab) {
     tab = next;
@@ -189,19 +186,20 @@
 </script>
 
 {#snippet empty()}
-  <span class="empty" aria-hidden="true">—</span><span class="sr-only">Kosong</span>
+  <span class="empty" aria-hidden="true">—</span><span class="sr-only">{t().common.empty}</span>
 {/snippet}
 
 {#snippet value(key: FieldKey, row: ContractRow, nik: string | null)}
   {@const item = row.fields[key]}
   {@const text = key === 'nik' && nik ? formatNik(nik) : displayValue(key, item)}
-  <td class="value {key}" class:flag={item.check !== null} title={item.check ?? item.basis ?? undefined}>
+  {@const check = checkNote(item)}
+  <td class="value {key}" class:flag={check !== null} title={check ?? basisNote(item) ?? undefined}>
     {#if text}
       <span class="text" class:mono={key === 'nik'}>{text}</span>
     {:else}
       {@render empty()}
     {/if}
-    {#if item.check}<span class="note">{item.check}</span>{/if}
+    {#if check}<span class="note">{check}</span>{/if}
   </td>
 {/snippet}
 
@@ -215,12 +213,12 @@
 {/snippet}
 
 {#if loadError && !job}
-  <Banner tone="danger">{errorLabel(loadError)} <a href={folderHref('')}>Kembali ke {rootName}</a></Banner>
+  <Banner tone="danger">{errorLabel(loadError)} <a href={folderHref('')}>{t().common.backTo(rootName)}</a></Banner>
 {:else if !job}
-  <p class="muted">Memuat proses…</p>
+  <p class="muted">{t().job.loading}</p>
 {:else}
-  <nav class="crumbs" aria-label="Lokasi">
-    <a href={folderHref(home)}>← Kembali ke folder</a>
+  <nav class="crumbs" aria-label={t().job.location}>
+    <a href={folderHref(home)}>{t().job.backToFolder}</a>
   </nav>
 
   <section class="card summary">
@@ -229,7 +227,7 @@
         <div class="title-line">
           <h1>{title}</h1>
           <Badge tone={active ? 'brand' : job.status === 'done' ? 'success' : job.status === 'interrupted' ? 'warning' : 'neutral'}>
-            {JOB_STATUS[job.status]}
+            {jobStatusLabel(job.status)}
           </Badge>
         </div>
         <p class="muted meta">
@@ -237,34 +235,33 @@
             {job.folders[0] || rootName}
           {:else}
             {home || rootName}:
-            {job.folders.slice(0, MAX_FOLDERS_LISTED).map((f) => relativeTo(f, home, rootName)).join(', ')}{#if job.folders.length > MAX_FOLDERS_LISTED}&nbsp;dan
-              {job.folders.length - MAX_FOLDERS_LISTED} folder lain{/if}
+            {job.folders.slice(0, MAX_FOLDERS_LISTED).map((f) => relativeTo(f, home, rootName)).join(', ')}{#if job.folders.length > MAX_FOLDERS_LISTED}&nbsp;{t().job.moreFolders(job.folders.length - MAX_FOLDERS_LISTED)}{/if}
           {/if}
-          · {total} file · {jobFlowLabel(job.claude, job.mode)}{#if starter}&nbsp;· oleh&nbsp;<strong class="starter">{starter}</strong>{/if}
-          · mulai {formatTime(job.startedAt)}{#if job.finishedAt}, selesai {formatTime(job.finishedAt)}{/if}
+          · {t().job.files(total)} · {jobFlowLabel(job.claude, job.mode)}{#if starter}&nbsp;· {t().job.by}&nbsp;<strong class="starter">{starter}</strong>{/if}
+          · {t().job.started(formatTime(job.startedAt))}{#if job.finishedAt}{t().job.finished(formatTime(job.finishedAt))}{/if}
         </p>
         {#if tokens}
-          <p class="muted meta">Claude dipakai untuk {tokens.files} file, {tokens.calls} panggilan · {formatTokens(tokens.used)}</p>
+          <p class="muted meta">{t().job.claudeUsed(tokens.files, tokens.calls, formatTokens(tokens.used))}</p>
         {/if}
         {#if shared > 0}
-          <p class="muted meta">{shared} file memakai hasil proses lain yang membaca PDF yang sama; tokennya dihitung di proses itu.</p>
+          <p class="muted meta">{t().job.shared(shared)}</p>
         {/if}
       </div>
       {#if active && mine}
         <button class="btn btn-danger" disabled={busy !== null} onclick={() => act('cancel', () => api.cancel(id))}>
-          {busy === 'cancel' ? 'Membatalkan…' : 'Batalkan'}
+          {busy === 'cancel' ? t().job.cancelling : t().job.cancel}
         </button>
       {:else if active}
-        <span class="muted small">Hanya {starter ?? 'yang menjalankannya'} yang bisa membatalkan proses ini.</span>
+        <span class="muted small">{t().job.onlyStarterCancels(starter)}</span>
       {:else if total > 0}
         <div class="export">
           <button class="btn btn-primary" disabled={busy !== null} onclick={download}>
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path fill="none" stroke="currentColor" stroke-width="2" d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
             </svg>
-            {busy === 'export' ? 'Membuat Excel…' : 'Unduh Excel'}
+            {busy === 'export' ? t().browse.creating : t().job.download}
           </button>
-          <span class="muted small">Sel kuning di Excel sama dengan di halaman ini.<br />Berisi NIK lengkap; simpan seperti dokumen kontrak.</span>
+          <span class="muted small">{t().job.sameYellow}<br />{t().job.fullNik}</span>
         </div>
       {/if}
     </div>
@@ -273,27 +270,25 @@
       <div class="progress-block">
         {#if job.status === 'queued'}
           <p class="queue" role="status">
-            <strong>Menunggu giliran{#if job.queueAhead}: {job.queueAhead} proses di depan{/if}.</strong> Satu proses dibaca
-            sekaligus dengan semua pembaca, urut dari yang lebih dulu dijalankan. PDF yang juga ada di proses di depan tidak
-            dibaca dua kali: hasilnya dipakai di sini begitu selesai dibaca.
+            <strong>{t().job.queued(job.queueAhead ?? 0)}</strong> {t().job.queuedHint}
           </p>
         {/if}
         <div class="progress-label">
-          <span>{read} dari {total} file sudah ada hasilnya</span>
+          <span>{t().job.progress(read, total)}</span>
           <span class="muted">{total ? Math.round((read / total) * 100) : 0}%</span>
         </div>
-        <div class="progress" role="progressbar" aria-label="Progres baca" aria-valuemin="0" aria-valuemax={total} aria-valuenow={read}>
+        <div class="progress" role="progressbar" aria-label={t().job.progressLabel} aria-valuemin="0" aria-valuemax={total} aria-valuenow={read}>
           <div class="bar" style:width="{total ? (read / total) * 100 : 0}%"></div>
         </div>
       </div>
     {/if}
 
-    <div class="tiles" role="group" aria-label="Saring menurut hasil">
-      {#each visibleTabs as item (item.key)}
-        <button class="tile {item.key}" class:active={tab === item.key} aria-pressed={tab === item.key} onclick={() => pick(item.key)}>
-          <span class="tile-value">{tabCount(item.key)}</span>
-          <span class="tile-label">{item.label}</span>
-          <span class="tile-hint">{item.hint}</span>
+    <div class="tiles" role="group" aria-label={t().job.tiles}>
+      {#each visibleTabs as key (key)}
+        <button class="tile {key}" class:active={tab === key} aria-pressed={tab === key} onclick={() => pick(key)}>
+          <span class="tile-value">{tabCount(key)}</span>
+          <span class="tile-label">{t().job.tabs[key].label}</span>
+          <span class="tile-hint">{t().job.tabs[key].hint}</span>
         </button>
       {/each}
     </div>
@@ -302,30 +297,25 @@
       <div class="next" role="status">
         {#if counts.check > 0}
           <p>
-            <strong>Langkah berikutnya:</strong> cek {counts.check} kontrak yang punya kolom kuning. Buka satu per satu di
-            samping PDF-nya, atau unduh Excel dan cek di sana; sel kuningnya sama.
+            <strong>{t().job.nextStep}</strong> {t().job.nextCheck(counts.check)}
           </p>
-          <button class="btn btn-outline btn-sm" onclick={startChecking}>Mulai cek</button>
+          <button class="btn btn-outline btn-sm" onclick={startChecking}>{t().job.startChecking}</button>
         {:else if retryable === 0 && !job.missing}
-          <p><strong>Semua kontrak siap dipakai.</strong> Unduh Excel untuk datanya.</p>
+          <p><strong>{t().job.allReady}</strong> {t().job.allReadyHint}</p>
         {/if}
         {#if retryable > 0 && !mine}
-          <p class="failed-hint">{retryable} file gagal dibaca atau dibatalkan. Hanya {starter} yang bisa mengulangnya.</p>
+          <p class="failed-hint">{t().job.retryNotYours(retryable, starter)}</p>
         {:else if retryable > 0}
           <p class="failed-hint">
-            {retryable} file {counts.failed === 0
-              ? 'dibatalkan sebelum dibaca'
-              : counts.failed === retryable
-                ? 'gagal dibaca'
-                : 'gagal dibaca atau dibatalkan'}. Coba lagi semuanya sekaligus; file yang sudah terbaca tidak dibaca ulang.
-            {#if counts.failed > 0}Satu per satu: buka <button class="link" onclick={() => pick('failed')}>Gagal dibaca</button>.{/if}
+            {t().job.retryable(retryable, counts.failed === 0 ? 'cancelled' : counts.failed === retryable ? 'failed' : 'both')}
+            {#if counts.failed > 0}{t().job.oneByOne} <button class="link" onclick={() => pick('failed')}>{t().job.tabs.failed.label}</button>.{/if}
           </p>
           <button
             class="btn btn-primary btn-sm"
             disabled={busy !== null}
             onclick={() => act('retry-failed', () => api.retryFailed(id))}
           >
-            {busy === 'retry-failed' ? 'Mengulang…' : `Coba lagi yang gagal (${retryable})`}
+            {busy === 'retry-failed' ? t().job.retrying : t().job.retryFailed(retryable)}
           </button>
         {/if}
       </div>
@@ -335,22 +325,21 @@
   {#if actionError}
     <Banner tone="danger">
       {errorLabel(actionError.code)}.
-      {#if actionError.jobId && actionError.jobId !== job.id}<a href={jobHref(actionError.jobId)}>Lihat proses yang berjalan</a>{/if}
+      {#if actionError.jobId && actionError.jobId !== job.id}<a href={jobHref(actionError.jobId)}>{t().job.viewRunning}</a>{/if}
     </Banner>
   {/if}
   {#if loadError}
-    <Banner tone="warning">{errorLabel(loadError)} Mencoba lagi…</Banner>
+    <Banner tone="warning">{errorLabel(loadError)} {t().job.tryingAgain}</Banner>
   {/if}
   {#if job.status === 'interrupted'}
     <Banner tone="warning">
-      Proses ini terputus karena backend dijalankan ulang saat proses masih berjalan atau menunggu giliran.
-      {#if job.missing}{job.missing} file belum sempat dibaca dan tidak tercantum di sini; jalankan OCR lagi untuk foldernya.{/if}
+      {t().job.interrupted}
+      {#if job.missing}{t().job.interruptedMissing(job.missing)}{/if}
     </Banner>
   {/if}
   {#if job.saveFailed}
     <Banner tone="warning">
-      Hasil proses ini tidak tersimpan lengkap ke database. Hasilnya tetap bisa dilihat dan diunduh di sini selama
-      backend belum dijalankan ulang.
+      {t().job.saveFailed}
     </Banner>
   {/if}
 
@@ -359,63 +348,38 @@
       <input
         class="search"
         type="search"
-        placeholder="Cari nama karyawan atau nama file"
-        aria-label="Cari nama karyawan atau nama file"
+        placeholder={t().job.search}
+        aria-label={t().job.search}
         bind:value={query}
       />
       <div class="legend">
-        <span><span class="swatch flag" aria-hidden="true"></span>Kuning: cocokkan dengan PDF</span>
-        <span><span class="swatch" aria-hidden="true"></span>Putih: terbaca dan cocok</span>
+        <span><span class="swatch flag" aria-hidden="true"></span>{t().job.legendYellow}</span>
+        <span><span class="swatch" aria-hidden="true"></span>{t().job.legendWhite}</span>
         <details>
-          <summary>Kapan nilai dianggap cocok?</summary>
-          {#if job.mode === 'full_page'}
-            <ul>
-              <li><strong>Nama</strong> dan <strong>masa kontrak</strong>: dibaca Claude dengan yakin dan sama dengan nama file.</li>
-              <li>
-                <strong>NIK</strong>: dibaca Claude dengan yakin dan cocok dengan tanggal lahir dan jenis kelamin yang tercetak di
-                halaman pertama.
-              </li>
-              <li><strong>Posisi</strong>: dibaca Claude dengan yakin.</li>
-              <li><strong>Tanda tangan</strong>: Claude yakin ada atau yakin kosong di halaman terakhir.</li>
-            </ul>
-            <p>
-              Tanpa OCR (uji coba): halaman pertama dan terakhir setiap PDF dikirim utuh ke Claude tanpa disamarkan, termasuk
-              nama, NIK, alamat, dan tanggal lahir. Halaman lain tidak dibaca, jadi data yang hanya ada di halaman tengah tidak
-              terbaca.
-            </p>
-          {:else}
+          <summary>{t().job.whenMatching}</summary>
           <ul>
-            <li>
-              <strong>Nama</strong>: nama di nama file tercetak di halaman identitas, atau, bila pola teks tidak menemukannya,
-              sama dengan nama karyawan yang dibaca Claude.
-            </li>
-            <li>
-              <strong>NIK</strong>: cocok dengan tanggal lahir dan jenis kelamin di kontrak, diambil dari teks digital PDF, atau
-              dibaca sama oleh laptop ini dan Claude.
-            </li>
-            <li><strong>Posisi</strong>: tertulis di halaman identitas dan terbaca jelas.</li>
-            <li><strong>Masa kontrak</strong>: tanggal di dokumen sama dengan tanggal di nama file.</li>
-            <li><strong>Tanda tangan</strong>: jelas ada atau jelas kosong di atas nama karyawan.</li>
+            {#each job.mode === 'claude_page' ? t().job.rulesPage : job.mode === 'full_page' ? t().job.rulesFullPage : t().job.rules as rule, i (i)}
+              <li>
+                {#each rule.terms as term, n (n)}{n ? ` ${t().common.and} ` : ''}<strong>{term}</strong>{/each}{rule.text}
+              </li>
+            {/each}
           </ul>
-          {#if job.claude}
-            <p>
-              Claude hanya menerima teks halaman identitas yang sudah disamarkan, potongan gambar baris NIK bila pemeriksaan
-              di laptop ini ragu, dan potongan area tanda tangan (setiap scan dan foto, atau PDF teks yang ragu); tidak
-              pernah satu halaman utuh. Setiap jawabannya dicek ulang di
-              laptop ini: nilai yang tidak tertulis di dokumen dibuang, dan NIK harus cocok dengan tanggal lahir dan jenis
-              kelamin.
-            </p>
-          {:else}
-            <p>Semua dibaca di laptop ini; tidak ada isi kontrak yang dikirim keluar.</p>
-          {/if}
-          {/if}
+          <p>
+            {job.mode === 'claude_page'
+              ? t().job.pageNote
+              : job.mode === 'full_page'
+                ? t().job.fullPageNote
+                : job.claude
+                  ? t().job.claudeNote
+                  : t().job.localNote}
+          </p>
         </details>
       </div>
     </div>
 
     {#if FIELD_GROUPS.some((g) => fieldCounts[g] > 0)}
-      <div class="chips" role="group" aria-label="Saring menurut kolom yang perlu dicek">
-        <span class="chips-label">Kolom kuning:</span>
+      <div class="chips" role="group" aria-label={t().job.chips}>
+        <span class="chips-label">{t().job.yellowFields}</span>
         {#each FIELD_GROUPS as group (group)}
           {#if fieldCounts[group] > 0}
             <button
@@ -424,11 +388,11 @@
               aria-pressed={field === group}
               onclick={() => (field = field === group ? null : group)}
             >
-              {GROUP_LABEL[group]} <span class="n">{fieldCounts[group]}</span>
+              {groupLabel(group)} <span class="n">{fieldCounts[group]}</span>
             </button>
           {/if}
         {/each}
-        {#if field}<button class="link" onclick={() => (field = null)}>Semua kolom</button>{/if}
+        {#if field}<button class="link" onclick={() => (field = null)}>{t().job.allFields}</button>{/if}
       </div>
     {/if}
 
@@ -436,12 +400,12 @@
       <table>
         <thead>
           <tr>
-            <th scope="col" class="status-col">Hasil</th>
-            <th scope="col">{FIELD_LABEL.name}</th>
+            <th scope="col" class="status-col">{t().job.columnResult}</th>
+            <th scope="col">{fieldLabel('name')}</th>
             {#each DATA as key (key)}
-              <th scope="col" class={key}>{key === 'period' ? GROUP_LABEL.period : FIELD_LABEL[key]}</th>
+              <th scope="col" class={key}>{key === 'period' ? groupLabel('period') : fieldLabel(key)}</th>
             {/each}
-            <th scope="col"><span class="sr-only">Aksi</span></th>
+            <th scope="col"><span class="sr-only">{t().job.columnActions}</span></th>
           </tr>
         </thead>
         {#each groups as group (group.folder)}
@@ -453,7 +417,7 @@
                     <path fill="currentColor" d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                   </svg>
                   {relativeTo(group.folder, home, rootName)}
-                  <span class="muted">· {group.files.length} file{#if folderChecks(group)}&nbsp;· {folderChecks(group)} perlu dicek{/if}</span>
+                  <span class="muted">{t().job.groupCount(group.files.length, folderChecks(group))}</span>
                 </th>
               </tr>
             {/if}
@@ -463,27 +427,28 @@
               <tr class="row {state}">
                 <td class="status-col">
                   {#if state === 'ready'}
-                    <span class="state ready"><span aria-hidden="true">✓</span> Siap</span>
+                    <span class="state ready"><span aria-hidden="true">✓</span> {t().job.stateReady}</span>
                   {:else if state === 'check' && row}
-                    <span class="state check" title="{flaggedCount(row)} kolom perlu dicek">
-                      <span aria-hidden="true">!</span> Cek {flaggedCount(row)}
+                    <span class="state check" title={t().job.fieldsToCheck(flaggedCount(row))}>
+                      <span aria-hidden="true">!</span> {t().job.stateCheck(flaggedCount(row))}
                     </span>
                   {:else if state === 'failed'}
-                    <span class="state failed"><span aria-hidden="true">×</span> Gagal</span>
+                    <span class="state failed"><span aria-hidden="true">×</span> {t().job.stateFailed}</span>
                   {:else}
-                    <span class="state pending">{FILE_STATE[file.state]}</span>
+                    <span class="state pending">{fileStateLabel(file.state)}</span>
                   {/if}
                 </td>
                 {#if row && (state === 'ready' || state === 'check')}
-                  <td class="who" class:flag={row.fields.name.check !== null}>
+                  {@const nameCheck = checkNote(row.fields.name)}
+                  <td class="who" class:flag={nameCheck !== null}>
                     <button class="name" onclick={() => (checking = file.path)}>{nameOf(file) ?? file.name}</button>
                     <span class="filename" title={file.name}>{file.name}</span>
                     {#if file.readIn}
-                      <a class="shared" href={jobHref(file.readIn.jobId)} title="PDF ini dibaca di proses lain yang berjalan bersamaan">
-                        Hasil dari proses {file.readIn.by ?? 'lain'}
+                      <a class="shared" href={jobHref(file.readIn.jobId)} title={t().job.sharedTitle}>
+                        {t().job.sharedFrom(file.readIn.by)}
                       </a>
                     {/if}
-                    {#if row.fields.name.check}<span class="note">{row.fields.name.check}</span>{/if}
+                    {#if nameCheck}<span class="note">{nameCheck}</span>{/if}
                   </td>
                   {@const nik = fullNik(row, niks[file.path])}
                   {#each DATA as key (key)}
@@ -491,21 +456,20 @@
                   {/each}
                   <td class="actions">
                     <button class="btn btn-sm btn-outline" class:quiet={state === 'ready'} onclick={() => (checking = file.path)}>
-                      {state === 'check' ? 'Cek' : 'Lihat'}
+                      {state === 'check' ? t().job.check : t().job.view}
                     </button>
                   </td>
                 {:else}
                   <td class="who"><span class="name plain">{file.name}</span></td>
                   <td colspan={DATA.length} class="message">
                     {#if state === 'failed'}
-                      Tidak bisa dibaca: {errorLabel(file.error ?? 'internal_error')}.
+                      {t().job.unreadable(errorLabel(file.error ?? 'internal_error'))}
                     {:else if file.state === 'cancelled'}
-                      Dibatalkan sebelum dibaca.
+                      {t().job.cancelledBeforeRead}
                     {:else if file.waitingFor}
-                      Sedang dibaca di <a href={jobHref(file.waitingFor.jobId)}>proses {file.waitingFor.by ?? 'lain'}</a>; hasilnya
-                      dipakai di sini.
+                      {t().job.readingElsewhere} <a href={jobHref(file.waitingFor.jobId)}>{t().job.runOf(file.waitingFor.by)}</a>{t().job.usedHere}
                     {:else}
-                      {file.state === 'reading' ? 'Sedang dibaca…' : 'Menunggu giliran…'}
+                      {file.state === 'reading' ? t().job.beingRead : t().job.waiting}
                     {/if}
                   </td>
                   <td class="actions">
@@ -515,10 +479,10 @@
                         disabled={busy !== null}
                         onclick={() => act(file.path, () => api.retry(id, file.path))}
                       >
-                        {busy === file.path ? 'Mengulang…' : 'Coba lagi'}
+                        {busy === file.path ? t().job.retrying : t().job.retry}
                       </button>
                     {/if}
-                    <button class="btn btn-ghost btn-sm" onclick={() => (preview = file.path)}>Lihat PDF</button>
+                    <button class="btn btn-ghost btn-sm" onclick={() => (preview = file.path)}>{t().job.viewPdf}</button>
                   </td>
                 {/if}
               </tr>
@@ -529,11 +493,11 @@
             <tr>
               <td colspan={COLUMNS} class="empty-state">
                 {#if tab === 'check' && !field && !query.trim() && !active}
-                  <strong>Tidak ada yang perlu dicek.</strong> Semua data siap dipakai.
+                  <strong>{t().job.nothingToCheck}</strong> {t().job.allDataReady}
                 {:else}
-                  Tidak ada file untuk saringan ini.
+                  {t().job.noFiles}
                 {/if}
-                {#if filtering}<button class="link" onclick={clearFilters}>Tampilkan semua file</button>{/if}
+                {#if filtering}<button class="link" onclick={clearFilters}>{t().job.showAll}</button>{/if}
               </td>
             </tr>
           </tbody>

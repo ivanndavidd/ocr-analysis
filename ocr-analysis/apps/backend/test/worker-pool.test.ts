@@ -45,7 +45,7 @@ describe('WorkerPool', () => {
     const mode = (reply: Awaited<ReturnType<WorkerPool['extract']>>) =>
       reply.ok ? reply.result.log.alasan.find((r) => r.startsWith('mode:')) : 'failed';
     expect(mode(await p.extract('a.pdf', PDF))).toBe('mode:ocr');
-    expect(mode(await p.extract('b.pdf', PDF, null, 'full_page'))).toBe('mode:full_page');
+    expect(mode(await p.extract('b.pdf', PDF, null, 'claude_page'))).toBe('mode:claude_page');
   });
 
   test('sends the vendor folder in the header only when there is one', async () => {

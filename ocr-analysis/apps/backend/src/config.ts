@@ -135,9 +135,17 @@ function allowAuto(env: Record<string, string | undefined>): string[] {
   throw new ConfigError('ALLOW_AUTO must be true or false');
 }
 
-/** SECOND_READER=true has RapidOCR read a scanned identity page again when the NIK or position Tesseract read is
- *  unsure, all on this machine (models from RAPIDOCR_MODEL_DIR or apps/extractor/models/rapidocr); false or empty keeps
- *  the extractor config's `ocr.second_reader.enabled` (off by default). */
+/** OCR_PRIMARY picks the local OCR engine that reads every page: `rapidocr` (the default, owner decision 2026-11-16) or
+ *  `tesseract`. RapidOCR needs its model files in RAPIDOCR_MODEL_DIR or apps/extractor/models/rapidocr. */
+function ocrPrimary(env: Record<string, string | undefined>): string[] {
+  const raw = (env.OCR_PRIMARY ?? '').trim().toLowerCase() || 'rapidocr';
+  if (raw === 'rapidocr' || raw === 'tesseract') return ['--primary', raw];
+  throw new ConfigError('OCR_PRIMARY must be rapidocr or tesseract');
+}
+
+/** SECOND_READER=true has the other local OCR engine (Tesseract when RapidOCR reads first, else RapidOCR) read a
+ *  scanned identity page again when the NIK or position the first engine read is unsure, all on this machine; false or
+ *  empty keeps the extractor config's `ocr.second_reader.enabled` (off by default). */
 function secondReader(env: Record<string, string | undefined>): string[] {
   const raw = (env.SECOND_READER ?? '').trim().toLowerCase();
   if (raw === '') return [];
@@ -221,6 +229,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     'serve-stdio',
     ...(env.EXTRACTOR_CONFIG ? ['--config', env.EXTRACTOR_CONFIG] : []),
     ...allowAuto(env),
+    ...ocrPrimary(env),
     ...secondReader(env),
   ];
   const workbookCmd = [python, '-m', 'contract_extractor', 'xlsx'];

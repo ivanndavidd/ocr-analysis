@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import type { ExtractorFileResult, ParsedFilename } from '../src/modules/workers/protocol.ts';
-import { maskNik, toRow } from '../src/modules/jobs/rows.ts';
+import { maskNik, toRow as readRow } from '../src/modules/jobs/rows.ts';
+import { inIndonesian } from './fixtures/notes.ts';
+
+// The rows' notes are keys the page renders in the reader's language; these tests read them in Indonesian, the wording
+// HR knows and the Excel carries.
+const toRow = (...args: Parameters<typeof readRow>) => inIndonesian(readRow(...args));
 
 const FILENAME: ParsedFilename = { name: 'Budi', start: '2045-04-16', end: '2047-04-15', duration_months: null, flags: [] };
 
@@ -169,7 +174,7 @@ describe('second local reader', () => {
   test('other digits from the second engine keep the NIK coloured, and say so', () => {
     const row = toRow(scanned('beda', ['nik_from_ocr']), FILENAME);
     expect(row.nik.secondReader).toBe('different');
-    expect(row.fields.nik.check).toBe('Dibaca dari scan; mesin OCR kedua (RapidOCR) membaca lain, cocokkan angkanya');
+    expect(row.fields.nik.check).toBe('Dibaca dari scan; mesin OCR kedua membaca lain, cocokkan angkanya');
     expect(toRow(scanned('tidak_terbaca', ['nik_from_ocr']), FILENAME).fields.nik.check).toBe(
       'Dibaca dari scan; cocokkan angkanya',
     );
@@ -190,7 +195,7 @@ describe('second local reader', () => {
       basis: 'Dua mesin OCR lokal (Tesseract dan RapidOCR) membaca posisi yang sama',
     });
     expect(toRow(title('beda'), FILENAME).fields.position.check).toBe(
-      'Dibaca dari scan yang kurang jelas; mesin OCR kedua (RapidOCR) membaca lain, cocokkan angkanya',
+      'Dibaca dari scan yang kurang jelas; mesin OCR kedua membaca lain, cocokkan angkanya',
     );
     expect(toRow(title(undefined), FILENAME).fields.position.check).toBe('Dibaca dari scan yang kurang jelas');
   });
@@ -356,7 +361,7 @@ describe('pattern checks and Claude helping', () => {
     const row = toRow(withLog({ periode_regex: regex('2045-04-16', null), validasi_nama_file: validasi }), FILENAME);
     expect(row.periodFromSecondReader).toBe(true);
     expect(row.documentPeriod).toEqual({ status: 'found', start: '2045-04-16', end: '2047-04-15', durationMonths: null });
-    const basis = 'Dibaca ulang mesin OCR kedua (RapidOCR); sama dengan nama file';
+    const basis = 'Dibaca ulang mesin OCR kedua; sama dengan nama file';
     expect([row.fields.start, row.fields.end]).toEqual([
       { value: '2045-04-16', check: null, basis },
       { value: '2047-04-15', check: null, basis },
@@ -461,7 +466,7 @@ describe('pattern checks and Claude helping', () => {
     expect(toRow(result(null), FILENAME).signatureByClaude).toBeNull();
   });
 
-  test('the no-OCR mode: a NIK Claude read from the whole first page is trusted only when the page confirms it', () => {
+  test('old no-OCR trial rows: a NIK Claude read from the whole first page is trusted only when the page confirms it', () => {
     const nik = '3199990101900001'; // fictitious
     const read = (checks: { tanggal_lahir: string; jenis_kelamin: string }, confidence = 0.95, status = 'ditemukan') =>
       withLog(
@@ -486,11 +491,11 @@ describe('pattern checks and Claude helping', () => {
       basis: null,
     });
     expect(check(read(both, 0.95, 'tidak_valid')).check).toBe('NIK yang dibaca Claude bukan NIK yang valid');
-    // outside the no-OCR mode the NIK's confidence is the OCR's or a crop's, and is not shown as Claude's
+    // outside the old no-OCR trial the NIK's confidence is the OCR's or a crop's, and is not shown as Claude's
     expect(toRow(withLog({}, { nik, confidence: { nik: 0.5 } }), FILENAME).readConfidence.nik).toBeNull();
   });
 
-  test('the no-OCR mode: the signature is what Claude saw on the last page, and its one call is counted', () => {
+  test('old no-OCR trial rows: the signature is what Claude saw on the last page, and its one call is counted', () => {
     const look = (status_ttd: 'signed' | 'unsigned' | 'uncertain') =>
       withLog(
         {
@@ -516,6 +521,36 @@ describe('pattern checks and Claude helping', () => {
       check: 'Claude belum yakin; lihat halaman 5',
       basis: null,
     });
+  });
+
+  test("Claude reading the identity page: the page call is counted, and the name, period and title are Claude's", () => {
+    const row = toRow(
+      withLog(
+        {
+          pembaca: 'llm',
+          alasan: ['read_identity_image'],
+          periode_llm: { tanggal_mulai: '2045-04-16', tanggal_selesai: '2047-04-15', durasi_bulan: 24 },
+          validasi_nama_file: { nama: 'cocok', periode: 'cocok' },
+          posisi: { status: 'ditemukan', sumber: 'llm' },
+          panggilan_llm: ['halaman_identitas', 'ttd'],
+          token_panggilan: [{ masuk: 20, cache_tulis: 3000, keluar: 400 }, null],
+        },
+        { nama_karyawan: 'BUDI', posisi: 'Staff Gudang', confidence: { nama: 0.95, periode: 0.95, posisi: 0.9, nik: 0.4 } },
+      ),
+      FILENAME,
+    );
+    expect(row.claudeCalls).toEqual([
+      { kind: 'page', tokens: { input: 20, cacheWrite: 3000, cacheRead: 0, output: 400 } },
+      { kind: 'signature', tokens: null },
+    ]);
+    expect(row.reader).toBe('claude');
+    expect(row.fields.name).toEqual({ value: 'Budi', check: null, basis: 'Sama dengan nama karyawan yang dibaca Claude dari dokumen' });
+    expect([row.fields.start, row.fields.end].map((f) => [f.value, f.check])).toEqual([
+      ['2045-04-16', null],
+      ['2047-04-15', null],
+    ]);
+    expect(row.fields.position).toEqual({ value: 'Staff Gudang', check: null, basis: 'Dibaca Claude dari halaman identitas' });
+    expect(row.readConfidence.nik).toBeNull(); // the NIK stays the local reading, not Claude's
   });
 
   test("Claude's tokens reach the row as whole counts", () => {

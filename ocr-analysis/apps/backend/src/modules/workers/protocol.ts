@@ -1,7 +1,7 @@
 // What `contract-extractor serve-stdio` sends back (see apps/extractor/src/contract_extractor/worker.py).
 // Only the fields the website reads are typed; the rest of FileResult is ignored.
 
-import type { Decision, ExtractorState, ReadMode, SignatureStatus } from '@contract-ocr/shared-types';
+import type { Decision, ExtractorState, SignatureStatus, StartMode } from '@contract-ocr/shared-types';
 
 export interface ExtractorPeriod {
   tanggal_mulai: string | null;
@@ -38,7 +38,7 @@ export interface ExtractorFileResult {
       tanggal_lahir: NikCheckCode;
       jenis_kelamin: NikCheckCode;
       llm?: 'sama' | 'dipakai' | 'beda' | 'tidak_terbaca' | null; // Claude's reading of a crop of the NIK line
-      pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR (RapidOCR) on the same scan
+      pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR engine on the same scan
     } | null;
     posisi?: {
       status: 'ditemukan' | 'bertentangan' | 'tidak_ditemukan';
@@ -46,7 +46,7 @@ export interface ExtractorFileResult {
       cocok_llm?: boolean | null; // Claude's title against the local reading
       ocr_ragu?: boolean | null; // that local reading came from an unclear scan, whose OCR text Claude read too
       koreksi_llm?: boolean | null; // Claude's title fixes an OCR misread: it is not printed letter for letter
-      pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR (RapidOCR) on the same scan
+      pembaca_kedua?: 'sama' | 'beda' | 'tidak_terbaca' | null; // the second local OCR engine on the same scan
     } | null;
     validasi_nama_file?: {
       nama?: 'cocok' | 'mirip' | 'tidak_cocok';
@@ -92,6 +92,6 @@ export interface ExtractorClient {
   /** Whether the latest worker to start has Claude helping (its ready message says so); null before any has. */
   claude(): boolean | null;
   /** `vendor`: the vendor folder the file sits in, checked against the document; null skips that check. */
-  extract(filename: string, data: Uint8Array, vendor?: string | null, mode?: ReadMode): Promise<ExtractorReply>;
+  extract(filename: string, data: Uint8Array, vendor?: string | null, mode?: StartMode): Promise<ExtractorReply>;
   close(): Promise<void>;
 }

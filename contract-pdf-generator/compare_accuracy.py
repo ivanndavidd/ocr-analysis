@@ -71,16 +71,21 @@ FIELD_LABEL = {"name": "Employee name", "nik": "NIK", "position": "Position", "s
                "vendor": "Vendor", "entity": "Entity (ENTITAS)"}
 FORMS = ["digital", "scan", "photo"]
 FORM_LABEL = {"digital": "Digital PDF", "scan": "Scan", "photo": "Phone photo"}
-CALLS = ["text", "nik", "signature", "pages"]
+CALLS = ["text", "nik", "signature", "page", "pages"]
 CALL_LABEL = {"text": "Identity page text", "nik": "NIK line crop", "signature": "Signature area crop",
-              "pages": "Whole first and last page"}
-MODES = ["ocr", "full_page"]  # the website's read modes: OCR first, or the whole first and last page to Claude (test only)
+              "page": "Identity page image (NIK blacked out)", "pages": "Whole first and last page (old trial)"}
+# The website's read modes a new job can start in: OCR (the main flow), or claude_page, where the same local OCR reads
+# the NIK, signature and vendor while Claude reads the name, period and title from the identity page as an image with
+# the NIK blacked out. The old no-OCR trial (full_page) can no longer be started; its saved reports still read.
+MODES = ["ocr", "claude_page"]
 
 
 def reading_label(run: dict) -> str:
     """How the job read, for the reports."""
+    if run.get("mode") == "claude_page":
+        return "OCR for the NIK and signature; Claude reads the identity page image (NIK blacked out)"
     if run.get("mode") == "full_page":
-        return "No OCR: the whole first and last page sent to Claude (test mode)"
+        return "No OCR: the whole first and last page sent to Claude (old trial)"
     return "Text patterns, with Claude helping" if run["claude"] else "Text patterns only, no Claude"
 DECISIONS = {"auto": "Auto, no check needed (Otomatis)", "review": "Review", "review_priority": "Review first (prioritas)"}
 TOKEN_KEYS = ["input", "cacheWrite", "cacheRead", "output"]
@@ -179,8 +184,8 @@ def claude_problem(state: str, mode: str, allow_without: bool) -> str | None:
     switched on but the workers cannot reach it, and the run would quietly read without it."""
     if state == "on":
         return None
-    if mode == "full_page":
-        return "The no-OCR mode needs Claude, which the website does not have ready now."
+    if mode == "claude_page":
+        return "Claude reading the identity page needs Claude, which the website does not have ready now."
     if state == "off" or allow_without:
         return None
     return (f"Claude is switched on in the website's settings but its workers cannot reach it ({state}): the run would "
@@ -969,8 +974,8 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="only the first N files, for a quick trial")
     parser.add_argument("--out", type=Path, help="report folder (default: accuracy/<time> next to this script, or the --from folder)")
     parser.add_argument("--mode", choices=MODES, default="ocr",
-                        help="how a new job reads: with OCR (default), or full_page, which sends the whole first and last "
-                             "page of every PDF unmasked to Claude (test only; use generated contracts)")
+                        help="how a new job reads: with OCR (default), or claude_page, where Claude reads the identity "
+                             "page as an image with the NIK blacked out (use generated contracts)")
     parser.add_argument("--allow-without-claude", action="store_true",
                         help="start a new job even when the website has Claude switched on but cannot reach it (it then "
                              "reads with the text patterns only); with CLAUDE_MODE=off no flag is needed")

@@ -27,22 +27,21 @@ from contract_extractor.extractor_method.llm.base import (
     ExtractionResult,
     ExtractorError,
     ExtractorUnavailable,
-    FullPageAnswer,
     ImageAnswer,
     ImageTask,
 )
 from contract_extractor.extractor_method.llm.claude import DEFAULT_EFFORT, DEFAULT_MODEL, IMAGE_EFFORT, jpeg_block
 from contract_extractor.extractor_method.llm.prompt import (
-    FULL_PAGE_PROMPT,
-    FULL_PAGE_SCHEMA,
     IMAGE_PROMPTS,
     IMAGE_REQUEST,
     IMAGE_SCHEMAS,
     OUTPUT_SCHEMA,
+    PAGE_PROMPT,
+    PAGE_SCHEMA,
     SYSTEM_PROMPT,
     page_content,
-    parse_full_page_output,
     parse_image_output,
+    parse_page_output,
     parse_output,
     user_message,
 )
@@ -153,9 +152,9 @@ class ClaudeCodeExtractor:
         """An image cannot go in as plain text, so the crop goes in as one stream-json user message instead."""
         return _stream_json(self.argv(prompt_file, IMAGE_SCHEMAS[task], IMAGE_EFFORT))
 
-    def pages_argv(self, prompt_file: Path) -> list[str]:
-        """The no-OCR mode's two pages, as one stream-json user message, at the text call's effort."""
-        return _stream_json(self.argv(prompt_file, FULL_PAGE_SCHEMA))
+    def page_argv(self, prompt_file: Path) -> list[str]:
+        """The 'claude_page' mode's identity page, as one stream-json user message, at the text call's effort."""
+        return _stream_json(self.argv(prompt_file, PAGE_SCHEMA))
 
     def _call(self, system: str, argv_for: Callable[[Path], list[str]], stdin: str) -> tuple[int, str]:
         with tempfile.TemporaryDirectory(prefix="ce-") as tmp:
@@ -232,11 +231,11 @@ class ClaudeCodeExtractor:
         answer.usage = usage
         return answer
 
-    def read_pages(self, first: bytes, last: bytes | None) -> FullPageAnswer:
-        content = page_content(jpeg_block(first), jpeg_block(last) if last else None)
-        structured, usage = self._stream(FULL_PAGE_PROMPT, self.pages_argv, content, "halaman")
+    def read_page(self, jpegs: list[bytes]) -> ExtractionResult:
+        content = page_content([jpeg_block(jpeg) for jpeg in jpegs])
+        structured, usage = self._stream(PAGE_PROMPT, self.page_argv, content, "halaman_identitas")
         try:
-            answer = parse_full_page_output(json.dumps(structured))
+            answer = parse_page_output(json.dumps(structured))
         except ExtractorError as exc:
             raise ExtractorError(exc.kind, usage) from None
         answer.usage = usage

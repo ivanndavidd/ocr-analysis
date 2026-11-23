@@ -1,22 +1,14 @@
 import type { ContractRow, FieldKey, FieldValue, JobFile } from '@contract-ocr/shared-types';
 import { formatDate, formatNik } from './format.ts';
+import { noteLabel, t } from './i18n.ts';
 
 /** The Excel's data columns, in its order. */
 export const FIELDS: FieldKey[] = ['nik', 'vendor', 'entity', 'name', 'position', 'start', 'end', 'months', 'signature'];
 
-export const FIELD_LABEL: Record<FieldKey, string> = {
-  nik: 'NIK',
-  vendor: 'Vendor',
-  entity: 'Entitas',
-  name: 'Nama karyawan',
-  position: 'Posisi',
-  start: 'Mulai kontrak',
-  end: 'Selesai kontrak',
-  months: 'Lama kontrak',
-  signature: 'Tanda tangan',
-};
+export const fieldLabel = (key: FieldKey) => t().fields.labels[key];
 
-/** The same column in the Excel, so a person can find it there. */
+/** The same column in the Excel, so a person can find it there. The Excel follows HR's Indonesian template in either
+ *  language, so these stay as its headers. */
 export const EXCEL_HEADER: Record<FieldKey, string> = {
   nik: 'NIK KTP',
   vendor: 'NAMA VENDOR',
@@ -32,15 +24,7 @@ export const EXCEL_HEADER: Record<FieldKey, string> = {
 /** Field filters: the three period columns are checked together, against the same page. */
 export type FieldGroup = 'nik' | 'vendor' | 'entity' | 'name' | 'position' | 'period' | 'signature';
 export const FIELD_GROUPS: FieldGroup[] = ['nik', 'vendor', 'entity', 'name', 'position', 'period', 'signature'];
-export const GROUP_LABEL: Record<FieldGroup, string> = {
-  nik: 'NIK',
-  vendor: 'Vendor',
-  entity: 'Entitas',
-  name: 'Nama',
-  position: 'Posisi',
-  period: 'Masa kontrak',
-  signature: 'Tanda tangan',
-};
+export const groupLabel = (group: FieldGroup) => t().fields.groups[group];
 const GROUP_OF: Record<FieldKey, FieldGroup> = {
   nik: 'nik',
   vendor: 'vendor',
@@ -79,10 +63,15 @@ export function displayValue(key: FieldKey, field: FieldValue): string | null {
   if (value === null || value === '') return null;
   if (key === 'nik') return formatNik(String(value));
   if (key === 'start' || key === 'end') return formatDate(String(value));
-  if (key === 'months') return `${value} bulan`;
-  if (key === 'signature') return value === 'YES' ? 'Ada' : value === 'NO' ? 'Tidak ada' : String(value);
+  if (key === 'months') return t().fields.months(String(value));
+  if (key === 'signature') return value === 'YES' ? t().fields.signed : value === 'NO' ? t().fields.unsigned : String(value);
   return String(value);
 }
+
+/** A field's yellow note in the current language; null when the value needs no check. */
+export const checkNote = (field: FieldValue): string | null => (field.check ? noteLabel(field.check) : null);
+/** Why a value without a check can be trusted, in the current language; null when there is no such note. */
+export const basisNote = (field: FieldValue): string | null => (field.basis ? noteLabel(field.basis) : null);
 
 /** The results table's one period cell: the three Excel columns as a date range with its length under it, to check
  *  when any of them is, with each distinct reason once. */
@@ -90,12 +79,12 @@ export function periodCell(row: ContractRow): { range: string | null; months: st
   const { start, end, months } = row.fields;
   const from = displayValue('start', start);
   const to = displayValue('end', end);
-  const checks = [...new Set([start.check, end.check, months.check].filter((check) => check !== null))];
+  const checks = [...new Set([start, end, months].map(checkNote).filter((check) => check !== null))];
   return {
     range: from || to ? `${from ?? '?'} – ${to ?? '?'}` : null,
     months: displayValue('months', months),
     checks,
-    basis: start.basis ?? end.basis,
+    basis: basisNote(start) ?? basisNote(end),
   };
 }
 

@@ -82,7 +82,7 @@ SCHEMA = [
         Col("id", "integer", 10, pk=True),
         Col("jobId", "char", 36, unique=True),  # uuid in PostgreSQL: the run's id in the website's links and API
         Col("status", "varchar", 20),  # queued | running | done | cancelled | interrupted
-        Col("mode", "varchar", 20),  # ocr | full_page (no OCR, whole pages to Claude)
+        Col("mode", "varchar", 20),  # ocr | claude_page (identity page image, NIK blacked out) | full_page (old trial)
         Col("claude", "bit"),  # boolean: Claude was helping when the run started
         Col("folders", "varchar"),  # JSON list of the chosen folders; up to ~4,000 characters seen, so unbounded
         Col("totalFiles", "integer", 10),

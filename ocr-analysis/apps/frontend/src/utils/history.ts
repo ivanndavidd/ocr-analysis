@@ -1,5 +1,5 @@
 import type { HistoryFilter, HistoryOutcome, HistoryStatus, ReadMode } from '@contract-ocr/shared-types';
-import { MODE_LABEL, MODES } from './claude.ts';
+import { t } from './i18n.ts';
 
 /** What the history page lists: its search, filters and page. It lives in the address (`#/riwayat?q=…&page=2`), so a
  *  run opened from the list comes back to the same list. */
@@ -19,17 +19,12 @@ export const PAGE_SIZES = [20, 50, 100] as const; // the backend takes up to 100
 export const MAX_SEARCH = 100; // the backend's limit
 export const DEFAULT_VIEW: HistoryView = { q: '', status: '', outcome: '', mode: '', mine: false, from: '', to: '', page: 1, size: 20 };
 
-export const STATUS_OPTIONS: [HistoryStatus, string][] = [
-  ['active', 'Berjalan atau antre'],
-  ['done', 'Selesai'],
-  ['cancelled', 'Dibatalkan'],
-  ['interrupted', 'Terputus'],
-];
-export const OUTCOME_OPTIONS: [HistoryOutcome, string][] = [
-  ['check', 'Ada yang perlu dicek'],
-  ['failed', 'Ada yang gagal'],
-];
-export const MODE_OPTIONS: [ReadMode, string][] = MODES.map((mode) => [mode, MODE_LABEL[mode]]);
+// The filters' choices; their labels are in the current language (utils/messages).
+export const STATUS_OPTIONS: readonly HistoryStatus[] = ['active', 'done', 'cancelled', 'interrupted'];
+export const OUTCOME_OPTIONS: readonly HistoryOutcome[] = ['check', 'failed'];
+export const MODE_OPTIONS: readonly ReadMode[] = ['ocr', 'claude_page', 'full_page']; // the old trial's runs stay findable
+export const statusOptionLabel = (status: HistoryStatus) => t().history.statuses[status];
+export const outcomeOptionLabel = (outcome: HistoryOutcome) => t().history.outcomes[outcome];
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,8 +37,8 @@ export function dayOf(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-const allowed = <T extends string>(value: string | null, options: [T, string][]): T | '' =>
-  options.some(([option]) => option === value) ? (value as T) : '';
+const allowed = <T extends string>(value: string | null, options: readonly T[]): T | '' =>
+  options.some((option) => option === value) ? (value as T) : '';
 
 /** The view an address asks for; anything it cannot use falls back to the default. */
 export function parseView(query: string): HistoryView {

@@ -124,23 +124,36 @@ describe('folder source settings', () => {
     expect(message).not.toContain('sk-ant-api03-quoted');
   });
 
+  const RAPID_FIRST = ['--primary', 'rapidocr']; // OCR_PRIMARY left empty
+
+  test('OCR_PRIMARY picks the engine that reads first, RapidOCR unless set, and only rapidocr or tesseract is accepted', () => {
+    const flags = (value?: string) =>
+      loadConfig({ ...LOCAL, CLAUDE_MODE: 'off', ...(value === undefined ? {} : { OCR_PRIMARY: value }) }).extractorCmd.slice(4);
+    expect(flags()).toEqual(RAPID_FIRST);
+    expect(flags('')).toEqual(RAPID_FIRST);
+    expect(flags(' RapidOCR ')).toEqual(RAPID_FIRST);
+    expect(flags('tesseract')).toEqual(['--primary', 'tesseract']);
+    expect(error({ ...LOCAL, OCR_PRIMARY: 'paddle' })).toContain('OCR_PRIMARY');
+    expect(error({ ...LOCAL, OCR_PRIMARY: 'rapidocr --claude' })).toContain('OCR_PRIMARY');
+  });
+
   test('SECOND_READER reaches the extractor workers as a flag, and only true or false is accepted', () => {
     const flags = (value?: string) =>
       loadConfig({ ...LOCAL, CLAUDE_MODE: 'off', ...(value === undefined ? {} : { SECOND_READER: value }) }).extractorCmd.slice(4);
-    expect(flags()).toEqual([]);
-    expect(flags('')).toEqual([]);
-    expect(flags('true')).toEqual(['--second-reader']);
-    expect(flags(' FALSE ')).toEqual(['--no-second-reader']);
+    expect(flags()).toEqual(RAPID_FIRST);
+    expect(flags('')).toEqual(RAPID_FIRST);
+    expect(flags('true')).toEqual([...RAPID_FIRST, '--second-reader']);
+    expect(flags(' FALSE ')).toEqual([...RAPID_FIRST, '--no-second-reader']);
     expect(error({ ...LOCAL, SECOND_READER: 'on' })).toContain('SECOND_READER');
   });
 
   test('ALLOW_AUTO reaches the extractor workers as a flag, and only true or false is accepted', () => {
     const flags = (value?: string) =>
       loadConfig({ ...LOCAL, CLAUDE_MODE: 'off', ...(value === undefined ? {} : { ALLOW_AUTO: value }) }).extractorCmd.slice(4);
-    expect(flags()).toEqual([]);
-    expect(flags('')).toEqual([]);
-    expect(flags('true')).toEqual(['--allow-auto']);
-    expect(flags('FALSE')).toEqual(['--no-allow-auto']);
+    expect(flags()).toEqual(RAPID_FIRST);
+    expect(flags('')).toEqual(RAPID_FIRST);
+    expect(flags('true')).toEqual(['--allow-auto', ...RAPID_FIRST]);
+    expect(flags('FALSE')).toEqual(['--no-allow-auto', ...RAPID_FIRST]);
     expect(error({ ...LOCAL, ALLOW_AUTO: 'yes' })).toContain('ALLOW_AUTO');
   });
 

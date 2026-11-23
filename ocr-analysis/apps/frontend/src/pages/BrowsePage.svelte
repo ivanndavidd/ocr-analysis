@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ClaudeState, FolderListing, FolderMark, Health, Job, LatestResult, ReadMark, ReadMode } from '@contract-ocr/shared-types';
+  import type { ClaudeState, FolderListing, FolderMark, Health, Job, LatestResult, ReadMark, StartMode } from '@contract-ocr/shared-types';
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import Badge from '../components/Badge.svelte';
@@ -9,7 +9,8 @@
   import PdfPreview from '../components/PdfPreview.svelte';
   import { ApiFailure, api, failureCode } from '../services/api.ts';
   import { saveBlob } from '../utils/download.ts';
-  import { MARK_LABEL, folderDone, folderMarkTitle, folderPart, isActive, jobTitle, markTitle, markWhen, runState } from '../utils/jobs.ts';
+  import { t } from '../utils/i18n.ts';
+  import { folderDone, folderMarkTitle, folderPart, isActive, jobTitle, markLabel, markTitle, markWhen, runState } from '../utils/jobs.ts';
   import { errorLabel } from '../utils/labels.ts';
   import {
     type SortKey,
@@ -22,19 +23,19 @@
     sortFolders,
   } from '../utils/listing.ts';
   import {
-    CLAUDE_HINT,
-    FLOW_LABEL,
-    FULL_PAGE_DESCRIPTION,
-    FULL_PAGE_NOTICE,
-    FULL_PAGE_FLOW,
     MODES,
-    MODE_LABEL,
     claudeConsent,
+    claudeHint,
     claudeNotice,
     flowDescription,
-    fullPageBlocked,
-    fullPageConsent,
+    flowLabel,
     loadMode,
+    modeLabel,
+    pageBlocked,
+    pageConsent,
+    pageDescription,
+    pageFlow,
+    pageNotice,
     saveMode,
   } from '../utils/claude.ts';
   import { filePath, folderHref, jobHref } from '../utils/routes.ts';
@@ -60,16 +61,17 @@
   let query = $state('');
   let sort = $state(loadSort());
   let preview = $state<string | null>(null); // root-relative path of the PDF shown over the page
-  let previewNote = $state<string | null>(null);
+  let previewUnread = $state(false); // the PDF has no reading in any run: the preview says so
   let latest = $state<LatestResult | null>(null); // a PDF shown with its newest reading in any user's run
   let opening = $state<string | null>(null); // the PDF whose reading is being looked up
   let marks = $state<Record<string, ReadMark>>({}); // this folder's PDFs that some run has read, by path
   let folderMarks = $state<Record<string, FolderMark>>({}); // how far the runs have read each subfolder, by path
   // "Unduh Excel": the selection's newest readings, after a run of the PDFs no run has read yet
+  type Blocked = 'mine' | 'unavailable' | 'claude_page'; // why the unread PDFs cannot be read now; worded at render
   type Download =
     | { step: 'checking' | 'saving' }
     | { step: 'confirm' | 'starting'; unread: number; total: number }
-    | { step: 'blocked'; unread: number; total: number; reason: string }
+    | { step: 'blocked'; unread: number; total: number; reason: Blocked }
     | { step: 'reading'; job: Job; total: number }
     | { step: 'stopped'; job: Job } // the run did not finish: cancelled, or the backend stopped
     | { step: 'done'; name: string; unread: number }
@@ -81,9 +83,9 @@
   const downloading = $derived(
     download !== null && ['checking', 'saving', 'starting', 'reading'].includes(download.step),
   );
-  let mode = $state<ReadMode>(loadMode()); // kept for this tab, so it holds while moving between folders
-  const fullPage = $derived(mode === 'full_page');
-  const flow = $derived(fullPage ? FULL_PAGE_FLOW : FLOW_LABEL[claude ?? 'off']);
+  let mode = $state<StartMode>(loadMode()); // kept for this tab, so it holds while moving between folders
+  const page = $derived(mode === 'claude_page');
+  const flow = $derived(page ? pageFlow() : flowLabel(claude ?? 'off'));
 
   onMount(async () => {
     try {
@@ -133,7 +135,7 @@
   );
   const runTotal = $derived(selectedCount > 0 ? selectedTotal : currentTotal);
   // The confirmations' one-line warning; the full wording sits under their "Detail".
-  const notice = $derived(fullPage ? FULL_PAGE_NOTICE : claudeNotice(claude));
+  const notice = $derived(page ? pageNotice() : claudeNotice(claude));
 
   $effect(() => {
     if (selectAll) selectAll.indeterminate = someSelected && !allSelected;
@@ -170,20 +172,20 @@
   async function openPdf(target: string) {
     if (opening) return;
     opening = target;
-    let note: string | null = null;
+    let unread = false;
     try {
       const { result } = await api.latestResult(target);
       if (result) {
         latest = result;
         return;
       }
-      note = 'Belum ada hasil OCR untuk PDF ini.';
+      unread = true;
     } catch {
       // the lookup failed: the PDF still opens, without its reading
     } finally {
       opening = null;
     }
-    previewNote = note;
+    previewUnread = unread;
     preview = target;
   }
 
@@ -241,12 +243,12 @@
         return;
       }
       const { unread, total } = error.counts;
-      const reason = mine
-        ? 'Proses OCR kamu masih berjalan: tunggu selesai, lalu unduh lagi.'
+      const reason: Blocked | null = mine
+        ? 'mine'
         : extractor?.state === 'unavailable'
-          ? 'Pembaca OCR tidak tersedia.'
-          : fullPage
-            ? fullPageBlocked(claude)
+          ? 'unavailable'
+          : page && pageBlocked(claude)
+            ? 'claude_page'
             : null;
       download = reason ? { step: 'blocked', unread, total, reason } : { step: 'confirm', unread, total };
       if (!reason) refreshQueue();
@@ -329,39 +331,47 @@
   const mineDone = $derived(mine ? mine.files.filter((f) => f.state !== 'waiting' && f.state !== 'reading').length : 0);
   const blockedReason = $derived(
     mine
-      ? 'Tunggu proses kamu selesai: satu orang satu proses sekaligus.'
+      ? t().browse.waitForMine
       : extractor?.state === 'unavailable'
-        ? 'Pembaca OCR tidak tersedia.'
+        ? t().browse.readerUnavailable
         : runTotal === 0
-          ? 'Folder ini tidak berisi PDF.'
-          : fullPage
-            ? fullPageBlocked(claude)
+          ? t().browse.noPdfs
+          : page
+            ? pageBlocked(claude)
             : null,
   );
+  /** Why "Unduh Excel" cannot read the unread PDFs first, in the current language. */
+  const blockedText = (reason: Blocked) =>
+    reason === 'mine' ? t().browse.blockedMine : reason === 'unavailable' ? t().browse.readerUnavailable : pageBlocked(claude);
   const selected = $derived(selectionLabel(selectedFolders.size, selectedFiles.size));
   const scope = $derived(
     selectedCount > 0
-      ? `${selected} dipilih`
+      ? t().browse.selected(selected)
       : searching && itemCount > 0
-        ? 'Semua PDF di folder ini, bukan hanya hasil pencarian'
+        ? t().browse.everyPdfNotJustSearch
         : listing && listing.folders.length > 0
-          ? 'Semua PDF di folder ini, termasuk subfolder'
+          ? t().browse.everyPdfWithSubfolders
           : null,
   );
-  const sortLabel = (key: SortKey) =>
-    sort.key !== key ? '' : key === 'name' ? (sort.dir === 'asc' ? 'A ke Z' : 'Z ke A') : sort.dir === 'asc' ? 'sedikit ke banyak' : 'banyak ke sedikit';
+  function sortLabel(key: SortKey): string {
+    if (sort.key !== key) return '';
+    const m = t().browse;
+    if (key === 'name') return sort.dir === 'asc' ? m.sortNameAsc : m.sortNameDesc;
+    return sort.dir === 'asc' ? m.sortCountAsc : m.sortCountDesc;
+  }
+  const sortHint = (key: SortKey) => (sortLabel(key) ? t().browse.sortedBy(sortLabel(key)) : t().browse.sortable);
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 {#if mine}
   <Banner>
-    Proses OCR kamu untuk <strong>{jobTitle(mine, rootName)}</strong> {runState(mine)} ({mineDone}/{mine.files.length} file).
-    <a href={jobHref(mine.id)}>Lihat progres</a>
+    {t().browse.mineBefore} <strong>{jobTitle(mine, rootName)}</strong>{t().browse.mineAfter(runState(mine), mineDone, mine.files.length)}
+    <a href={jobHref(mine.id)}>{t().common.viewProgress}</a>
   </Banner>
 {/if}
 
-<nav class="crumbs" aria-label="Lokasi folder">
+<nav class="crumbs" aria-label={t().browse.location}>
   {#if listing && listing.crumbs.length > 0}
     <a href={folderHref('')}>
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -389,34 +399,34 @@
     <div>
       <h1>{title}</h1>
       {#if listing}
-        <p class="muted">{listing.folders.length} folder · {listing.pdfs.length} PDF di folder ini</p>
+        <p class="muted">{t().browse.counts(listing.folders.length, listing.pdfs.length)}</p>
       {/if}
     </div>
     {#if listing}
       <div class="run">
         <fieldset class="modes" disabled={starting}>
-          <legend class="muted">Cara baca</legend>
+          <legend class="muted">{t().common.readMode}</legend>
           <div class="segments">
             {#each MODES as id (id)}
               <label class="segment" class:active={mode === id}>
                 <input type="radio" name="read-mode" value={id} bind:group={mode} onchange={() => saveMode(id)} />
-                {MODE_LABEL[id]}
+                {modeLabel(id)}
               </label>
             {/each}
           </div>
         </fieldset>
-        <span class="flow" class:risky={fullPage}>{flow}</span>
+        <span class="flow">{flow}</span>
         <div class="actions">
           <button
             class="btn btn-outline"
             disabled={downloading || runTotal === 0}
-            title="Excel dari hasil OCR terakhir tiap PDF; PDF yang belum di-OCR dibaca dulu"
+            title={t().browse.downloadHint}
             onclick={startDownload}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 4v11m-5-5 5 5 5-5M5 20h14" />
             </svg>
-            Unduh Excel ({runTotal})
+            {t().browse.download(runTotal)}
           </button>
           <button
             class="btn btn-primary"
@@ -427,7 +437,7 @@
               refreshQueue();
             }}
           >
-            {fullPage ? 'Jalankan tanpa OCR' : 'Jalankan OCR'} ({runTotal})
+            {t().browse.run(runTotal)}
           </button>
         </div>
         <span class="hint muted">{blockedReason ?? scope ?? ''}</span>
@@ -438,45 +448,42 @@
   {#if download && download.step !== 'confirm'}
     <div class="pad">
       {#if download.step === 'checking'}
-        <Banner>Menyiapkan Excel…</Banner>
+        <Banner>{t().browse.preparing}</Banner>
       {:else if download.step === 'starting'}
-        <Banner>Memulai OCR untuk {download.unread} PDF yang belum di-OCR…</Banner>
+        <Banner>{t().browse.startingUnread(download.unread)}</Banner>
       {:else if download.step === 'reading'}
         {@const job = download.job}
         {@const done = job.files.filter((f) => f.state === 'done' || f.state === 'error').length}
         <Banner>
-          <strong>Membaca {job.files.length} PDF yang belum di-OCR</strong>: {runState(job)}, {done}/{job.files.length} selesai.
-          <a href={jobHref(job.id)}>Lihat proses</a><br />
-          <span class="muted">
-            Excel berisi {download.total} PDF diunduh otomatis setelah selesai. Tetap di halaman ini; bila ditinggal, proses
-            tetap berjalan dan Unduh Excel bisa ditekan lagi nanti.
-          </span>
+          <strong>{t().browse.readingUnread(job.files.length)}</strong>{t().browse.readingState(runState(job), done, job.files.length)}
+          <a href={jobHref(job.id)}>{t().common.viewRun}</a><br />
+          <span class="muted">{t().browse.readingHint(download.total)}</span>
         </Banner>
       {:else if download.step === 'saving'}
-        <Banner>Membuat Excel…</Banner>
+        <Banner>{t().browse.creating}</Banner>
       {:else if download.step === 'done'}
         <Banner>
-          Excel diunduh: <strong>{download.name}</strong>.
-          {#if download.unread}{download.unread} PDF belum terbaca; barisnya kosong dan berwarna kuning.{/if}
-          <button class="link" onclick={() => (download = null)}>Tutup</button>
+          {t().browse.downloaded} <strong>{download.name}</strong>.
+          {#if download.unread}{t().browse.unreadRows(download.unread)}{/if}
+          <button class="link" onclick={() => (download = null)}>{t().common.close}</button>
         </Banner>
       {:else if download.step === 'blocked'}
         <Banner tone="warning">
-          {download.unread} dari {download.total} PDF belum di-OCR. {download.reason}
-          <button class="link" onclick={saveAnyway}>Unduh yang sudah ada saja</button>
-          · <button class="link" onclick={() => (download = null)}>Tutup</button>
+          {t().browse.unreadOf(download.unread, download.total)}. {blockedText(download.reason)}
+          <button class="link" onclick={saveAnyway}>{t().browse.downloadExistingOnly}</button>
+          · <button class="link" onclick={() => (download = null)}>{t().common.close}</button>
         </Banner>
       {:else if download.step === 'stopped'}
         <Banner tone="warning">
-          Proses untuk PDF yang belum di-OCR {runState(download.job)}, jadi Excel belum diunduh.
-          <a href={jobHref(download.job.id)}>Lihat proses</a> · <button class="link" onclick={saveAnyway}>Unduh yang sudah ada</button>
-          · <button class="link" onclick={() => (download = null)}>Tutup</button>
+          {t().browse.stopped(runState(download.job))}
+          <a href={jobHref(download.job.id)}>{t().common.viewRun}</a> · <button class="link" onclick={saveAnyway}>{t().browse.downloadExisting}</button>
+          · <button class="link" onclick={() => (download = null)}>{t().common.close}</button>
         </Banner>
       {:else if download.step === 'error'}
         <Banner tone="danger">
           {errorLabel(download.code)}.
-          {#if download.jobId}<a href={jobHref(download.jobId)}>Lihat proses kamu</a>{/if}
-          <button class="link" onclick={() => (download = null)}>Tutup</button>
+          {#if download.jobId}<a href={jobHref(download.jobId)}>{t().common.viewYourRun}</a>{/if}
+          <button class="link" onclick={() => (download = null)}>{t().common.close}</button>
         </Banner>
       {/if}
     </div>
@@ -486,19 +493,19 @@
     <div class="pad">
       <Banner tone="danger">
         {errorLabel(startError.code)}.
-        {#if startError.jobId}<a href={jobHref(startError.jobId)}>Lihat proses kamu</a>{/if}
+        {#if startError.jobId}<a href={jobHref(startError.jobId)}>{t().common.viewYourRun}</a>{/if}
       </Banner>
     </div>
   {/if}
 
   {#if loadError}
     <div class="pad">
-      <Banner tone="danger">{errorLabel(loadError)}. <a href={folderHref('')}>Kembali ke {rootName}</a></Banner>
+      <Banner tone="danger">{errorLabel(loadError)}. <a href={folderHref('')}>{t().common.backTo(rootName)}</a></Banner>
     </div>
   {:else if !listing}
-    <p class="empty muted">Memuat folder…</p>
+    <p class="empty muted">{t().browse.loadingFolder}</p>
   {:else if itemCount === 0}
-    <p class="empty muted">Folder ini kosong.</p>
+    <p class="empty muted">{t().browse.emptyFolder}</p>
   {:else}
     <div class="toolbar">
       <label class="search">
@@ -510,26 +517,26 @@
           type="search"
           bind:value={query}
           onkeydown={onSearchKeydown}
-          placeholder="Cari folder atau PDF di sini"
-          aria-label="Cari folder atau PDF di folder ini"
+          placeholder={t().browse.searchPlaceholder}
+          aria-label={t().browse.searchLabel}
           autocomplete="off"
           spellcheck="false"
         />
       </label>
       {#if searching}
-        <span class="muted found" role="status">{folders.length + files.length} dari {itemCount}</span>
+        <span class="muted found" role="status">{t().browse.found(folders.length + files.length, itemCount)}</span>
       {/if}
     </div>
 
     {#if selectedCount > 0}
       <div class="selection" role="status">
-        <button class="clear" aria-label="Batal pilih" title="Batal pilih (Esc)" onclick={clearSelection}>
+        <button class="clear" aria-label={t().browse.clearSelection} title={t().browse.clearSelectionKey} onclick={clearSelection}>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path fill="none" stroke="currentColor" stroke-width="2" d="M6 6l12 12M18 6 6 18" />
           </svg>
         </button>
-        <strong>{selected} dipilih</strong>
-        {#if selectedFolders.size > 0}<span class="muted">· {selectedTotal} PDF</span>{/if}
+        <strong>{t().browse.selected(selected)}</strong>
+        {#if selectedFolders.size > 0}<span class="muted">· {t().listing.pdfs(selectedTotal)}</span>{/if}
       </div>
     {/if}
 
@@ -542,31 +549,31 @@
           checked={allSelected}
           disabled={visibleCount === 0}
           onchange={toggleAll}
-          aria-label={searching ? 'Pilih semua hasil pencarian' : 'Pilih semua'}
+          aria-label={searching ? t().browse.selectAllResults : t().browse.selectAll}
         />
       </span>
       <button class="sort col-name" class:active={sort.key === 'name'} onclick={() => sortBy('name')}>
-        Nama
+        {t().browse.columnName}
         {@render arrow('name')}
-        <span class="sr-only">{sortLabel('name') ? `, urut ${sortLabel('name')}` : ', urutkan'}</span>
+        <span class="sr-only">{sortHint('name')}</span>
       </button>
       {#if listing.folders.length > 0}
         <!-- only folders have a count; a folder of PDFs alone has nothing to sort by it -->
         <button class="sort col-count" class:active={sort.key === 'count'} onclick={() => sortBy('count')}>
           {@render arrow('count')}
-          PDF
-          <span class="sr-only">{sortLabel('count') ? `, urut ${sortLabel('count')}` : ', urutkan'}</span>
+          {t().browse.columnPdfs}
+          <span class="sr-only">{sortHint('count')}</span>
         </button>
       {/if}
     </div>
 
     {#if folders.length + files.length === 0}
       <p class="empty muted">
-        Tidak ada folder atau PDF yang cocok dengan “{query.trim()}”.
-        <button class="link" onclick={() => (query = '')}>Hapus pencarian</button>
+        {t().browse.noMatch(query.trim())}
+        <button class="link" onclick={() => (query = '')}>{t().browse.clearSearch}</button>
       </p>
     {:else}
-      <ul class="list" aria-label="Isi folder">
+      <ul class="list" aria-label={t().browse.contents}>
         {#each folders as folder (folder.path)}
           {@const isSelected = selectedFolders.has(folder.path)}
           {@const mark = folderMarks[folder.path]}
@@ -578,7 +585,7 @@
                 checked={isSelected}
                 disabled={folder.pdfCount === 0}
                 onchange={() => toggle(selectedFolders, folder.path)}
-                aria-label="Pilih folder {folder.name}"
+                aria-label={t().browse.selectFolder(folder.name)}
               />
             </span>
             <a class="open" href={folderHref(folder.path)}>
@@ -589,7 +596,7 @@
               {#if mark && mark.read > 0}
                 <span class="mark" title={folderMarkTitle(mark)}>
                   {#if folderDone(mark)}
-                    <Badge tone="brand">{MARK_LABEL}</Badge>
+                    <Badge tone="brand">{markLabel()}</Badge>
                   {:else}
                     <span class="mark-part">{folderPart(mark)}</span>
                   {/if}
@@ -612,12 +619,12 @@
                 class="check"
                 checked={isSelected}
                 onchange={() => toggle(selectedFiles, name)}
-                aria-label="Pilih {name}"
+                aria-label={t().browse.selectFile(name)}
               />
             </span>
             <button
               class="open"
-              title="Lihat PDF dan hasil OCR terakhirnya"
+              title={t().browse.openPdf}
               aria-busy={opening === filePath(path, name)}
               onclick={() => openPdf(filePath(path, name))}
             >
@@ -628,7 +635,7 @@
               {#if mark}
                 <span class="mark" title={markTitle(mark)}>
                   <span class="mark-when">{markWhen(mark)}</span>
-                  <Badge tone="brand">{MARK_LABEL}</Badge>
+                  <Badge tone="brand">{markLabel()}</Badge>
                 </span>
               {/if}
               <svg class="icon trail" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -643,7 +650,7 @@
   {/if}
 </section>
 
-<PdfPreview path={preview} note={previewNote} onclose={() => (preview = null)} />
+<PdfPreview path={preview} note={previewUnread ? t().browse.noReadingYet : null} onclose={() => (preview = null)} />
 <ContractCheck
   file={latest?.file ?? null}
   nik={latest?.nik ?? null}
@@ -656,74 +663,69 @@
 
 <ConfirmDialog
   open={confirming && blockedReason === null}
-  title={fullPage ? `Kirim ${runTotal} PDF ke Claude tanpa OCR?` : `Jalankan OCR untuk ${runTotal} PDF?`}
-  confirmLabel={starting ? 'Memulai…' : fullPage ? 'Ya, kirim halaman utuh' : 'Ya, jalankan'}
+  title={t().browse.confirmRun(runTotal)}
+  confirmLabel={starting ? t().browse.starting : t().browse.yesRun}
   busy={starting}
   onconfirm={start}
   oncancel={() => (confirming = false)}
 >
   <dl class="summary">
-    <dt>Folder</dt>
+    <dt>{t().common.folder}</dt>
     <dd>{breadcrumbText}</dd>
-    <dt>Yang dibaca</dt>
-    <dd>{scope ?? 'Semua PDF di folder ini'}</dd>
-    <dt>Cara baca</dt>
-    <dd><strong>{MODE_LABEL[fullPage ? 'full_page' : 'ocr']}: {flow}</strong></dd>
+    <dt>{t().browse.whatIsRead}</dt>
+    <dd>{scope ?? t().browse.everyPdf}</dd>
+    <dt>{t().common.readMode}</dt>
+    <dd><strong>{modeLabel(mode)}: {flow}</strong></dd>
   </dl>
   {@render warnings()}
-  {@render detail(runTotal, ['Proses bisa dibatalkan dari halaman progres.'])}
+  {@render detail(runTotal, [t().browse.canCancel])}
 </ConfirmDialog>
 
 <ConfirmDialog
   open={download?.step === 'confirm' || download?.step === 'starting'}
-  title={download && 'unread' in download ? `${download.unread} dari ${download.total} PDF belum di-OCR` : ''}
-  confirmLabel={download?.step === 'starting' ? 'Memulai…' : 'Ya, jalankan OCR lalu unduh'}
+  title={download && 'unread' in download ? t().browse.unreadOf(download.unread, download.total) : ''}
+  confirmLabel={download?.step === 'starting' ? t().browse.starting : t().browse.yesReadThenDownload}
   busy={download?.step === 'starting'}
   onconfirm={readThenDownload}
   oncancel={() => (download = null)}
 >
   {#if download && 'unread' in download}
-    <p>
-      {download.unread} PDF itu dibaca dulu sebagai proses baru, lalu Excel {download.total} PDF terunduh otomatis. Tetap di
-      halaman ini sampai selesai.
-    </p>
+    <p>{t().browse.readFirst(download.unread, download.total)}</p>
     <dl class="summary">
-      <dt>Folder</dt>
+      <dt>{t().common.folder}</dt>
       <dd>{breadcrumbText}</dd>
-      <dt>Yang diunduh</dt>
-      <dd>{scope ?? 'Semua PDF di folder ini'}</dd>
-      <dt>Cara baca</dt>
-      <dd><strong>{MODE_LABEL[fullPage ? 'full_page' : 'ocr']}: {flow}</strong></dd>
+      <dt>{t().browse.whatIsDownloaded}</dt>
+      <dd>{scope ?? t().browse.everyPdf}</dd>
+      <dt>{t().common.readMode}</dt>
+      <dd><strong>{modeLabel(mode)}: {flow}</strong></dd>
     </dl>
     {@render warnings()}
-    {@render detail(download.unread, [
-      'Proses baru itu atas nama kamu. Excel berisi hasil OCR terakhir tiap PDF, siapa pun yang menjalankannya.',
-      'Bila halaman ini ditinggal, proses tetap berjalan dan Unduh Excel bisa ditekan lagi nanti.',
-    ])}
+    {@render detail(download.unread, [t().browse.newRunIsYours, t().browse.leaveAnyway])}
   {/if}
 </ConfirmDialog>
 
 <!-- What the two run confirmations always show: the data warning and the queue, one line each. -->
 {#snippet warnings()}
-  {#if notice}<Banner tone={fullPage ? 'danger' : 'warning'}>{notice}</Banner>{/if}
-  {#if active > 0}<Banner>Ada {active} proses lain di antrean; proses ini mulai setelahnya.</Banner>{/if}
+  {#if notice}<Banner tone="warning">{notice}</Banner>{/if}
+  {#if active > 0}<Banner>{t().browse.queueAhead(active)}</Banner>{/if}
 {/snippet}
 
 <!-- The long explanation, folded away until opened: how the PDFs are read, exactly what goes to Claude, and the rest. -->
 {#snippet detail(pdfs: number, more: string[])}
   <details class="more">
-    <summary>{notice ? 'Detail cara baca dan data yang dikirim' : 'Detail cara baca'}</summary>
+    <summary>{notice ? t().browse.detailWithData : t().browse.detail}</summary>
     <div class="more-body">
-      {#if fullPage}
-        <p>{FULL_PAGE_DESCRIPTION}</p>
-        <p>{fullPageConsent(pdfs)}</p>
+      {#if page}
+        <p>{pageDescription()}</p>
+        <p>{pageConsent(pdfs)}</p>
       {:else}
         {@const ask = claudeConsent(claude, pdfs)}
+        {@const hint = claudeHint(claude)}
         <p>{flowDescription(claude)}</p>
         {#if ask}<p>{ask}</p>{/if}
-        {#if claude && CLAUDE_HINT[claude]}<p>{CLAUDE_HINT[claude]}</p>{/if}
+        {#if hint}<p>{hint}</p>{/if}
       {/if}
-      {#if active > 0}<p>PDF yang juga ada di proses lain di antrean tidak dibaca dua kali: hasilnya dipakai di sini.</p>{/if}
+      {#if active > 0}<p>{t().browse.notReadTwice}</p>{/if}
       {#each more as line (line)}<p>{line}</p>{/each}
     </div>
   </details>
@@ -807,10 +809,6 @@
   }
   .flow {
     font-size: 13px;
-  }
-  .flow.risky {
-    color: var(--blue-danger-text);
-    font-weight: 600;
   }
   .modes {
     display: flex;

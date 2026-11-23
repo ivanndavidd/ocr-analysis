@@ -1,4 +1,5 @@
 import type { FolderEntry } from '@contract-ocr/shared-types';
+import { t } from './i18n.ts';
 
 // Search and sort for the folder page. Folders always stay above PDFs, as in OneDrive and Explorer.
 
@@ -69,5 +70,6 @@ export function saveSort(sort: Sort): void {
 
 /** `2 folder dan 3 PDF`, `1 folder`, `3 PDF`. */
 export function selectionLabel(folders: number, files: number): string {
-  return [folders ? `${folders} folder` : '', files ? `${files} PDF` : ''].filter(Boolean).join(' dan ');
+  const m = t().listing;
+  return [folders ? m.folders(folders) : '', files ? m.pdfs(files) : ''].filter(Boolean).join(m.and);
 }

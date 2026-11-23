@@ -6,12 +6,12 @@
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
   import { api, failureCode } from '../services/api.ts';
   import { formatDateTime, formatDay } from '../utils/format.ts';
+  import { t } from '../utils/i18n.ts';
   import { errorLabel } from '../utils/labels.ts';
   import {
     NO_FILTER,
     ROLE_CHOICES,
     ROLE_FILTERS,
-    ROLE_LABEL,
     STATUS_CHOICES,
     STATUS_FILTERS,
     type UserFilter,
@@ -19,6 +19,9 @@
     filterUsers,
     initials,
     lockReason,
+    roleFilterLabel,
+    roleLabel,
+    statusLabel,
     userCounts,
   } from '../utils/users.ts';
 
@@ -34,10 +37,19 @@
   let busyId = $state<number | null>(null);
   let actionError = $state<string | null>(null);
   // what the last change did: a toast that leaves the rows where they are, read out to screen readers
-  let done = $state<string | null>(null);
+  let done = $state<{ user: ManagedUser; byRole: boolean } | null>(null);
   let doneTimer: ReturnType<typeof setTimeout> | undefined;
   const DONE_MS = 4_000;
-  let pending = $state<{ user: ManagedUser; change: UserAccessChange; question: NonNullable<ReturnType<typeof changeQuestion>> } | null>(null);
+  // the change waiting for its confirmation; its wording follows the language, even while the dialog is open
+  let pending = $state<{ user: ManagedUser; change: UserAccessChange } | null>(null);
+  const question = $derived(pending ? changeQuestion(pending.user, pending.change) : null);
+  const doneText = $derived(
+    done
+      ? done.byRole
+        ? t().users.nowRole(done.user.name, roleLabel(done.user.role))
+        : t().users.nowActive(done.user.name, done.user.active)
+      : null,
+  );
 
   const shown = $derived(list ? filterUsers(list, filter) : []);
   const counts = $derived(userCounts(list ?? []));
@@ -68,8 +80,7 @@
   }
 
   function ask(user: ManagedUser, change: UserAccessChange) {
-    const question = changeQuestion(user, change);
-    if (question) pending = { user, change, question };
+    if (changeQuestion(user, change)) pending = { user, change };
     else void apply(user, change);
   }
 
@@ -80,10 +91,7 @@
     try {
       const updated = await api.setUserAccess(user.id, change);
       list = (list ?? []).map((row) => (row.id === updated.id ? updated : row));
-      done =
-        change.role !== undefined
-          ? `${updated.name} sekarang ${ROLE_LABEL[updated.role]}.`
-          : `${updated.name} sekarang ${updated.active ? 'aktif' : 'nonaktif'}.`;
+      done = { user: updated, byRole: change.role !== undefined };
       clearTimeout(doneTimer);
       doneTimer = setTimeout(() => (done = null), DONE_MS);
     } catch (error) {
@@ -99,27 +107,24 @@
 <section class="card users" aria-labelledby="users-title">
   <div class="head">
     <div class="title">
-      <h1 id="users-title">User</h1>
-      <p class="muted">
-        Semua akun yang pernah masuk, login terakhir dulu. Akun baru masuk sebagai Reviewer nonaktif dan tidak bisa
-        memakai website sampai admin mengaktifkannya.
-      </p>
+      <h1 id="users-title">{t().users.title}</h1>
+      <p class="muted">{t().users.intro}</p>
     </div>
     <button class="btn btn-outline btn-sm" type="button" onclick={load} disabled={loading}>
-      {loading ? 'Memuat…' : 'Muat ulang'}
+      {loading ? t().common.loading : t().users.reload}
     </button>
   </div>
 
   {#if list}
-    <ul class="summary" aria-label="Ringkasan user">
-      <li><strong>{counts.total}</strong> user</li>
-      <li><strong>{counts.active}</strong> aktif</li>
-      <li class:waiting={counts.inactive > 0}><strong>{counts.inactive}</strong> nonaktif</li>
-      <li><strong>{counts.admins}</strong> admin</li>
+    <ul class="summary" aria-label={t().users.summary}>
+      <li><strong>{counts.total}</strong> {t().users.countUsers(counts.total)}</li>
+      <li><strong>{counts.active}</strong> {t().users.countActive(counts.active)}</li>
+      <li class:waiting={counts.inactive > 0}><strong>{counts.inactive}</strong> {t().users.countInactive(counts.inactive)}</li>
+      <li><strong>{counts.admins}</strong> {t().users.countAdmins(counts.admins)}</li>
     </ul>
   {/if}
 
-  <div class="filters" role="search" aria-label="Cari dan saring user">
+  <div class="filters" role="search" aria-label={t().users.filters}>
     <label class="search">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
@@ -129,26 +134,26 @@
         type="search"
         bind:value={filter.q}
         maxlength="100"
-        placeholder="Cari nama atau email"
-        aria-label="Cari nama atau email"
+        placeholder={t().users.search}
+        aria-label={t().users.search}
         autocomplete="off"
         spellcheck="false"
       />
     </label>
-    <select aria-label="Status" class:set={filter.status !== 'all'} bind:value={filter.status}>
-      {#each STATUS_FILTERS as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
+    <select aria-label={t().users.status} class:set={filter.status !== 'all'} bind:value={filter.status}>
+      {#each STATUS_FILTERS as option (option)}<option value={option}>{statusLabel(option)}</option>{/each}
     </select>
-    <select aria-label="Peran" class:set={filter.role !== 'all'} bind:value={filter.role}>
-      {#each ROLE_FILTERS as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
+    <select aria-label={t().users.role} class:set={filter.role !== 'all'} bind:value={filter.role}>
+      {#each ROLE_FILTERS as option (option)}<option value={option}>{roleFilterLabel(option)}</option>{/each}
     </select>
     {#if filtered}
-      <button class="btn btn-ghost btn-sm" type="button" onclick={() => (filter = { ...NO_FILTER })}>Hapus filter</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick={() => (filter = { ...NO_FILTER })}>{t().common.clearFilters}</button>
     {/if}
   </div>
 
   <div class="messages">
     {#if loadError}
-      <Banner tone="danger">Daftar user gagal dimuat: {errorLabel(loadError)}</Banner>
+      <Banner tone="danger">{t().users.loadFailed(errorLabel(loadError))}</Banner>
     {/if}
     {#if actionError}
       <Banner tone="danger">{errorLabel(actionError)}</Banner>
@@ -156,21 +161,21 @@
   </div>
 
   {#if list === null}
-    {#if !loadError}<p class="muted empty">Memuat user…</p>{/if}
+    {#if !loadError}<p class="muted empty">{t().users.loadingUsers}</p>{/if}
   {:else if shown.length === 0}
     <p class="muted empty">
-      {list.length === 0 ? 'Belum ada user.' : 'Tidak ada user yang cocok dengan pencarian atau filter.'}
+      {list.length === 0 ? t().users.none : t().users.noMatch}
     </p>
   {:else}
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th scope="col">User</th>
-            <th scope="col">Peran</th>
-            <th scope="col">Status</th>
-            <th scope="col">Login terakhir</th>
-            <th scope="col">Terdaftar</th>
+            <th scope="col">{t().users.columnUser}</th>
+            <th scope="col">{t().users.role}</th>
+            <th scope="col">{t().users.status}</th>
+            <th scope="col">{t().users.columnLastLogin}</th>
+            <th scope="col">{t().users.columnRegistered}</th>
           </tr>
         </thead>
         <tbody>
@@ -184,7 +189,7 @@
                   <span class="names">
                     <span class="name">
                       {user.name}
-                      {#if user.id === signedInId}<Badge tone="brand">Anda</Badge>{/if}
+                      {#if user.id === signedInId}<Badge tone="brand">{t().users.you}</Badge>{/if}
                     </span>
                     <span class="email">{user.email}</span>
                     {#if lock}
@@ -199,44 +204,44 @@
                   </span>
                 </div>
               </td>
-              <td data-label="Peran">
+              <td data-label={t().users.role}>
                 {#if lock}
-                  <Badge tone={user.role === 'admin' ? 'brand' : 'neutral'}>{ROLE_LABEL[user.role]}</Badge>
+                  <Badge tone={user.role === 'admin' ? 'brand' : 'neutral'}>{roleLabel(user.role)}</Badge>
                 {:else}
                   <select
                     class="pick"
                     class:admin={user.role === 'admin'}
-                    aria-label={`Peran ${user.name}`}
+                    aria-label={t().users.roleOf(user.name)}
                     value={user.role}
                     disabled={busy}
                     onchange={(e) => choose(e.currentTarget, user.role, user, { role: e.currentTarget.value as Role })}
                   >
-                    {#each ROLE_CHOICES as role (role)}<option value={role}>{ROLE_LABEL[role]}</option>{/each}
+                    {#each ROLE_CHOICES as role (role)}<option value={role}>{roleLabel(role)}</option>{/each}
                   </select>
                 {/if}
               </td>
-              <td data-label="Status">
+              <td data-label={t().users.status}>
                 {#if lock}
-                  <Badge tone={user.active ? 'success' : 'warning'}>{user.active ? 'Aktif' : 'Nonaktif'}</Badge>
+                  <Badge tone={user.active ? 'success' : 'warning'}>{statusLabel(user.active ? 'active' : 'inactive')}</Badge>
                 {:else}
                   {@const status = user.active ? 'active' : 'inactive'}
                   <select
                     class="pick"
                     class:on={user.active}
                     class:off={!user.active}
-                    aria-label={`Status ${user.name}`}
+                    aria-label={t().users.statusOf(user.name)}
                     value={status}
                     disabled={busy}
                     onchange={(e) => choose(e.currentTarget, status, user, { active: e.currentTarget.value === 'active' })}
                   >
-                    {#each STATUS_CHOICES as choice (choice.value)}<option value={choice.value}>{choice.label}</option>{/each}
+                    {#each STATUS_CHOICES as choice (choice)}<option value={choice}>{statusLabel(choice)}</option>{/each}
                   </select>
                 {/if}
               </td>
-              <td data-label="Login terakhir" class="when">
-                {#if user.lastLoginAt}{formatDateTime(user.lastLoginAt)}{:else}<span class="muted">Belum tercatat</span>{/if}
+              <td data-label={t().users.columnLastLogin} class="when">
+                {#if user.lastLoginAt}{formatDateTime(user.lastLoginAt)}{:else}<span class="muted">{t().users.notRecorded}</span>{/if}
               </td>
-              <td data-label="Terdaftar" class="when">{formatDay(user.createdAt)}</td>
+              <td data-label={t().users.columnRegistered} class="when">{formatDay(user.createdAt)}</td>
             </tr>
           {/each}
         </tbody>
@@ -246,25 +251,25 @@
 </section>
 
 <div class="toast-region" aria-live="polite">
-  {#if done}
+  {#if doneText}
     <div class="toast">
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <path d="m5 12 5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
       </svg>
-      {done}
+      {doneText}
     </div>
   {/if}
 </div>
 
 <ConfirmDialog
   open={pending !== null}
-  title={pending?.question.title ?? ''}
-  confirmLabel={pending?.question.confirm ?? ''}
+  title={question?.title ?? ''}
+  confirmLabel={question?.confirm ?? ''}
   busy={busyId !== null}
   onconfirm={() => pending && apply(pending.user, pending.change)}
   oncancel={() => (pending = null)}
 >
-  <p>{pending?.question.body ?? ''}</p>
+  <p>{question?.body ?? ''}</p>
   {#if pending}<p class="muted target">{pending.user.email}</p>{/if}
 </ConfirmDialog>
 

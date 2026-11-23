@@ -8,8 +8,9 @@ Setiap pesan adalah satu baris JSON UTF-8 yang diakhiri newline:
     backend -> worker, per file:           {"id": 7, "filename": "<nama>.pdf", "size": 182344, "vendor": "<folder vendor>",
                                             "mode": "ocr"}
                                            lalu tepat `size` byte PDF; "vendor" boleh tidak ada atau null; "mode" "ocr"
-                                           (default) atau "full_page" (tanpa OCR: halaman pertama dan terakhir utuh
-                                           ke Claude, lihat full_page.py)
+                                           (default) atau "claude_page" (Claude membaca nama, periode, dan jabatan
+                                           dari gambar halaman identitas dengan NIK ditutup, lihat identity_page.py;
+                                           NIK dan tanda tangan tetap dibaca lokal)
     worker -> backend, per file:           {"id": 7, "ok": true, "result": <FileResult>, "filename": <nama file terurai>}
                                            atau {"id": 7, "ok": false, "error": "<kode>"}
 
@@ -27,9 +28,10 @@ from typing import Any, BinaryIO
 from contract_extractor.common.config import Settings
 from contract_extractor.extractor_method.llm.base import Extractor
 from contract_extractor.document.ocr.engine import OcrRunner
-from contract_extractor.full_page import MODE_FULL_PAGE, MODE_OCR, process_full_pages
 from contract_extractor.pipeline import process_bytes
 from contract_extractor.extractor_method.pattern.filename import ParsedFilename, parse_filename
+
+MODE_OCR, MODE_CLAUDE_PAGE = "ocr", "claude_page"
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +90,7 @@ def _header(line: bytes) -> tuple[int, str, int, str | None, str] | None:
         return None
     if vendor is not None and (not isinstance(vendor, str) or len(vendor) > MAX_FILENAME_CHARS):
         return None
-    if mode not in (MODE_OCR, MODE_FULL_PAGE):
+    if mode not in (MODE_OCR, MODE_CLAUDE_PAGE):
         return None
     return request_id, filename, size, vendor, mode
 
@@ -129,10 +131,8 @@ def serve(
         data = _read_exact(stdin, size)
         if data is None:
             return served
-        if mode == MODE_FULL_PAGE:
-            result = process_full_pages(data, filename, settings, extractor, vendor)  # never raises either
-        else:
-            result = process_bytes(data, filename, settings, ocr, extractor, vendor)  # never raises: failures become flags
+        # never raises: failures become flags
+        result = process_bytes(data, filename, settings, ocr, extractor, vendor, mode == MODE_CLAUDE_PAGE)
         del data
         write_message(
             stdout,

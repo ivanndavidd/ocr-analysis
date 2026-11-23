@@ -1,5 +1,7 @@
 import type { FolderMark, Job, JobFile, LatestResult, ReadMark, TokenUsage } from '@contract-ocr/shared-types';
+import { modeLabel } from './claude.ts';
 import { formatDateTime, formatDay } from './format.ts';
+import { t } from './i18n.ts';
 
 /** Claude's tokens over a job: summed over every file and every call (text, NIK crop, signature crop); null when
  *  nothing was sent. Results taken from another run count there, where they were read. */
@@ -24,48 +26,49 @@ export function claudeTokens(files: JobFile[]): { used: TokenUsage; files: numbe
 /** Queued or running: it can still change, so its page keeps asking for it. */
 export const isActive = (job: Pick<Job, 'status'>) => job.status === 'queued' || job.status === 'running';
 
-/** Who read a PDF opened from the folder page, and when: `Penguji A · 6 Nov 2026, 11.02 · Tanpa OCR`. */
+/** Who read a PDF opened from the folder page, and when: `Penguji A · 6 Nov 2026, 11.02 · Claude baca halaman`; the OCR
+ *  mode, the usual one, is not named. */
 export function readBy(run: LatestResult['run']): string {
-  const when = isActive(run) ? 'proses masih berjalan' : formatDateTime(run.finishedAt ?? run.startedAt);
-  return [run.by ?? 'Tanpa nama', when, ...(run.mode === 'full_page' ? ['Tanpa OCR'] : [])].join(' · ');
+  const m = t().jobs;
+  const when = isActive(run) ? m.stillRunning : formatDateTime(run.finishedAt ?? run.startedAt);
+  return [run.by ?? m.noName, when, ...(run.mode === 'ocr' ? [] : [modeLabel(run.mode)])].join(' · ');
 }
 
 /** The mark next to a PDF in the folder list that some run has read, with the day; how it came out shows on hover
  *  and in the dialog the PDF opens. */
-export const MARK_LABEL = 'Sudah di-OCR';
-export const OUTCOME_LABEL: Record<ReadMark['outcome'], string> = { ready: 'Siap dipakai', needs_check: 'Perlu dicek' };
+export const markLabel = () => t().jobs.mark;
+export const outcomeLabel = (outcome: ReadMark['outcome']) => t().jobs.outcome[outcome];
 export const markWhen = (mark: ReadMark) =>
-  isActive(mark.run) ? 'proses berjalan' : formatDay(mark.run.finishedAt ?? mark.run.startedAt);
-export const markTitle = (mark: ReadMark) => `Hasil OCR terakhir: ${OUTCOME_LABEL[mark.outcome]}, ${readBy(mark.run)}`;
+  isActive(mark.run) ? t().jobs.markRunning : formatDay(mark.run.finishedAt ?? mark.run.startedAt);
+export const markTitle = (mark: ReadMark) => t().jobs.markTitle(outcomeLabel(mark.outcome), readBy(mark.run));
 
 /** Whether some run has read every PDF of a folder (subfolders included): the folder then gets the same mark as a PDF. */
 export const folderDone = (mark: FolderMark | undefined): mark is FolderMark => !!mark && mark.total > 0 && mark.read === mark.total;
 /** `3/9 di-OCR`: a folder some of whose PDFs no run has read yet. */
-export const folderPart = (mark: FolderMark) => `${mark.read}/${mark.total} di-OCR`;
+export const folderPart = (mark: FolderMark) => t().jobs.folderPart(mark.read, mark.total);
 /** A folder's mark in full, on hover: how many PDFs are read, and how their newest readings came out. */
 export function folderMarkTitle(mark: FolderMark): string {
-  const head =
-    mark.read === mark.total
-      ? `Semua ${mark.total} PDF sudah di-OCR`
-      : `${mark.read} dari ${mark.total} PDF sudah di-OCR, ${mark.total - mark.read} belum`;
+  const m = t().jobs;
+  const head = mark.read === mark.total ? m.folderAll(mark.total) : m.folderSome(mark.read, mark.total);
   const ready = mark.read - mark.check;
-  const outcomes = [ready && `${ready} ${OUTCOME_LABEL.ready}`, mark.check && `${mark.check} ${OUTCOME_LABEL.needs_check}`].filter(Boolean);
-  return outcomes.length ? `${head}. Hasil OCR terakhir: ${outcomes.join(', ')}` : head;
+  const outcomes = [ready && `${ready} ${m.outcome.ready}`, mark.check && `${mark.check} ${m.outcome.needs_check}`].filter(Boolean);
+  return outcomes.length ? m.folderOutcomes(head, outcomes.join(', ')) : head;
 }
 
 /** `menunggu giliran (2 proses di depan)`, `sedang berjalan`, …: a run's state in a sentence. */
 export function runState(job: Pick<Job, 'status' | 'queueAhead'>): string {
+  const m = t().jobs;
   switch (job.status) {
     case 'queued':
-      return job.queueAhead ? `menunggu giliran (${job.queueAhead} proses di depan)` : 'menunggu giliran';
+      return m.queued(job.queueAhead ?? 0);
     case 'running':
-      return 'sedang berjalan';
+      return m.running;
     case 'done':
-      return 'selesai';
+      return m.done;
     case 'cancelled':
-      return 'dibatalkan';
+      return m.cancelled;
     case 'interrupted':
-      return 'terputus';
+      return m.interrupted;
   }
 }
 
@@ -76,7 +79,7 @@ export const vendorOf = (path: string) => (path.includes('/') ? path.slice(0, pa
 
 /** `Agustus 2036 - Juli 2037` for one folder, `3 folder` for a selection. */
 export const jobTitle = (job: Pick<Job, 'folders'>, rootName: string) =>
-  job.folders.length === 1 ? lastSegment(job.folders[0]!, rootName) : `${job.folders.length} folder`;
+  job.folders.length === 1 ? lastSegment(job.folders[0]!, rootName) : t().jobs.folders(job.folders.length);
 
 /** Where "back" goes: the folder itself for a single-folder job, else the folder the selection was made in. */
 export const jobHome = (job: Pick<Job, 'folders'>) =>

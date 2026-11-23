@@ -1,5 +1,5 @@
 import type { Subprocess } from 'bun';
-import type { ExtractorState, ReadMode } from '@contract-ocr/shared-types';
+import type { ExtractorState, StartMode } from '@contract-ocr/shared-types';
 import { type ExtractorClient, ExtractorFailure, type ExtractorReply } from './protocol.ts';
 
 export interface PoolOptions {
@@ -100,7 +100,7 @@ class Worker {
     data: Uint8Array,
     timeoutMs: number,
     vendor: string | null = null,
-    mode: ReadMode = 'ocr',
+    mode: StartMode = 'ocr',
   ): Promise<ExtractorReply> {
     this.state = 'busy';
     return new Promise((resolve, reject) => {
@@ -237,7 +237,7 @@ export class WorkerPool implements ExtractorClient {
     return new Promise((resolve, reject) => this.waiting.push({ resolve, reject }));
   }
 
-  async extract(filename: string, data: Uint8Array, vendor: string | null = null, mode: ReadMode = 'ocr'): Promise<ExtractorReply> {
+  async extract(filename: string, data: Uint8Array, vendor: string | null = null, mode: StartMode = 'ocr'): Promise<ExtractorReply> {
     const worker = await this.acquire();
     const reply = await worker.send(this.nextId++, filename, data, this.options.timeoutMs, vendor, mode);
     this.release(worker);

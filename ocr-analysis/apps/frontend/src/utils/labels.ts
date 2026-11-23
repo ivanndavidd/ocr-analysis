@@ -1,133 +1,28 @@
-// Bahasa wording for the fixed codes the backend and the extractor send. Unknown codes are shown as they are.
+// Wording for the fixed codes the backend and the extractor send, in the current language (utils/messages). Unknown
+// codes are shown as they are.
 import type { Decision, FileState, JobStatus } from '@contract-ocr/shared-types';
+import { t } from './i18n.ts';
 
-export const DECISION: Record<Decision, string> = {
-  auto: 'Otomatis',
-  review: 'Review',
-  review_priority: 'Review prioritas',
-};
+const has = <T extends object>(table: T, code: string): code is Extract<keyof T, string> => Object.hasOwn(table, code);
 
-export const FILE_STATE: Record<FileState, string> = {
-  waiting: 'Menunggu',
-  reading: 'Dibaca',
-  done: 'Selesai',
-  error: 'Gagal',
-  cancelled: 'Dibatalkan',
-};
+export const decisionLabel = (decision: Decision) => t().labels.decision[decision];
+export const fileStateLabel = (state: FileState) => t().labels.fileState[state];
+export const jobStatusLabel = (status: JobStatus) => t().labels.jobStatus[status];
 
-export const JOB_STATUS: Record<JobStatus, string> = {
-  queued: 'Menunggu giliran',
-  running: 'Berjalan',
-  done: 'Selesai',
-  cancelled: 'Dibatalkan',
-  interrupted: 'Terputus',
-};
+export function pageKindLabel(kind: string): string {
+  const kinds = t().labels.pageKind;
+  return has(kinds, kind) ? kinds[kind] : kind;
+}
 
-export const PAGE_KIND: Record<string, string> = {
-  native: 'Teks digital',
-  scan: 'Hasil scan',
-  hybrid: 'Campuran',
-  unclassified: 'Tidak dikenali',
-  blank: 'Kosong',
-};
-
-const REASONS: Record<string, string> = {
-  extractor_disabled: 'Pembacaan isi dengan AI dimatikan: nama dan periode dicocokkan dari nama file dan pola teks',
-  read_full_pages: 'Dibaca tanpa OCR: halaman pertama dan terakhir dikirim utuh ke Claude',
-  period_conflict: 'Dokumen memuat beberapa periode berbeda',
-  page_selection_low_margin: 'Halaman identitas atau tanda tangan kurang pasti',
-  signature_not_clear: 'Tanda tangan perlu dilihat sekilas',
-  extractor_error: 'Satu panggilan Claude gagal; bagian itu dibaca dengan pola teks saja',
-  extractor_not_sent: 'Hasil OCR kurang jelas untuk dikirim ke Claude; nama dan periode dibaca dengan pola teks',
-  extractor_not_needed: 'Pembacaan di laptop ini sudah pasti untuk nama, periode, posisi, dan vendor; teks tidak dikirim ke Claude',
-  identity_page_not_found: 'Halaman pertama tidak terlihat seperti halaman identitas (nama, NIK); tidak dibaca',
-  signature_page_not_found: 'Halaman tanda tangan tidak ditemukan',
-  signature_page_guessed: 'Halaman terakhir tidak terlihat seperti halaman tanda tangan; tetap dibaca, cek halaman itu',
-  ocr_unavailable: 'OCR tidak tersedia',
-  ocr_low_confidence: 'Hasil OCR kurang jelas',
-  mask_leak: 'Data pribadi mungkin belum tersamarkan',
-  signature_page_unreadable: 'Halaman tanda tangan tidak terbaca',
-  signature_anchor_not_found: 'Kolom tanda tangan tidak ditemukan',
-  signature_uncertain: 'Tanda tangan belum pasti',
-  nik_not_found: 'NIK tidak ditemukan',
-  nik_digits_repaired: 'Terbaca lebih dari 16 angka di baris NIK; 16 angka dipilih',
-  nik_invalid: 'Angka NIK tidak valid',
-  nik_conflict: 'Ada dua NIK berbeda',
-  nik_birth_date_mismatch: 'NIK tidak cocok dengan tanggal lahir',
-  nik_gender_mismatch: 'NIK tidak cocok dengan jenis kelamin',
-  nik_from_ocr: 'NIK dibaca dari hasil scan: cocokkan dengan dokumen',
-  nik_from_llm: 'NIK dibaca Claude dari potongan baris NIK, karena pembacaan di laptop ini ragu',
-  nik_llm_differs: 'Claude membaca angka NIK lain dari potongan baris NIK',
-  signature_from_llm: 'Tanda tangan dipastikan Claude dari potongan area tanda tangan',
-  signature_llm_agrees: 'Pemeriksaan lokal kurang jelas; Claude melihat hal yang sama di potongan area tanda tangan',
-  signature_llm_differs: 'Pemeriksaan lokal tidak menemukan coretan, tetapi Claude melihat tanda tangan',
-  signature_llm_sees_none: 'Pemeriksaan lokal melihat coretan, tetapi Claude tidak melihat tanda tangan',
-  name_not_in_source: 'Nama tidak ditemukan di dokumen',
-  vendor_not_in_source: 'Nama folder vendor tidak ditemukan di dokumen',
-  vendor_mismatch: 'Nama folder vendor tidak tercetak, dan Claude membaca perusahaan pemberi kerja lain',
-  period_not_in_source: 'Periode tidak ditemukan di dokumen',
-  period_regex_disagrees: 'Pola teks membaca periode yang berbeda atau tidak membacanya',
-  position_not_in_source: 'Posisi dari Claude tidak ditemukan di dokumen',
-  filename_nonstandard: 'Nama file tidak sesuai format',
-  filename_unparsed: 'Nama file tidak bisa dibaca',
-  filename_mismatch: 'Nama file tidak cocok dengan isi',
-  format_nonstandard: 'Format halaman tidak standar',
-  input_rejected: 'File ditolak',
-  processing_error: 'Gagal diproses',
-  scan_with_word_text: 'Halaman scan berisi teks tersembunyi',
-  photo_in_document: 'Ada foto di halaman',
-  split_images: 'Halaman tersusun dari potongan gambar',
-  vector_text: 'Teks berupa gambar vektor',
-  image_without_text: 'Gambar tanpa teks',
-  not_a_regular_file: 'Bukan file biasa',
-  not_pdf_extension: 'Bukan file .pdf',
-  not_pdf_magic: 'Isi file bukan PDF',
-  size_out_of_range: 'Ukuran file di luar batas',
-  too_many_pages: 'Jumlah halaman terlalu banyak',
-};
-
-const ERRORS: Record<string, string> = {
-  timeout: 'Terlalu lama diproses',
-  worker_crashed: 'Pembaca OCR berhenti tiba-tiba',
-  bad_reply: 'Jawaban pembaca OCR tidak valid',
-  extractor_unavailable: 'Pembaca OCR tidak tersedia',
-  config_invalid: 'Pengaturan Claude di backend tidak valid',
-  ocr_unavailable: 'Tesseract tidak bisa dijalankan',
-  exited_before_ready: 'Pembaca OCR berhenti sebelum siap',
-  too_large: 'File terlalu besar',
-  not_pdf: 'Bukan file PDF',
-  bad_path: 'Lokasi folder tidak valid',
-  not_found: 'Folder atau file tidak ditemukan',
-  job_running: 'Proses ini masih berjalan atau menunggu giliran',
-  user_has_job: 'Proses OCR kamu masih berjalan atau menunggu giliran. Satu orang menjalankan satu proses sekaligus',
-  not_your_job: 'Hanya yang menjalankan proses ini yang bisa membatalkan atau mengulangnya',
-  no_pdfs: 'Folder ini tidak berisi PDF',
-  too_many_files: 'Terlalu banyak PDF untuk satu proses (maksimal 2.000). Pilih folder yang lebih sedikit',
-  job_not_found: 'Proses tidak ditemukan.',
-  file_not_found: 'File tidak ada di proses ini',
-  not_retryable: 'File ini tidak perlu dicoba lagi',
-  claude_unavailable: 'Claude belum siap, jadi pembacaan tanpa OCR tidak bisa dijalankan',
-  claude_failed: 'Claude gagal membaca halaman PDF ini',
-  job_not_finished: 'Tunggu proses selesai sebelum mengunduh Excel',
-  export_busy: 'Excel lain sedang dibuat. Coba lagi sebentar lagi',
-  export_failed: 'Excel gagal dibuat',
-  not_all_read: 'Sebagian PDF belum di-OCR',
-  nothing_to_read: 'Semua PDF yang dipilih sudah di-OCR',
-  bad_request: 'Permintaan tidak valid',
-  forbidden_host: 'Akses ditolak',
-  forbidden_origin: 'Akses ditolak',
-  internal_error: 'Terjadi kesalahan di server',
-  network: 'Backend tidak bisa dihubungi. Pastikan backend berjalan.',
-  unauthenticated: 'Sesi berakhir. Silakan masuk lagi.',
-  bad_email: 'Masukkan alamat email yang valid',
-  bad_name: 'Masukkan nama lengkap (minimal 2 huruf)',
-  account_inactive: 'Akun Anda belum aktif. Minta admin mengaktifkannya di halaman User',
-  admin_only: 'Hanya admin yang bisa membuka halaman User',
-  cannot_change_self: 'Anda tidak bisa mengubah peran atau status akun sendiri',
-  admin_from_config: 'Akun ini admin tetap dari pengaturan ADMIN_EMAILS di backend, jadi tidak bisa diubah di sini',
-  user_not_found: 'User tidak ditemukan',
-};
+function reason(code: string): string | undefined {
+  const reasons = t().labels.reasons;
+  return has(reasons, code) ? reasons[code] : undefined;
+}
 
 // `extractor_error:<kind>` carries the kind of failure (`timeout`, `api:RateLimitError`); the label is the same.
-export const reasonLabel = (code: string) => REASONS[code] ?? REASONS[code.split(':')[0] ?? ''] ?? code;
-export const errorLabel = (code: string) => ERRORS[code] ?? REASONS[code] ?? code;
+export const reasonLabel = (code: string) => reason(code) ?? reason(code.split(':')[0] ?? '') ?? code;
+
+export function errorLabel(code: string): string {
+  const errors = t().labels.errors;
+  return has(errors, code) ? errors[code] : (reason(code) ?? code);
+}

@@ -97,50 +97,6 @@ class ImageAnswer(BaseModel):
         return min(max(value, 0.0), 1.0) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
 
 
-class NikAnswer(_Answer):
-    nilai: str | None = None
-
-    @field_validator("nilai", mode="before")
-    @classmethod
-    def _digits(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            value = "".join(value.split())
-            return value if len(value) == 16 and value.isdigit() else None
-        return value
-
-
-class GenderAnswer(_Answer):
-    nilai: Literal["laki-laki", "perempuan"] | None = None
-
-
-class SignatureAnswer(BaseModel):
-    status: Literal["signed", "unsigned", "unclear"] | None = None
-    confidence: float = 0.0
-
-    @field_validator("confidence", mode="before")
-    @classmethod
-    def _clamp(cls, value: Any) -> Any:
-        return min(max(value, 0.0), 1.0) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
-
-
-class FullPageAnswer(BaseModel):
-    """What the extractor read from the first and last page sent whole (the no-OCR mode): every field of the row,
-    plus the printed birth date and gender, which check its NIK locally. Quotes are not asked for, since there is no
-    local text to find them in."""
-
-    nama_karyawan: TextAnswer = Field(default_factory=TextAnswer)
-    nik: NikAnswer = Field(default_factory=NikAnswer)
-    tanggal_lahir: DateAnswer = Field(default_factory=DateAnswer)
-    jenis_kelamin: GenderAnswer = Field(default_factory=GenderAnswer)
-    posisi: TextAnswer = Field(default_factory=TextAnswer)
-    tanggal_mulai: DateAnswer = Field(default_factory=DateAnswer)
-    tanggal_selesai: DateAnswer = Field(default_factory=DateAnswer)
-    durasi_bulan: MonthsAnswer = Field(default_factory=MonthsAnswer)
-    vendor: TextAnswer = Field(default_factory=TextAnswer)
-    tanda_tangan: SignatureAnswer = Field(default_factory=SignatureAnswer)
-    usage: TokenUsage | None = None  # set by the extractor from its provider's report
-
-
 class ExtractorError(Exception):
     """A failed extraction call. `kind` is safe to log; it never holds document text or API messages. `usage` is what
     the call still used when the provider answered, e.g. with a truncated or invalid reply."""
@@ -165,7 +121,7 @@ class Extractor(Protocol):
         """Receives one small crop: the NIK line, or the signature area. Never a whole page."""
         ...
 
-    def read_pages(self, first: bytes, last: bytes | None) -> FullPageAnswer:
-        """The no-OCR mode only: the first page (identity) and the last page (signature) as JPEG images, whole and
-        unmasked; `last` is None for a one-page contract. Never called in the OCR mode."""
+    def read_page(self, jpegs: list[bytes]) -> ExtractionResult:
+        """The 'claude_page' mode only: the identity page(s) as JPEG images with the NIK blacked out, for the fields
+        the text call reads (no quotes). Never called in the OCR mode."""
         ...

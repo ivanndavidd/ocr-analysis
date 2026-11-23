@@ -83,6 +83,7 @@ const JOB_STATUS: Record<JobError['code'], number> = {
   job_not_finished: 409,
   nothing_to_read: 409,
   claude_unavailable: 503,
+  mode_retired: 409,
 };
 
 function fail(status: number, body: ApiError): Response {
@@ -298,7 +299,7 @@ export function createApp({
           q: t.Optional(t.String({ maxLength: 100 })),
           status: t.Optional(t.Union([t.Literal('active'), t.Literal('done'), t.Literal('cancelled'), t.Literal('interrupted')])),
           outcome: t.Optional(t.Union([t.Literal('check'), t.Literal('failed')])),
-          mode: t.Optional(t.Union([t.Literal('ocr'), t.Literal('full_page')])),
+          mode: t.Optional(t.Union([t.Literal('ocr'), t.Literal('claude_page'), t.Literal('full_page')])),
           mine: t.Optional(t.BooleanString()),
           from: t.Optional(INSTANT),
           to: t.Optional(INSTANT),
@@ -322,7 +323,7 @@ export function createApp({
         body: t.Object({
           folders: t.Optional(t.Array(PATH, { maxItems: MAX_SELECTED_FOLDERS })),
           files: t.Optional(t.Array(PATH, { maxItems: MAX_SELECTED_FILES })),
-          mode: t.Optional(t.Union([t.Literal('ocr'), t.Literal('full_page')])),
+          mode: t.Optional(t.Union([t.Literal('ocr'), t.Literal('claude_page')])), // the old 'full_page' trial cannot start
           unreadOnly: t.Optional(t.Boolean()),
         }),
       },

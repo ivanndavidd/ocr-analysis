@@ -13,21 +13,20 @@ from contract_extractor.extractor_method.llm.base import (
     ExtractionResult,
     ExtractorError,
     ExtractorUnavailable,
-    FullPageAnswer,
     ImageAnswer,
     ImageTask,
 )
 from contract_extractor.extractor_method.llm.prompt import (
-    FULL_PAGE_PROMPT,
-    FULL_PAGE_SCHEMA,
     IMAGE_PROMPTS,
     IMAGE_REQUEST,
     IMAGE_SCHEMAS,
     OUTPUT_SCHEMA,
+    PAGE_PROMPT,
+    PAGE_SCHEMA,
     SYSTEM_PROMPT,
     page_content,
-    parse_full_page_output,
     parse_image_output,
+    parse_page_output,
     parse_output,
     user_message,
 )
@@ -105,16 +104,16 @@ class ClaudeExtractor:
             request.update(betas=[REFUSAL_FALLBACK_BETA], fallbacks="default")
         return request
 
-    def pages_request(self, first: bytes, last: bytes | None) -> dict[str, Any]:
-        """The no-OCR mode: both pages whole, at the text call's effort, since every field comes from this one call."""
-        content = page_content(jpeg_block(first), jpeg_block(last) if last else None)
+    def page_request(self, jpegs: list[bytes]) -> dict[str, Any]:
+        """The 'claude_page' mode: the identity page(s) with the NIK blacked out, at the text call's effort, since it
+        reads the same fields."""
         request: dict[str, Any] = {
             "model": self.model,
             "max_tokens": MAX_TOKENS,
-            "system": [{"type": "text", "text": FULL_PAGE_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            "messages": [{"role": "user", "content": content}],
+            "system": [{"type": "text", "text": PAGE_PROMPT, "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": page_content([jpeg_block(jpeg) for jpeg in jpegs])}],
             "thinking": {"type": "adaptive"},
-            "output_config": {"effort": self.effort, "format": {"type": "json_schema", "schema": FULL_PAGE_SCHEMA}},
+            "output_config": {"effort": self.effort, "format": {"type": "json_schema", "schema": PAGE_SCHEMA}},
         }
         if self.refusal_fallback and has_refusal_fallback(self.model):
             request.update(betas=[REFUSAL_FALLBACK_BETA], fallbacks="default")
@@ -161,10 +160,10 @@ class ClaudeExtractor:
         answer.usage = usage
         return answer
 
-    def read_pages(self, first: bytes, last: bytes | None) -> FullPageAnswer:
-        text, usage = self._send(self.pages_request(first, last), "halaman")
+    def read_page(self, jpegs: list[bytes]) -> ExtractionResult:
+        text, usage = self._send(self.page_request(jpegs), "halaman_identitas")
         try:
-            answer = parse_full_page_output(text)
+            answer = parse_page_output(text)
         except ExtractorError as exc:
             raise ExtractorError(exc.kind, usage) from None
         answer.usage = usage

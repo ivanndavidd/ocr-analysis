@@ -18,6 +18,7 @@ import { type SQL, and, asc, count, desc, eq, exists, gte, ilike, inArray, isNul
 import type { Database } from '../database/database.ts';
 import { type OcrDetailRow, ocrContractDetails, ocrHeaders, users } from '../database/schema.ts';
 import { vendorOf } from './export.ts';
+import { type RowFacts, type SavedFields, keyedFields, legacyNote } from './fields.ts';
 
 /** Reads saved runs back: the shared history list, and one run as the results page shows it. */
 
@@ -30,7 +31,8 @@ export interface StoredRun {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const STATUSES = new Set<JobStatus>(['queued', 'running', 'done', 'cancelled', 'interrupted']);
 
-const readMode = (mode: string): ReadMode => (mode === 'full_page' ? 'full_page' : 'ocr');
+// 'full_page' is the old no-OCR trial: its saved runs still load, though none can start any more
+const readMode = (mode: string): ReadMode => (mode === 'claude_page' || mode === 'full_page' ? mode : 'ocr');
 const runStatus = (status: string): JobStatus => (STATUSES.has(status as JobStatus) ? (status as JobStatus) : 'interrupted');
 const iso = (date: Date | null) => (date ? date.toISOString() : null);
 const runUser = (user: { id: number; name: string; email: string }): RunUser => ({ id: user.id, name: user.name, email: user.email });
@@ -290,10 +292,10 @@ function savedFile(detail: OcrDetailRow, readIn: RunRef | undefined): JobFile {
 /** The reading a row keeps; rows saved before the whole reading was kept (2026-11-05) are rebuilt from their
  *  columns, so their values and yellow notes still show, without the details of how they were read. */
 function savedRow(detail: OcrDetailRow): ContractRow {
-  const kept = parsed<ContractRow | null>(detail.result, null);
-  if (kept) return kept;
+  const kept = parsed<(RowFacts & { fields: SavedFields }) | null>(detail.result, null);
+  if (kept) return { ...kept, fields: keyedFields(kept) };
   const checks = parsed<Partial<Record<FieldKey, string>>>(detail.checks, {});
-  const field = (key: FieldKey, value: string | number | null): FieldValue => ({ value, check: checks[key] ?? null, basis: null });
+  const field = (key: FieldKey, value: string | number | null): FieldValue => ({ value, check: legacyNote(checks[key]), basis: null });
   const masked = detail.nik ? `${'*'.repeat(12)}${detail.nik.slice(-4)}` : null;
   const { startDate: start, endDate: end } = detail;
   const period = start && end ? { start, end } : null;
